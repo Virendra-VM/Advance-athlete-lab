@@ -1,0 +1,16 @@
+fastapi
+uvicorn[standard]
+sqlalchemy
+psycopg2-binary
+pydantic-settings
+python-dotenv
+httpx
+fit2gpx
+lxml
+pandas>=1.5.3,<2.0
+numpy>=1.24,<2
+pyarrow
+python-multipart
+bcrypt>=4.0,<6
+python-jose[cryptography]
+email-validator

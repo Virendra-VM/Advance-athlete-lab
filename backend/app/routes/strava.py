@@ -1,0 +1,128 @@
+from urllib.parse import urlencode
+
+import httpx
+from fastapi import APIRouter, Depends, HTTPException, Query, status
+from sqlalchemy.orm import Session
+
+from app.config import (
+    STRAVA_AUTHORIZE_URL,
+    STRAVA_CLIENT_ID,
+    STRAVA_CLIENT_SECRET,
+    STRAVA_REDIRECT_URI,
+    STRAVA_SCOPES,
+    STRAVA_TOKEN_URL,
+)
+from app.database import get_db
+from app.models import StravaConnection
+from app.schemas import (
+    StravaAuthUrlResponse,
+    StravaCallbackRequest,
+    StravaConnectionRead,
+    StravaConnectionStatus,
+)
+
+router = APIRouter(prefix="/strava", tags=["strava"])
+
+
+def _require_strava_config() -> None:
+    if not STRAVA_CLIENT_ID or not STRAVA_CLIENT_SECRET:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Strava OAuth is not configured. Set STRAVA_CLIENT_ID and STRAVA_CLIENT_SECRET.",
+        )
+
+
+@router.get("/auth", response_model=StravaAuthUrlResponse)
+def strava_auth(
+    athlete_profile_id: int | None = Query(default=None),
+):
+    _require_strava_config()
+
+    params = {
+        "client_id": STRAVA_CLIENT_ID,
+        "response_type": "code",
+        "redirect_uri": STRAVA_REDIRECT_URI,
+        "approval_prompt": "force",
+        "scope": STRAVA_SCOPES,
+    }
+    if athlete_profile_id is not None:
+        params["state"] = str(athlete_profile_id)
+
+    authorization_url = f"{STRAVA_AUTHORIZE_URL}?{urlencode(params)}"
+    return StravaAuthUrlResponse(authorization_url=authorization_url)
+
+
+@router.post("/callback", response_model=StravaConnectionRead)
+def strava_callback(
+    payload: StravaCallbackRequest,
+    db: Session = Depends(get_db),
+):
+    _require_strava_config()
+
+    try:
+        response = httpx.post(
+            STRAVA_TOKEN_URL,
+            data={
+                "client_id": STRAVA_CLIENT_ID,
+                "client_secret": STRAVA_CLIENT_SECRET,
+                "code": payload.code,
+                "grant_type": "authorization_code",
+            },
+            timeout=10.0,
+        )
+        response.raise_for_status()
+        token_data = response.json()
+    except httpx.HTTPError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail=f"Failed to exchange Strava authorization code: {exc}",
+        ) from exc
+
+    strava_athlete_id = token_data.get("athlete", {}).get("id")
+    if strava_athlete_id is None:
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail="Strava token response did not include athlete id.",
+        )
+
+    connection = (
+        db.query(StravaConnection)
+        .filter(StravaConnection.strava_athlete_id == strava_athlete_id)
+        .first()
+    )
+
+    if connection is None:
+        connection = StravaConnection(strava_athlete_id=strava_athlete_id)
+        db.add(connection)
+
+    connection.access_token = token_data["access_token"]
+    connection.refresh_token = token_data["refresh_token"]
+    connection.expires_at = token_data["expires_at"]
+
+    if payload.state:
+        try:
+            connection.athlete_profile_id = int(payload.state)
+        except ValueError:
+            pass
+
+    db.commit()
+    db.refresh(connection)
+    return connection
+
+
+@router.get("/status", response_model=StravaConnectionStatus)
+def strava_status(
+    athlete_profile_id: int | None = Query(default=None),
+    db: Session = Depends(get_db),
+):
+    query = db.query(StravaConnection)
+    if athlete_profile_id is not None:
+        query = query.filter(StravaConnection.athlete_profile_id == athlete_profile_id)
+    connection = query.order_by(StravaConnection.id.desc()).first()
+    if connection is None:
+        return StravaConnectionStatus(connected=False)
+
+    return StravaConnectionStatus(
+        connected=True,
+        strava_athlete_id=connection.strava_athlete_id,
+    )
