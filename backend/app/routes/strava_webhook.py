@@ -1,8 +1,9 @@
 import json
 
-from fastapi import APIRouter, HTTPException, Query, Request, status
+from fastapi import APIRouter, BackgroundTasks, HTTPException, Query, Request, status
 
 from app.config import STRAVA_WEBHOOK_VERIFY_TOKEN
+from app.services.strava_sync import sync_single_activity_in_background
 
 router = APIRouter(prefix="/strava", tags=["strava-webhook"])
 
@@ -41,7 +42,24 @@ async def strava_webhook_validation(
 
 
 @router.post("/webhook")
-async def strava_webhook_event(request: Request):
+async def strava_webhook_event(
+    request: Request,
+    background_tasks: BackgroundTasks,
+):
     payload = await request.json()
     print("[Strava Webhook]", json.dumps(payload, indent=2))
+
+    if payload.get("object_type") == "activity" and payload.get("aspect_type") in {
+        "create",
+        "update",
+    }:
+        owner_id = payload.get("owner_id")
+        object_id = payload.get("object_id")
+        if owner_id is not None and object_id is not None:
+            background_tasks.add_task(
+                sync_single_activity_in_background,
+                int(owner_id),
+                int(object_id),
+            )
+
     return {"status": "ok"}

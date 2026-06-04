@@ -1,7 +1,7 @@
 from urllib.parse import urlencode
 
 import httpx
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query, status
 from sqlalchemy.orm import Session
 
 from app.config import (
@@ -15,10 +15,16 @@ from app.config import (
 from app.database import get_db
 from app.models import StravaConnection
 from app.schemas import (
+    ImportStartResponse,
+    ImportStatusResponse,
     StravaAuthUrlResponse,
     StravaCallbackRequest,
     StravaConnectionRead,
     StravaConnectionStatus,
+)
+from app.services.strava_sync import (
+    get_sync_status,
+    sync_activities_in_background,
 )
 
 router = APIRouter(prefix="/strava", tags=["strava"])
@@ -55,6 +61,7 @@ def strava_auth(
 @router.post("/callback", response_model=StravaConnectionRead)
 def strava_callback(
     payload: StravaCallbackRequest,
+    background_tasks: BackgroundTasks,
     db: Session = Depends(get_db),
 ):
     _require_strava_config()
@@ -107,7 +114,50 @@ def strava_callback(
 
     db.commit()
     db.refresh(connection)
+
+    if connection.athlete_profile_id is not None:
+        status_data = get_sync_status()
+        if not status_data["running"]:
+            background_tasks.add_task(
+                sync_activities_in_background,
+                connection.athlete_profile_id,
+            )
+
     return connection
+
+
+@router.post("/sync", response_model=ImportStartResponse)
+def start_strava_sync(
+    background_tasks: BackgroundTasks,
+    athlete_profile_id: int = Query(...),
+    db: Session = Depends(get_db),
+):
+    from app.services.strava_sync import get_connection_for_athlete
+
+    connection = get_connection_for_athlete(db, athlete_profile_id)
+    if connection is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="No Strava connection found for this athlete profile.",
+        )
+
+    status_data = get_sync_status()
+    if status_data["running"]:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="A Strava activity sync is already running.",
+        )
+
+    background_tasks.add_task(sync_activities_in_background, athlete_profile_id)
+    return ImportStartResponse(
+        status="started",
+        message="Strava activity sync started in the background.",
+    )
+
+
+@router.get("/sync/status", response_model=ImportStatusResponse)
+def strava_sync_status():
+    return ImportStatusResponse(**get_sync_status())
 
 
 @router.get("/status", response_model=StravaConnectionStatus)

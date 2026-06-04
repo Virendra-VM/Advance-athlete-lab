@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { ChevronLeft, ChevronRight } from 'lucide-react'
 import { listActivities } from '../api/activities'
+import { getStravaConnectionStatus, getStravaSyncStatus, startStravaSync } from '../api/strava'
 import { cardShellClass } from '../utils/statusColors'
 import {
   formatDate,
@@ -16,7 +17,7 @@ import SportBadge from './SportBadge'
 
 const PAGE_SIZE = 50
 
-export default function ActivityHistory({ athleteProfileId }) {
+export default function ActivityHistory({ athleteProfileId, refreshKey = 0 }) {
   const navigate = useNavigate()
   const [activities, setActivities] = useState([])
   const [loading, setLoading] = useState(true)
@@ -48,7 +49,7 @@ export default function ActivityHistory({ athleteProfileId }) {
 
   useEffect(() => {
     loadActivities()
-  }, [loadActivities])
+  }, [loadActivities, refreshKey])
 
   const sportOptions = useMemo(() => collectSportOptions(activities), [activities])
 
@@ -85,6 +86,35 @@ export default function ActivityHistory({ athleteProfileId }) {
     setMinDistanceKm('')
     setHasHr('all')
     setSort('date_desc')
+  }
+
+  async function handleRefresh() {
+    setLoading(true)
+    setError('')
+    try {
+      const status = await getStravaConnectionStatus(athleteProfileId)
+      if (status.connected) {
+        const syncStatus = await getStravaSyncStatus()
+        if (!syncStatus.running) {
+          try {
+            await startStravaSync(athleteProfileId)
+          } catch (err) {
+            if (!String(err.message || '').includes('409')) throw err
+          }
+        }
+        let attempts = 0
+        while (attempts < 30) {
+          const current = await getStravaSyncStatus()
+          if (!current.running) break
+          await new Promise((resolve) => setTimeout(resolve, 2000))
+          attempts += 1
+        }
+      }
+      await loadActivities()
+    } catch (err) {
+      setError(err.message || 'Failed to refresh activities.')
+      setLoading(false)
+    }
   }
 
   if (loading) {
@@ -129,7 +159,7 @@ export default function ActivityHistory({ athleteProfileId }) {
         </div>
         <button
           type="button"
-          onClick={loadActivities}
+          onClick={handleRefresh}
           className="self-start rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm text-slate-600 dark:border-white/10 dark:bg-gray-800 dark:text-slate-300"
         >
           Refresh

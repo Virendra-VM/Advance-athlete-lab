@@ -29,3 +29,16 @@ export async function getStravaConnectionStatus(athleteProfileId) {
   const response = await fetch(`${API_BASE_URL}/api/strava/status${params}`)
   return handleResponse(response)
 }
+
+export async function startStravaSync(athleteProfileId) {
+  const response = await fetch(
+    `${API_BASE_URL}/api/strava/sync?athlete_profile_id=${athleteProfileId}`,
+    { method: 'POST' },
+  )
+  return handleResponse(response)
+}
+
+export async function getStravaSyncStatus() {
+  const response = await fetch(`${API_BASE_URL}/api/strava/sync/status`)
+  return handleResponse(response)
+}

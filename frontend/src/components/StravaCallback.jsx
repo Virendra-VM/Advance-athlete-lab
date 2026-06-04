@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { completeStravaOAuth } from '../api/strava'
+import { completeStravaOAuth, startStravaSync } from '../api/strava'
 import { useAuth } from '../context/AuthContext'
 import { pageShellClass } from '../utils/statusColors'
 import Navigation from './Navigation'
@@ -34,14 +34,21 @@ export default function StravaCallback() {
 
     async function exchangeCode() {
       try {
-        await completeStravaOAuth(code, state)
+        const connection = await completeStravaOAuth(code, state)
         if (cancelled) return
         if (isAuthenticated) {
           await refreshUser()
           await markStravaOnboardingDone()
         }
+        if (connection?.athlete_profile_id) {
+          try {
+            await startStravaSync(connection.athlete_profile_id)
+          } catch {
+            // Sync may already be running from the callback; dashboard will retry.
+          }
+        }
         setStatus('success')
-        setMessage('Strava connected! Redirecting to dashboard...')
+        setMessage('Strava connected! Syncing your activities...')
         setTimeout(() => navigate(isAuthenticated ? '/dashboard' : '/signin'), 2000)
       } catch (err) {
         if (cancelled) return
