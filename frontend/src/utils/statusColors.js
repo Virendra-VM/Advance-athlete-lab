@@ -1,10 +1,10 @@
 export const cardShellClass =
-  'rounded-2xl border border-slate-100 bg-white shadow-sm dark:border-white/10 dark:bg-gray-800'
+  'rounded-2xl border border-[var(--aal-line)] bg-[var(--aal-card)] shadow-sm'
 
 export const pageShellClass =
-  'min-h-screen w-full bg-[#f8f7f4] text-slate-900 dark:bg-gray-900 dark:text-slate-100'
+  'min-h-screen w-full bg-[var(--aal-bg)] text-[var(--aal-ink)]'
 
-export const pagePaddingClass = 'w-full px-4 sm:px-6 lg:px-10 xl:px-12 py-8'
+export const pagePaddingClass = 'w-full px-4 py-6 sm:px-6 lg:px-8'
 
 export const staggerContainer = {
   hidden: { opacity: 0 },
@@ -23,8 +23,8 @@ export function getAcwrZone(acwr) {
   if (acwr == null) {
     return {
       label: 'Insufficient Data',
-      textClass: 'text-slate-500 dark:text-slate-400',
-      badgeClass: 'bg-slate-100 text-slate-500 dark:bg-gray-700 dark:text-slate-300',
+      textClass: 'text-[var(--aal-muted)]',
+      badgeClass: 'bg-slate-100 text-slate-500 dark:bg-white/10 dark:text-slate-300',
       gaugeColor: '#94a3b8',
     }
   }

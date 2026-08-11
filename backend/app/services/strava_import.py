@@ -348,8 +348,9 @@ def write_points_parquet(
     athlete_profile_id: int,
     strava_activity_id: int,
     points_root: Path,
+    provider: str = "strava",
 ) -> str:
-    athlete_dir = points_root / str(athlete_profile_id)
+    athlete_dir = points_root / str(athlete_profile_id) / provider
     athlete_dir.mkdir(parents=True, exist_ok=True)
     parquet_path = athlete_dir / f"{strava_activity_id}.parquet"
     points_df.to_parquet(parquet_path, index=False)
@@ -422,7 +423,13 @@ def backfill_activity_metadata(
 
     updated = 0
     for activity in activities:
-        metadata = csv_index.get(activity.strava_activity_id)
+        lookup_id = activity.strava_activity_id
+        if lookup_id is None and activity.external_activity_id:
+            try:
+                lookup_id = int(activity.external_activity_id)
+            except ValueError:
+                lookup_id = None
+        metadata = csv_index.get(lookup_id) if lookup_id is not None else None
         if metadata is None:
             continue
 
@@ -524,7 +531,8 @@ def import_single_fit_file(
         db.query(Activity)
         .filter(
             Activity.athlete_profile_id == athlete_profile_id,
-            Activity.strava_activity_id == strava_activity_id,
+            Activity.provider == "strava",
+            Activity.external_activity_id == str(strava_activity_id),
         )
         .first()
     )
@@ -545,10 +553,13 @@ def import_single_fit_file(
             athlete_profile_id,
             strava_activity_id,
             points_root,
+            provider="strava",
         )
 
     activity = Activity(
         athlete_profile_id=athlete_profile_id,
+        provider="strava",
+        external_activity_id=str(strava_activity_id),
         strava_activity_id=strava_activity_id,
         name=summary["name"],
         activity_date=summary["activity_date"],
@@ -562,6 +573,10 @@ def import_single_fit_file(
     )
     db.add(activity)
     db.commit()
+    db.refresh(activity)
+    from app.services.activity_dedupe import link_new_activity_to_peer
+
+    link_new_activity_to_peer(db, activity)
     db.refresh(activity)
     return activity
 
@@ -609,10 +624,14 @@ def run_import(
         import_status["total"] = len(fit_files)
 
         existing_ids = {
-            row.strava_activity_id
-            for row in db.query(Activity.strava_activity_id)
-            .filter(Activity.athlete_profile_id == athlete_profile_id)
+            int(row.external_activity_id)
+            for row in db.query(Activity.external_activity_id)
+            .filter(
+                Activity.athlete_profile_id == athlete_profile_id,
+                Activity.provider == "strava",
+            )
             .all()
+            if row.external_activity_id and str(row.external_activity_id).isdigit()
         }
 
         for fit_path in fit_files:

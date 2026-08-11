@@ -38,8 +38,11 @@ export default function ActivityHistory({ athleteProfileId, refreshKey = 0 }) {
     setError('')
 
     try {
-      const activityRows = await listActivities(athleteProfileId)
-      setActivities(activityRows)
+      const activityPage = await listActivities(athleteProfileId, {
+        page: 1,
+        page_size: 500,
+      })
+      setActivities(activityPage.items || [])
     } catch (err) {
       setError(err.message || 'Failed to load activity history.')
     } finally {
@@ -103,11 +106,14 @@ export default function ActivityHistory({ athleteProfileId, refreshKey = 0 }) {
           }
         }
         let attempts = 0
-        while (attempts < 30) {
-          const current = await getStravaSyncStatus()
-          if (!current.running) break
+        let current = await getStravaSyncStatus()
+        while (current.running && attempts < 90) {
           await new Promise((resolve) => setTimeout(resolve, 2000))
+          current = await getStravaSyncStatus()
           attempts += 1
+        }
+        if (current.errors?.length) {
+          setError(current.errors[0])
         }
       }
       await loadActivities()

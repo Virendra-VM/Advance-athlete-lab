@@ -5,7 +5,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from app.database import Base, engine
 from app.migrate import run_migrations
-from app.routes import activities, athlete, athletes, auth, import_history, strava, strava_webhook
+from app.routes import activities, athlete, athletes, auth, coach, coros, import_history, strava, strava_webhook
 
 
 @asynccontextmanager
@@ -35,6 +35,8 @@ app.include_router(auth.profile_router, prefix="/api")
 app.include_router(athletes.router, prefix="/api")
 app.include_router(athlete.router, prefix="/api")
 app.include_router(strava.router, prefix="/api")
+app.include_router(coros.router, prefix="/api")
+app.include_router(coach.router, prefix="/api")
 app.include_router(import_history.router, prefix="/api")
 app.include_router(activities.router, prefix="/api")
 app.include_router(strava_webhook.router)

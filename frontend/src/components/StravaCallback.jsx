@@ -6,6 +6,32 @@ import { pageShellClass } from '../utils/statusColors'
 import Navigation from './Navigation'
 import Card from './ui/Card'
 
+// Shared across Strict Mode remounts so exchange + follow-up run once per code.
+const stravaFlowPromises = new Map()
+
+function readStravaCallbackParams() {
+  const params = new URLSearchParams(window.location.search)
+  const error = params.get('error')
+  const code = params.get('code')
+  const state = params.get('state')
+
+  if (code || error) {
+    sessionStorage.setItem(
+      'strava_oauth_callback',
+      JSON.stringify({ error, code, state }),
+    )
+    window.history.replaceState({}, '', window.location.pathname)
+  }
+
+  const cached = sessionStorage.getItem('strava_oauth_callback')
+  if (!cached) return { error: null, code: null, state: null }
+  try {
+    return JSON.parse(cached)
+  } catch {
+    return { error: null, code: null, state: null }
+  }
+}
+
 export default function StravaCallback() {
   const navigate = useNavigate()
   const { isAuthenticated, refreshUser, markStravaOnboardingDone } = useAuth()
@@ -13,10 +39,7 @@ export default function StravaCallback() {
   const [message, setMessage] = useState('Connecting your Strava account...')
 
   useEffect(() => {
-    const params = new URLSearchParams(window.location.search)
-    const error = params.get('error')
-    const code = params.get('code')
-    const state = params.get('state')
+    const { error, code, state } = readStravaCallbackParams()
 
     if (error) {
       setStatus('error')
@@ -30,38 +53,60 @@ export default function StravaCallback() {
       return
     }
 
-    let cancelled = false
+    if (!stravaFlowPromises.has(code)) {
+      stravaFlowPromises.set(
+        code,
+        (async () => {
+          const connection = await completeStravaOAuth(code, state)
 
-    async function exchangeCode() {
-      try {
-        const connection = await completeStravaOAuth(code, state)
-        if (cancelled) return
-        if (isAuthenticated) {
-          await refreshUser()
-          await markStravaOnboardingDone()
-        }
-        if (connection?.athlete_profile_id) {
-          try {
-            await startStravaSync(connection.athlete_profile_id)
-          } catch {
-            // Sync may already be running from the callback; dashboard will retry.
+          // Capture auth helpers at start of the single flow; do not re-run from effect deps.
+          if (isAuthenticated) {
+            await refreshUser()
+            await markStravaOnboardingDone()
           }
-        }
+
+          // Backend callback often already started sync; 409 means it's running.
+          if (connection?.athlete_profile_id) {
+            try {
+              await startStravaSync(connection.athlete_profile_id)
+            } catch {
+              // ignore — sync already running or will be retried from dashboard
+            }
+          }
+
+          sessionStorage.removeItem('strava_oauth_callback')
+          return { connected: true, isAuthenticated }
+        })().catch((err) => {
+          stravaFlowPromises.delete(code)
+          throw err
+        }),
+      )
+    }
+
+    let cancelled = false
+    stravaFlowPromises
+      .get(code)
+      .then((result) => {
+        if (cancelled) return
         setStatus('success')
         setMessage('Strava connected! Syncing your activities...')
-        setTimeout(() => navigate(isAuthenticated ? '/dashboard' : '/signin'), 2000)
-      } catch (err) {
+        setTimeout(
+          () => navigate(result?.isAuthenticated ? '/connect-coros' : '/signin'),
+          2000,
+        )
+      })
+      .catch((err) => {
         if (cancelled) return
         setStatus('error')
         setMessage(err.message || 'Failed to connect Strava account.')
-      }
-    }
+      })
 
-    exchangeCode()
     return () => {
       cancelled = true
     }
-  }, [navigate, isAuthenticated, refreshUser, markStravaOnboardingDone])
+    // Run once on mount. Auth helpers are captured inside the single shared flow promise.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [navigate])
 
   return (
     <div className={pageShellClass}>
@@ -80,4 +125,3 @@ export default function StravaCallback() {
     </div>
   )
 }
-

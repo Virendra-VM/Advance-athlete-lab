@@ -8,7 +8,7 @@ load_dotenv()
 
 DATABASE_URL = os.getenv(
     "DATABASE_URL",
-    "postgresql+psycopg2://athlete:athlete@localhost:5432/athlete_lab",
+    "postgresql+psycopg2://athlete:athlete@localhost:5433/athlete_lab",
 )
 
 engine = create_engine(DATABASE_URL)

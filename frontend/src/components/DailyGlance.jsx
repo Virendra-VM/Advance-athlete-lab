@@ -21,12 +21,12 @@ export default function DailyGlance({ athleteProfileId, refreshKey = 0 }) {
     setError('')
 
     try {
-      const [statsData, activityRows] = await Promise.all([
+      const [statsData, activityPage] = await Promise.all([
         getAthleteStats(athleteProfileId),
-        listActivities(athleteProfileId),
+        listActivities(athleteProfileId, { page: 1, page_size: 100 }),
       ])
       setStats(statsData)
-      setActivities(activityRows)
+      setActivities(activityPage.items || [])
     } catch (err) {
       setError(err.message || 'Failed to load training load data.')
     } finally {

@@ -23,6 +23,7 @@ from app.schemas import (
     StravaConnectionStatus,
 )
 from app.services.strava_sync import (
+    backfill_streams_for_athlete,
     get_sync_status,
     sync_activities_in_background,
 )
@@ -74,11 +75,31 @@ def strava_callback(
                 "client_secret": STRAVA_CLIENT_SECRET,
                 "code": payload.code,
                 "grant_type": "authorization_code",
+                "redirect_uri": STRAVA_REDIRECT_URI,
             },
             timeout=10.0,
         )
-        response.raise_for_status()
+        if not response.is_success:
+            detail = response.text[:500]
+            try:
+                body = response.json()
+                message = body.get("message") or "Bad Request"
+                errors = body.get("errors") or []
+                detail = f"{message}"
+                if errors:
+                    detail = f"{detail}: {errors}"
+            except Exception:
+                pass
+            raise HTTPException(
+                status_code=status.HTTP_502_BAD_GATEWAY,
+                detail=(
+                    f"Failed to exchange Strava authorization code "
+                    f"(HTTP {response.status_code}): {detail}"
+                ),
+            )
         token_data = response.json()
+    except HTTPException:
+        raise
     except httpx.HTTPError as exc:
         raise HTTPException(
             status_code=status.HTTP_502_BAD_GATEWAY,
@@ -158,6 +179,21 @@ def start_strava_sync(
 @router.get("/sync/status", response_model=ImportStatusResponse)
 def strava_sync_status():
     return ImportStatusResponse(**get_sync_status())
+
+
+@router.post("/backfill-streams")
+def backfill_streams(
+    athlete_profile_id: int = Query(...),
+    db: Session = Depends(get_db),
+):
+    """Retroactively fetch Strava streams for API-imported activities that have no point data."""
+    from app.services.strava_api import StravaApiError as _StravaApiError
+
+    try:
+        result = backfill_streams_for_athlete(db, athlete_profile_id)
+    except _StravaApiError as exc:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
+    return result
 
 
 @router.get("/status", response_model=StravaConnectionStatus)

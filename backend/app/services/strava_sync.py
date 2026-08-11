@@ -4,12 +4,15 @@ import tempfile
 from datetime import datetime
 from pathlib import Path
 
+import pandas as pd
+
 from sqlalchemy.orm import Session
 
 from app.models import Activity, StravaConnection
 from app.services.strava_api import (
     StravaApiError,
     download_activity_fit,
+    fetch_activity_streams,
     get_activity,
     get_valid_access_token,
     list_athlete_activities,
@@ -80,11 +83,13 @@ def api_activity_to_metadata(activity: dict) -> dict:
 def _activity_exists(
     db: Session, athlete_profile_id: int, strava_activity_id: int
 ) -> bool:
+    external_id = str(strava_activity_id)
     return (
         db.query(Activity.id)
         .filter(
             Activity.athlete_profile_id == athlete_profile_id,
-            Activity.strava_activity_id == strava_activity_id,
+            Activity.provider == "strava",
+            Activity.external_activity_id == external_id,
         )
         .first()
         is not None
@@ -106,6 +111,8 @@ def import_activity_summary(
 
     record = Activity(
         athlete_profile_id=athlete_profile_id,
+        provider="strava",
+        external_activity_id=str(strava_activity_id),
         strava_activity_id=strava_activity_id,
         name=metadata["name"] or f"Activity {strava_activity_id}",
         activity_date=metadata["activity_date"],
@@ -119,6 +126,10 @@ def import_activity_summary(
     )
     db.add(record)
     db.commit()
+    db.refresh(record)
+    from app.services.activity_dedupe import link_new_activity_to_peer
+
+    link_new_activity_to_peer(db, record)
     db.refresh(record)
     return record
 
@@ -148,6 +159,107 @@ def import_activity_with_fit(
         )
     finally:
         fit_path.unlink(missing_ok=True)
+
+
+def build_points_from_streams(
+    streams: dict,
+    athlete_profile_id: int,
+    strava_activity_id: int,
+    activity_date: datetime | None = None,
+) -> str | None:
+    """Convert Strava streams dict to a parquet file and return its relative path."""
+    from app.config import ACTIVITY_POINTS_DIR
+    from app.services.strava_import import write_points_parquet
+
+    time_data = streams.get("time", [])
+    if not time_data:
+        return None
+
+    n = len(time_data)
+    base_ts = pd.Timestamp(activity_date) if activity_date else pd.Timestamp.utcnow()
+    timestamps = [base_ts + pd.Timedelta(seconds=int(t)) for t in time_data]
+
+    df = pd.DataFrame({"timestamp": timestamps})
+
+    distance_data = streams.get("distance", [])
+    if len(distance_data) == n:
+        df["distance_m"] = [float(d) for d in distance_data]
+
+    speed_data = streams.get("velocity_smooth", [])
+    if len(speed_data) == n:
+        df["speed"] = [float(s) for s in speed_data]
+
+    hr_data = streams.get("heartrate", [])
+    if len(hr_data) == n:
+        df["heart_rate"] = [float(h) if h is not None else None for h in hr_data]
+
+    altitude_data = streams.get("altitude", [])
+    if len(altitude_data) == n:
+        df["altitude"] = [float(a) for a in altitude_data]
+
+    cadence_data = streams.get("cadence", [])
+    if len(cadence_data) == n:
+        df["cadence"] = [float(c) for c in cadence_data]
+
+    watts_data = streams.get("watts", [])
+    if len(watts_data) == n:
+        df["power"] = [float(w) for w in watts_data]
+
+    points_root = Path(ACTIVITY_POINTS_DIR).expanduser().resolve()
+    points_root.mkdir(parents=True, exist_ok=True)
+    return write_points_parquet(df, athlete_profile_id, strava_activity_id, points_root)
+
+
+def backfill_streams_for_athlete(
+    db: Session,
+    athlete_profile_id: int,
+) -> dict:
+    """Fetch Strava streams for API-imported activities that have no point data and save parquet files."""
+    connection = get_connection_for_athlete(db, athlete_profile_id)
+    if connection is None:
+        raise StravaApiError("No Strava connection found for this athlete profile.")
+
+    access_token = get_valid_access_token(connection, db)
+
+    api_activities = (
+        db.query(Activity)
+        .filter(
+            Activity.athlete_profile_id == athlete_profile_id,
+            Activity.points_file_path.is_(None),
+            Activity.source_fit_file.like("strava_api:%"),
+        )
+        .order_by(Activity.activity_date.desc())
+        .all()
+    )
+
+    backfilled = 0
+    skipped = 0
+    errors = []
+
+    for activity in api_activities:
+        try:
+            streams = fetch_activity_streams(access_token, activity.strava_activity_id)
+            if not streams or not streams.get("time"):
+                skipped += 1
+                continue
+
+            points_file_path = build_points_from_streams(
+                streams,
+                athlete_profile_id,
+                activity.strava_activity_id,
+                activity_date=activity.activity_date,
+            )
+            if points_file_path:
+                activity.points_file_path = points_file_path
+                db.commit()
+                backfilled += 1
+            else:
+                skipped += 1
+        except Exception as exc:
+            db.rollback()
+            errors.append(f"Activity {activity.strava_activity_id}: {exc}")
+
+    return {"backfilled": backfilled, "skipped": skipped, "errors": errors}
 
 
 def sync_single_activity(
@@ -181,15 +293,56 @@ def sync_single_activity(
             return "imported"
         return "skipped"
 
-    imported = import_activity_summary(db, athlete_profile_id, activity)
-    return "imported" if imported else "skipped"
+    # FIT not available — import summary first, then attach streams point data.
+    imported_activity = import_activity_summary(db, athlete_profile_id, activity)
+    if imported_activity:
+        streams = fetch_activity_streams(token, strava_activity_id)
+        if streams and streams.get("time"):
+            points_file_path = build_points_from_streams(
+                streams,
+                athlete_profile_id,
+                strava_activity_id,
+                activity_date=imported_activity.activity_date,
+            )
+            if points_file_path:
+                imported_activity.points_file_path = points_file_path
+                db.commit()
+        return "imported"
+    return "skipped"
+
+
+def _latest_activity_after_epoch(db: Session, athlete_profile_id: int) -> int | None:
+    """Unix timestamp of the newest *Strava* activity for incremental Strava sync.
+
+    Important: do not use COROS (or other provider) timestamps here. COROS often
+    imports the same workout first; if we set `after` to that time, Strava's API
+    excludes the twin activity (same start time) and it never lands in the app.
+    """
+    from datetime import timezone
+
+    latest = (
+        db.query(Activity.activity_date)
+        .filter(
+            Activity.athlete_profile_id == athlete_profile_id,
+            Activity.provider == "strava",
+        )
+        .order_by(Activity.activity_date.desc())
+        .first()
+    )
+    if latest is None or latest[0] is None:
+        return None
+    activity_date = latest[0]
+    if activity_date.tzinfo is None:
+        activity_date = activity_date.replace(tzinfo=timezone.utc)
+    # Small lookback so delayed Strava uploads / clock skew still get pulled.
+    return max(0, int(activity_date.timestamp()) - 3600)
 
 
 def sync_activities_for_athlete(
     db: Session,
     athlete_profile_id: int,
     *,
-    max_pages: int = 5,
+    max_pages: int = 40,
     per_page: int = 50,
 ) -> dict:
     connection = get_connection_for_athlete(db, athlete_profile_id)
@@ -218,13 +371,17 @@ def sync_activities_for_athlete(
 
     try:
         access_token = get_valid_access_token(connection, db)
+        after = _latest_activity_after_epoch(db, athlete_profile_id)
+        # Incremental sync only needs recent pages; full sync may need more.
+        page_limit = max_pages if after is None else min(max_pages, 10)
         all_activities: list[dict] = []
 
-        for page in range(1, max_pages + 1):
+        for page in range(1, page_limit + 1):
             page_rows = list_athlete_activities(
                 access_token,
                 page=page,
                 per_page=per_page,
+                after=after,
             )
             if not page_rows:
                 break
@@ -239,6 +396,21 @@ def sync_activities_for_athlete(
             strava_activity_id = int(activity["id"])
             try:
                 if _activity_exists(db, athlete_profile_id, strava_activity_id):
+                    existing = (
+                        db.query(Activity)
+                        .filter(
+                            Activity.athlete_profile_id == athlete_profile_id,
+                            Activity.provider == "strava",
+                            Activity.external_activity_id == str(strava_activity_id),
+                        )
+                        .first()
+                    )
+                    if existing is not None:
+                        from app.services.activity_dedupe import link_new_activity_to_peer
+
+                        # Link any unlinked COROS peer (idempotent if already linked).
+                        if existing.canonical_activity_id is None:
+                            link_new_activity_to_peer(db, existing)
                     skipped += 1
                     sync_status["skipped"] = skipped
                     continue
@@ -255,6 +427,19 @@ def sync_activities_for_athlete(
                     )
                 else:
                     result = import_activity_summary(db, athlete_profile_id, activity)
+                    # FIT unavailable — attach streams point data immediately.
+                    if result:
+                        streams = fetch_activity_streams(access_token, strava_activity_id)
+                        if streams and streams.get("time"):
+                            points_file_path = build_points_from_streams(
+                                streams,
+                                athlete_profile_id,
+                                strava_activity_id,
+                                activity_date=result.activity_date,
+                            )
+                            if points_file_path:
+                                result.points_file_path = points_file_path
+                                db.commit()
 
                 if result:
                     imported += 1
@@ -268,11 +453,19 @@ def sync_activities_for_athlete(
                 errors.append(message)
                 sync_status["errors"].append(message)
 
+        from app.services.activity_dedupe import backfill_athlete_duplicates
+        from app.services.schedule_completion import match_schedule_completions
+
+        dedupe = backfill_athlete_duplicates(db, athlete_profile_id)
+        schedule_links = match_schedule_completions(db, athlete_profile_id)
+
         return {
             "imported": imported,
             "skipped": skipped,
             "errors": errors,
             "total_fetched": len(all_activities),
+            "deduped": dedupe.get("linked", 0),
+            "schedule_completed": schedule_links.get("linked", 0),
         }
     finally:
         sync_status["running"] = False

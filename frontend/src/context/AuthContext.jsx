@@ -9,6 +9,7 @@ import {
   submitOnboarding as apiSubmitOnboarding,
   updateProfile as apiUpdateProfile,
   completeStravaOnboarding,
+  completeCorosOnboarding,
 } from '../api/auth'
 
 const AuthContext = createContext(null)
@@ -83,11 +84,17 @@ export function AuthProvider({ children }) {
     return updated
   }
 
-  async function markStravaOnboardingDone() {
+  const markStravaOnboardingDone = useCallback(async () => {
     const updated = await completeStravaOnboarding(token)
     setUser(updated)
     return updated
-  }
+  }, [token])
+
+  const markCorosOnboardingDone = useCallback(async () => {
+    const updated = await completeCorosOnboarding(token)
+    setUser(updated)
+    return updated
+  }, [token])
 
   const value = useMemo(
     () => ({
@@ -101,14 +108,20 @@ export function AuthProvider({ children }) {
       updateProfile,
       submitOnboarding,
       markStravaOnboardingDone,
+      markCorosOnboardingDone,
       profile: user?.profile ?? null,
       isAuthenticated: Boolean(token && user),
       needsOnboarding: Boolean(user?.profile && !user.profile.onboarding_completed),
       needsStravaStep: Boolean(
         user?.profile?.onboarding_completed && !user.profile.strava_onboarding_done,
       ),
+      needsCorosStep: Boolean(
+        user?.profile?.onboarding_completed &&
+          user.profile.strava_onboarding_done &&
+          !user.profile.coros_onboarding_done,
+      ),
     }),
-    [user, token, loading, refreshUser],
+    [user, token, loading, refreshUser, markStravaOnboardingDone, markCorosOnboardingDone],
   )
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>

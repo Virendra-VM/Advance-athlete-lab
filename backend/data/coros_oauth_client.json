@@ -1,0 +1,5 @@
+{
+  "client_id": "ae97ac0e-2b13-4120-b453-d71552cd4ff8",
+  "registration_endpoint": "https://mcpus.coros.com/connect/register",
+  "redirect_uri": "http://localhost:5173/oauth/coros/callback"
+}

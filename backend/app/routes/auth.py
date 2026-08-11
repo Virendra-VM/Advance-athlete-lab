@@ -176,3 +176,14 @@ def complete_strava_onboarding(
     profile.strava_onboarding_done = True
     db.commit()
     return build_user_response(current_user, db)
+
+
+@profile_router.post("/coros-onboarding-complete", response_model=UserResponse)
+def complete_coros_onboarding(
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    profile = _get_profile_for_user(current_user, db)
+    profile.coros_onboarding_done = True
+    db.commit()
+    return build_user_response(current_user, db)

@@ -39,8 +39,10 @@ def refresh_access_token(connection: StravaConnection, db: Session) -> str:
             },
             timeout=15.0,
         )
-        response.raise_for_status()
+        _raise_for_strava_response(response, "refresh Strava token")
         token_data = response.json()
+    except StravaApiError:
+        raise
     except httpx.HTTPError as exc:
         raise StravaApiError(f"Failed to refresh Strava token: {exc}") from exc
 
@@ -56,6 +58,42 @@ def get_valid_access_token(connection: StravaConnection, db: Session) -> str:
     if connection.expires_at <= int(time.time()) + 60:
         return refresh_access_token(connection, db)
     return connection.access_token
+
+
+def _raise_for_strava_response(response: httpx.Response, action: str) -> None:
+    if response.is_success:
+        return
+
+    detail = ""
+    try:
+        payload = response.json()
+        message = payload.get("message") or ""
+        errors = payload.get("errors") or []
+        inactive = any(
+            isinstance(err, dict)
+            and err.get("resource") == "Application"
+            and err.get("code") == "Inactive"
+            for err in errors
+        )
+        if inactive:
+            raise StravaApiError(
+                "Your Strava API application is Inactive. "
+                "Open https://www.strava.com/settings/api , set the app back to Active "
+                "(or recreate the app and update STRAVA_CLIENT_ID / STRAVA_CLIENT_SECRET), "
+                "then reconnect Strava and sync again."
+            )
+        if message:
+            detail = f" {message}"
+        if errors:
+            detail = f"{detail} {errors}".rstrip()
+    except StravaApiError:
+        raise
+    except Exception:
+        detail = f" {response.text[:300]}"
+
+    raise StravaApiError(
+        f"Failed to {action}: HTTP {response.status_code}.{detail}"
+    )
 
 
 def list_athlete_activities(
@@ -76,8 +114,10 @@ def list_athlete_activities(
             params=params,
             timeout=20.0,
         )
-        response.raise_for_status()
+        _raise_for_strava_response(response, "list Strava activities")
         payload = response.json()
+    except StravaApiError:
+        raise
     except httpx.HTTPError as exc:
         raise StravaApiError(f"Failed to list Strava activities: {exc}") from exc
 
@@ -93,8 +133,10 @@ def get_activity(access_token: str, activity_id: int) -> dict:
             headers={"Authorization": f"Bearer {access_token}"},
             timeout=20.0,
         )
-        response.raise_for_status()
+        _raise_for_strava_response(response, f"fetch Strava activity {activity_id}")
         return response.json()
+    except StravaApiError:
+        raise
     except httpx.HTTPError as exc:
         raise StravaApiError(f"Failed to fetch Strava activity {activity_id}: {exc}") from exc
 
@@ -118,3 +160,32 @@ def download_activity_fit(access_token: str, activity_id: int) -> bytes | None:
         return response.content
     except httpx.HTTPError:
         return None
+
+
+_STREAM_KEYS = "time,distance,altitude,velocity_smooth,heartrate,cadence,watts"
+
+
+def fetch_activity_streams(access_token: str, activity_id: int) -> dict | None:
+    """Fetch time-series streams from the Strava API.
+
+    Returns a dict keyed by stream type, each value being a list of data points,
+    or None if the request fails or the activity has no streams.
+    """
+    try:
+        response = httpx.get(
+            f"{STRAVA_API_BASE}/activities/{activity_id}/streams",
+            headers={"Authorization": f"Bearer {access_token}"},
+            params={"keys": _STREAM_KEYS, "key_by_type": "true"},
+            timeout=30.0,
+        )
+        if response.status_code == 404:
+            return None
+        response.raise_for_status()
+        payload = response.json()
+    except httpx.HTTPError:
+        return None
+
+    if not isinstance(payload, dict):
+        return None
+
+    return {k: v.get("data", []) for k, v in payload.items() if isinstance(v, dict)}

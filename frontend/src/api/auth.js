@@ -79,3 +79,11 @@ export async function completeStravaOnboarding(token = getStoredToken()) {
   })
   return handleResponse(response)
 }
+
+export async function completeCorosOnboarding(token = getStoredToken()) {
+  const response = await fetch(`${API_BASE_URL}/api/profile/coros-onboarding-complete`, {
+    method: 'POST',
+    headers: authHeaders(token),
+  })
+  return handleResponse(response)
+}

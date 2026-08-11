@@ -42,3 +42,11 @@ export async function getStravaSyncStatus() {
   const response = await fetch(`${API_BASE_URL}/api/strava/sync/status`)
   return handleResponse(response)
 }
+
+export async function backfillStreams(athleteProfileId) {
+  const response = await fetch(
+    `${API_BASE_URL}/api/strava/backfill-streams?athlete_profile_id=${athleteProfileId}`,
+    { method: 'POST' },
+  )
+  return handleResponse(response)
+}

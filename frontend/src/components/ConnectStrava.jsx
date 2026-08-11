@@ -15,8 +15,8 @@ export default function ConnectStrava() {
 
   if (!isAuthenticated) return <Navigate to="/signin" replace />
   if (needsOnboarding) return <Navigate to="/onboarding" replace />
-  if (!needsStravaStep && profile?.strava_onboarding_done) {
-    return <Navigate to="/dashboard" replace />
+  if (!needsStravaStep) {
+    return <Navigate to={profile?.coros_onboarding_done ? '/dashboard' : '/connect-coros'} replace />
   }
 
   async function handleConnect() {
@@ -32,8 +32,12 @@ export default function ConnectStrava() {
   }
 
   async function handleSkip() {
-    await markStravaOnboardingDone()
-    navigate('/dashboard')
+    try {
+      await markStravaOnboardingDone()
+      navigate('/dashboard')
+    } catch (err) {
+      setError(err.message || 'Failed to continue. Please try again.')
+    }
   }
 
   return (

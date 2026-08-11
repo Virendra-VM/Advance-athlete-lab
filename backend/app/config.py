@@ -29,6 +29,26 @@ STRAVA_UPLOAD_DIR = os.getenv(
 )
 MAX_STRAVA_UPLOAD_MB = int(os.getenv("MAX_STRAVA_UPLOAD_MB", "2048"))
 
+# COROS MCP (official remote MCP + OAuth 2.1 PKCE)
+COROS_MCP_URL = os.getenv("COROS_MCP_URL", "https://mcp.coros.com/mcp")
+COROS_REDIRECT_URI = os.getenv(
+    "COROS_REDIRECT_URI",
+    "http://localhost:5173/oauth/coros/callback",
+)
+COROS_MCP_SCOPES = os.getenv(
+    "COROS_MCP_SCOPES",
+    "openid mcp.tools offline_access",
+)
+COROS_MCP_CLIENT_ID = os.getenv("COROS_MCP_CLIENT_ID", "")
+COROS_OAUTH_CLIENT_FILE = os.getenv(
+    "COROS_OAUTH_CLIENT_FILE",
+    str(_BACKEND_ROOT / "data" / "coros_oauth_client.json"),
+)
+COROS_FIT_DAILY_LIMIT = int(os.getenv("COROS_FIT_DAILY_LIMIT", "50"))
+COROS_ACTIVITY_LOOKBACK_DAYS = int(os.getenv("COROS_ACTIVITY_LOOKBACK_DAYS", "90"))
+COROS_HEALTH_LOOKBACK_DAYS = int(os.getenv("COROS_HEALTH_LOOKBACK_DAYS", "90"))
+COROS_FIT_RECENT_LIMIT = int(os.getenv("COROS_FIT_RECENT_LIMIT", "10"))
+
 JWT_SECRET = os.getenv("JWT_SECRET", "change-me-in-production-use-long-random-string")
 JWT_ALGORITHM = "HS256"
 JWT_EXPIRE_HOURS = int(os.getenv("JWT_EXPIRE_HOURS", "168"))
