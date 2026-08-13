@@ -108,7 +108,7 @@ export default function SettingsPage() {
     setStravaLoading(true)
     setStravaError('')
     try {
-      const status = await getStravaConnectionStatus(profile.id)
+      const status = await getStravaConnectionStatus()
       setStravaConnected(status.connected)
       setStravaAthleteId(status.strava_athlete_id)
     } catch (err) {
@@ -178,7 +178,7 @@ export default function SettingsPage() {
     setStravaConnecting(true)
     setStravaError('')
     try {
-      const { authorization_url: authorizationUrl } = await getStravaAuthUrl(profile.id)
+      const { authorization_url: authorizationUrl } = await getStravaAuthUrl()
       window.location.href = authorizationUrl
     } catch (err) {
       setStravaError(err.message || 'Failed to start Strava authorization.')
@@ -191,7 +191,7 @@ export default function SettingsPage() {
     setStravaSyncing(true)
     setStravaError('')
     try {
-      await startStravaSync(profile.id)
+      await startStravaSync()
       let status = null
       const started = Date.now()
       while (Date.now() - started < 120000) {

@@ -912,13 +912,15 @@ def sync_in_background(athlete_profile_id: int) -> None:
         # COROS often lands before Strava for the same workout. Pull Strava next
         # so the twin activity (with streams) is imported and deduped.
         try:
-            from app.services.strava_sync import (
-                get_connection_for_athlete,
-                sync_activities_for_athlete,
-            )
+            from app.services.strava_sync import try_start_strava_sync
 
-            if get_connection_for_athlete(db, athlete_profile_id) is not None:
-                sync_activities_for_athlete(db, athlete_profile_id)
+            outcome = try_start_strava_sync(db, athlete_profile_id, inline=True)
+            if outcome.get("skipped") and outcome.get("reason") == "already_running":
+                errors = list(get_sync_status(athlete_profile_id).get("errors") or [])
+                errors.append(
+                    "post-coros strava sync: skipped because a Strava sync is already running."
+                )
+                _set_status(athlete_profile_id, errors=errors[-20:])
         except Exception as strava_exc:  # noqa: BLE001
             errors = list(get_sync_status(athlete_profile_id).get("errors") or [])
             errors.append(f"post-coros strava sync: {strava_exc}")

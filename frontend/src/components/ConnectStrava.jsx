@@ -23,7 +23,7 @@ export default function ConnectStrava() {
     setConnecting(true)
     setError('')
     try {
-      const { authorization_url: url } = await getStravaAuthUrl(profile?.id)
+      const { authorization_url: url } = await getStravaAuthUrl()
       window.location.href = url
     } catch (err) {
       setError(err.message || 'Failed to start Strava authorization.')

@@ -67,7 +67,7 @@ export default function Dashboard() {
       try {
         const [, stravaStatus] = await Promise.all([
           refreshDashboard(),
-          getStravaConnectionStatus(profile.id).catch(() => ({ connected: false })),
+          getStravaConnectionStatus().catch(() => ({ connected: false })),
         ])
         if (cancelled) return
         setStravaConnected(Boolean(stravaStatus.connected))
@@ -135,7 +135,7 @@ export default function Dashboard() {
     setStravaSyncing(true)
     setError('')
     try {
-      await startStravaSync(profile.id)
+      await startStravaSync()
       let status = null
       const started = Date.now()
       while (Date.now() - started < 120000) {

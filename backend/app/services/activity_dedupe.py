@@ -24,9 +24,33 @@ TIGHT_DISTANCE_TOLERANCE = 0.02
 
 
 def _rel_close(a: float, b: float, tol: float) -> bool:
+    """Return True only when both sides have real values within relative tolerance."""
     if a <= 0 or b <= 0:
-        return True  # skip check when either side missing
+        return False
     return abs(a - b) / max(a, b, 1.0) <= tol
+
+
+def _metrics_match(
+    distance_a: float,
+    duration_a: float,
+    distance_b: float,
+    duration_b: float,
+    *,
+    distance_tol: float,
+    duration_tol: float,
+) -> bool:
+    """Require at least one comparable metric; zero/missing metrics never match alone."""
+    distance_ok = _rel_close(distance_a, distance_b, distance_tol)
+    duration_ok = _rel_close(duration_a, duration_b, duration_tol)
+    has_distance = distance_a > 0 and distance_b > 0
+    has_duration = duration_a > 0 and duration_b > 0
+    if has_distance and has_duration:
+        return distance_ok and duration_ok
+    if has_distance:
+        return distance_ok
+    if has_duration:
+        return duration_ok
+    return False
 
 
 def fingerprint_match(
@@ -56,20 +80,24 @@ def fingerprint_match(
     )
 
     if delta <= TIME_WINDOW and not weak_time:
-        return _rel_close(distance_a, distance_b, TIGHT_DISTANCE_TOLERANCE) and _rel_close(
-            float(duration_a), float(duration_b), TIGHT_DURATION_TOLERANCE
+        return _metrics_match(
+            distance_a,
+            float(duration_a),
+            distance_b,
+            float(duration_b),
+            distance_tol=TIGHT_DISTANCE_TOLERANCE,
+            duration_tol=TIGHT_DURATION_TOLERANCE,
         )
 
     if same_calendar_day or (weak_time and delta <= timedelta(hours=36)):
-        # Require at least one strong metric when timestamps are weak.
-        distance_ok = _rel_close(distance_a, distance_b, DAY_DISTANCE_TOLERANCE)
-        duration_ok = _rel_close(float(duration_a), float(duration_b), DAY_DURATION_TOLERANCE)
-        if distance_a > 0 and distance_b > 0 and duration_a > 0 and duration_b > 0:
-            return distance_ok and duration_ok
-        if distance_a > 0 and distance_b > 0:
-            return distance_ok
-        if duration_a > 0 and duration_b > 0:
-            return duration_ok
+        return _metrics_match(
+            distance_a,
+            float(duration_a),
+            distance_b,
+            float(duration_b),
+            distance_tol=DAY_DISTANCE_TOLERANCE,
+            duration_tol=DAY_DURATION_TOLERANCE,
+        )
     return False
 
 

@@ -36,6 +36,17 @@ RANGE_DAYS = {
 }
 
 
+def _parse_race_preds(raw: str | None) -> dict[str, Any]:
+    """Parse cached race-prediction JSON; never raise on corrupt rows."""
+    if not raw:
+        return {}
+    try:
+        data = json.loads(raw)
+    except (json.JSONDecodeError, TypeError):
+        return {}
+    return data if isinstance(data, dict) else {}
+
+
 def range_to_dates(range_key: str) -> tuple[date, date]:
     days = RANGE_DAYS.get(range_key, 28)
     end = date.today()
@@ -183,9 +194,7 @@ def build_metric_series(
                     "threshold_pace": row.threshold_pace,
                     "recovery_pct": row.recovery_pct,
                     "recovery_level": row.recovery_level,
-                    "race_preds": json.loads(row.race_preds_json)
-                    if row.race_preds_json
-                    else {},
+                    "race_preds": _parse_race_preds(row.race_preds_json),
                 },
             }
         points = [by_day[k] for k in sorted(by_day.keys())]
@@ -198,9 +207,7 @@ def build_metric_series(
                 "recovery_pct": last.recovery_pct,
                 "recovery_level": last.recovery_level,
                 "recovery_full_at": last.recovery_full_at,
-                "race_predictions": json.loads(last.race_preds_json)
-                if last.race_preds_json
-                else {},
+                "race_predictions": _parse_race_preds(last.race_preds_json),
             }
 
     elif metric in {"load", "training_load"}:

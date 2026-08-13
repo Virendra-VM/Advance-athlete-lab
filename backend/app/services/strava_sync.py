@@ -1,8 +1,10 @@
 from __future__ import annotations
 
 import tempfile
+import threading
 from datetime import datetime
 from pathlib import Path
+from typing import Any
 
 import pandas as pd
 
@@ -19,7 +21,8 @@ from app.services.strava_api import (
 )
 from app.services.strava_import import import_single_fit_file
 
-sync_status: dict = {
+# Per-athlete sync status (avoids one global lock across athletes)
+_DEFAULT_STATUS: dict[str, Any] = {
     "running": False,
     "total": 0,
     "processed": 0,
@@ -27,10 +30,99 @@ sync_status: dict = {
     "skipped": 0,
     "errors": [],
 }
+_sync_status: dict[int, dict[str, Any]] = {}
+_status_lock = threading.Lock()
 
 
-def get_sync_status() -> dict:
-    return dict(sync_status)
+def get_sync_status(athlete_profile_id: int) -> dict[str, Any]:
+    status = _sync_status.get(athlete_profile_id, _DEFAULT_STATUS)
+    return {
+        "running": bool(status.get("running")),
+        "total": int(status.get("total") or 0),
+        "processed": int(status.get("processed") or 0),
+        "imported": int(status.get("imported") or 0),
+        "skipped": int(status.get("skipped") or 0),
+        "errors": list(status.get("errors") or []),
+    }
+
+
+def _set_status(athlete_profile_id: int, **kwargs: Any) -> None:
+    status = get_sync_status(athlete_profile_id)
+    status.update(kwargs)
+    _sync_status[athlete_profile_id] = status
+
+
+def is_sync_running(athlete_profile_id: int) -> bool:
+    return bool(get_sync_status(athlete_profile_id).get("running"))
+
+
+def _claim_sync(athlete_profile_id: int) -> bool:
+    """Claim the per-athlete sync slot. Returns False if already running."""
+    with _status_lock:
+        if get_sync_status(athlete_profile_id).get("running"):
+            return False
+        _set_status(
+            athlete_profile_id,
+            running=True,
+            total=0,
+            processed=0,
+            imported=0,
+            skipped=0,
+            errors=[],
+        )
+        return True
+
+
+def try_start_strava_sync(
+    db: Session,
+    athlete_profile_id: int,
+    *,
+    inline: bool = False,
+) -> dict[str, Any]:
+    """Start Strava sync for an athlete if one is not already running.
+
+    inline=True runs sync in the current thread (used after COROS sync).
+    inline=False only reports whether a background sync may be queued;
+    the caller should schedule ``sync_activities_in_background``.
+    """
+    if is_sync_running(athlete_profile_id):
+        return {
+            "started": False,
+            "skipped": True,
+            "reason": "already_running",
+            "result": None,
+        }
+
+    if get_connection_for_athlete(db, athlete_profile_id) is None:
+        return {
+            "started": False,
+            "skipped": True,
+            "reason": "no_connection",
+            "result": None,
+        }
+
+    if not inline:
+        return {
+            "started": True,
+            "skipped": False,
+            "reason": None,
+            "result": None,
+        }
+
+    result = sync_activities_for_athlete(db, athlete_profile_id)
+    if result.get("already_running"):
+        return {
+            "started": False,
+            "skipped": True,
+            "reason": "already_running",
+            "result": result,
+        }
+    return {
+        "started": True,
+        "skipped": False,
+        "reason": None,
+        "result": result,
+    }
 
 
 def get_connection_for_athlete(
@@ -354,16 +446,17 @@ def sync_activities_for_athlete(
         db.commit()
         db.refresh(connection)
 
-    sync_status.update(
-        {
-            "running": True,
-            "total": 0,
-            "processed": 0,
+    # Do not reset progress / status if another sync is already in flight.
+    if not _claim_sync(athlete_profile_id):
+        return {
             "imported": 0,
             "skipped": 0,
             "errors": [],
+            "total_fetched": 0,
+            "deduped": 0,
+            "schedule_completed": 0,
+            "already_running": True,
         }
-    )
 
     imported = 0
     skipped = 0
@@ -389,10 +482,11 @@ def sync_activities_for_athlete(
             if len(page_rows) < per_page:
                 break
 
-        sync_status["total"] = len(all_activities)
+        _set_status(athlete_profile_id, total=len(all_activities))
 
         for activity in all_activities:
-            sync_status["processed"] += 1
+            processed = get_sync_status(athlete_profile_id)["processed"] + 1
+            _set_status(athlete_profile_id, processed=processed)
             strava_activity_id = int(activity["id"])
             try:
                 if _activity_exists(db, athlete_profile_id, strava_activity_id):
@@ -412,7 +506,7 @@ def sync_activities_for_athlete(
                         if existing.canonical_activity_id is None:
                             link_new_activity_to_peer(db, existing)
                     skipped += 1
-                    sync_status["skipped"] = skipped
+                    _set_status(athlete_profile_id, skipped=skipped)
                     continue
 
                 api_metadata = api_activity_to_metadata(activity)
@@ -443,15 +537,15 @@ def sync_activities_for_athlete(
 
                 if result:
                     imported += 1
-                    sync_status["imported"] = imported
+                    _set_status(athlete_profile_id, imported=imported)
                 else:
                     skipped += 1
-                    sync_status["skipped"] = skipped
+                    _set_status(athlete_profile_id, skipped=skipped)
             except Exception as exc:
                 db.rollback()
                 message = f"Activity {strava_activity_id}: {exc}"
                 errors.append(message)
-                sync_status["errors"].append(message)
+                _set_status(athlete_profile_id, errors=list(errors))
 
         from app.services.activity_dedupe import backfill_athlete_duplicates
         from app.services.schedule_completion import match_schedule_completions
@@ -468,7 +562,7 @@ def sync_activities_for_athlete(
             "schedule_completed": schedule_links.get("linked", 0),
         }
     finally:
-        sync_status["running"] = False
+        _set_status(athlete_profile_id, running=False)
 
 
 def sync_activities_in_background(athlete_profile_id: int) -> None:
@@ -478,8 +572,10 @@ def sync_activities_in_background(athlete_profile_id: int) -> None:
     try:
         sync_activities_for_athlete(db, athlete_profile_id)
     except Exception as exc:
-        sync_status["errors"].append(str(exc))
-        sync_status["running"] = False
+        status = get_sync_status(athlete_profile_id)
+        errors = list(status.get("errors") or [])
+        errors.append(str(exc))
+        _set_status(athlete_profile_id, running=False, errors=errors[-20:])
     finally:
         db.close()
 
@@ -491,6 +587,7 @@ def sync_single_activity_in_background(
     from app.database import SessionLocal
 
     db = SessionLocal()
+    athlete_profile_id: int | None = None
     try:
         connection = (
             db.query(StravaConnection)
@@ -500,8 +597,13 @@ def sync_single_activity_in_background(
         )
         if connection is None or connection.athlete_profile_id is None:
             return
+        athlete_profile_id = connection.athlete_profile_id
         sync_single_activity(db, connection, strava_activity_id)
     except Exception as exc:
-        sync_status["errors"].append(str(exc))
+        if athlete_profile_id is not None:
+            status = get_sync_status(athlete_profile_id)
+            errors = list(status.get("errors") or [])
+            errors.append(str(exc))
+            _set_status(athlete_profile_id, errors=errors[-20:])
     finally:
         db.close()

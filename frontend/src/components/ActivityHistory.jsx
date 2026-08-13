@@ -95,12 +95,12 @@ export default function ActivityHistory({ athleteProfileId, refreshKey = 0 }) {
     setLoading(true)
     setError('')
     try {
-      const status = await getStravaConnectionStatus(athleteProfileId)
+      const status = await getStravaConnectionStatus()
       if (status.connected) {
         const syncStatus = await getStravaSyncStatus()
         if (!syncStatus.running) {
           try {
-            await startStravaSync(athleteProfileId)
+            await startStravaSync()
           } catch (err) {
             if (!String(err.message || '').includes('409')) throw err
           }

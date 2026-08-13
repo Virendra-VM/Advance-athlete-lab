@@ -66,9 +66,9 @@ export default function StravaCallback() {
           }
 
           // Backend callback often already started sync; 409 means it's running.
-          if (connection?.athlete_profile_id) {
+          if (connection?.athlete_profile_id && isAuthenticated) {
             try {
-              await startStravaSync(connection.athlete_profile_id)
+              await startStravaSync()
             } catch {
               // ignore — sync already running or will be retried from dashboard
             }
