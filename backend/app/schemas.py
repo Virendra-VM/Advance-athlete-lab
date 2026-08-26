@@ -1,6 +1,6 @@
-from datetime import date, datetime
+from datetime import date, datetime, timezone
 
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, Field, field_serializer
 
 
 class AthleteProfileCreate(BaseModel):
@@ -62,14 +62,58 @@ class ActivityRead(BaseModel):
     average_heartrate: float | None = None
     max_heartrate: float | None = None
     sport_type: str | None = None
+    sport_type_code: str | None = None
     points_file_path: str | None = None
     source_fit_file: str
     notes: str | None = None
+    detail: dict | None = None
+    sport_family: str | None = None
+    detail_fetched_at: datetime | None = None
     created_at: datetime | None = None
 
 
 class ActivityNotesUpdate(BaseModel):
     notes: str | None = None
+
+
+class ActivityNoteCreate(BaseModel):
+    body: str = Field(min_length=1, max_length=10000)
+
+
+class ActivityNoteUpdate(BaseModel):
+    body: str = Field(min_length=1, max_length=10000)
+
+
+class ActivityNoteRead(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    activity_id: int
+    athlete_profile_id: int
+    body: str
+    created_at: datetime
+    updated_at: datetime
+
+    @field_serializer("created_at", "updated_at")
+    def serialize_utc(self, value: datetime) -> str:
+        if value.tzinfo is None:
+            value = value.replace(tzinfo=timezone.utc)
+        return value.astimezone(timezone.utc).isoformat().replace("+00:00", "Z")
+
+
+class ActivityNoteListResponse(BaseModel):
+    items: list[ActivityNoteRead]
+
+
+class ActivityEnrichResponse(BaseModel):
+    ok: bool
+    skipped: bool = False
+    reason: str | None = None
+    activity_id: int
+    detail: dict | None = None
+    errors: list[str] = []
+    sources: list[str] = []
+    activity: ActivityRead | None = None
 
 
 class ActivityListResponse(BaseModel):

@@ -1,15 +1,23 @@
 import { useState } from 'react'
 import { Navigate } from 'react-router-dom'
+import { Eye, EyeOff } from 'lucide-react'
 import { useAuth } from '../context/AuthContext'
+import {
+  getRememberPreference,
+  getRememberedEmail,
+  setRememberedEmail,
+} from '../api/auth'
 import { pageShellClass } from '../utils/statusColors'
 import Card from './ui/Card'
 
 export default function SignIn() {
   const { login, register, isAuthenticated, needsOnboarding, needsStravaStep } = useAuth()
   const [mode, setMode] = useState('signin')
-  const [email, setEmail] = useState('')
+  const [email, setEmail] = useState(() => getRememberedEmail())
   const [password, setPassword] = useState('')
   const [name, setName] = useState('')
+  const [showPassword, setShowPassword] = useState(false)
+  const [rememberMe, setRememberMe] = useState(() => getRememberPreference())
   const [error, setError] = useState('')
   const [submitting, setSubmitting] = useState(false)
 
@@ -25,9 +33,12 @@ export default function SignIn() {
     setSubmitting(true)
     try {
       if (mode === 'signin') {
-        await login({ email, password })
+        await login({ email, password }, { remember: rememberMe })
+        if (rememberMe) setRememberedEmail(email)
+        else setRememberedEmail('')
       } else {
-        await register({ email, password, name })
+        await register({ email, password, name }, { remember: true })
+        setRememberedEmail(email)
       }
     } catch (err) {
       setError(err.message || 'Something went wrong.')
@@ -84,18 +95,41 @@ export default function SignIn() {
             <label className="mb-2 block text-sm font-medium text-slate-700 dark:text-slate-300">
               Password
             </label>
-            <input
-              type="password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              minLength={8}
-              className="w-full rounded-xl border border-slate-200 bg-white px-4 py-3 outline-none ring-sage focus:ring-2 dark:border-white/10 dark:bg-gray-900"
-              required
-            />
+            <div className="relative">
+              <input
+                type={showPassword ? 'text' : 'password'}
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                minLength={8}
+                className="w-full rounded-xl border border-slate-200 bg-white px-4 py-3 pr-12 outline-none ring-sage focus:ring-2 dark:border-white/10 dark:bg-gray-900"
+                required
+              />
+              <button
+                type="button"
+                onClick={() => setShowPassword((value) => !value)}
+                className="absolute right-3 top-1/2 -translate-y-1/2 rounded-lg p-1.5 text-slate-400 transition hover:text-slate-700 dark:hover:text-slate-200"
+                aria-label={showPassword ? 'Hide password' : 'Show password'}
+                title={showPassword ? 'Hide password' : 'Show password'}
+              >
+                {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+              </button>
+            </div>
             {mode === 'signup' && (
               <p className="mt-1 text-xs text-slate-400">At least 8 characters</p>
             )}
           </div>
+
+          {mode === 'signin' && (
+            <label className="flex cursor-pointer items-center gap-2.5 text-sm text-slate-600 dark:text-slate-300">
+              <input
+                type="checkbox"
+                checked={rememberMe}
+                onChange={(e) => setRememberMe(e.target.checked)}
+                className="h-4 w-4 rounded border-slate-300 text-sage accent-sage focus:ring-sage"
+              />
+              Remember me
+            </label>
+          )}
 
           {error && <p className="text-sm text-danger-muted">{error}</p>}
 

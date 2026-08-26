@@ -17,7 +17,7 @@ export default function RangeTabs({ value, onChange, options = DEFAULT_OPTIONS }
             key={option.id}
             type="button"
             onClick={() => onChange(option.id)}
-            className={`rounded-lg px-3 py-1.5 text-sm font-medium transition ${
+            className={`inline-flex h-9 min-w-[5.75rem] items-center justify-center rounded-lg px-3 text-sm font-medium transition ${
               active
                 ? 'bg-sage/15 text-sage'
                 : 'text-[var(--aal-muted)] hover:bg-[var(--aal-accent-soft)] hover:text-[var(--aal-ink)]'

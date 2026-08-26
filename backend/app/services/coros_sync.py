@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import tempfile
+import threading
 from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any
@@ -52,6 +53,11 @@ PROVIDER = "coros"
 
 # Per-athlete sync status (avoids global Strava lock collisions)
 _sync_status: dict[int, dict[str, Any]] = {}
+_status_lock = threading.Lock()
+
+
+class CorosSyncAlreadyRunning(Exception):
+    """Raised when a second COROS sync tries to claim an in-flight slot."""
 
 
 def get_sync_status(athlete_profile_id: int | None = None) -> dict[str, Any]:
@@ -65,23 +71,51 @@ def get_sync_status(athlete_profile_id: int | None = None) -> dict[str, Any]:
             "skipped": 0,
             "errors": [],
         }
-    return _sync_status.get(
-        athlete_profile_id,
-        {
+    status = _sync_status.get(athlete_profile_id)
+    if status is None:
+        return {
             "running": False,
             "total": 0,
             "processed": 0,
             "imported": 0,
             "skipped": 0,
             "errors": [],
-        },
-    )
+        }
+    return {
+        "running": bool(status.get("running")),
+        "total": int(status.get("total") or 0),
+        "processed": int(status.get("processed") or 0),
+        "imported": int(status.get("imported") or 0),
+        "skipped": int(status.get("skipped") or 0),
+        "errors": list(status.get("errors") or []),
+    }
 
 
 def _set_status(athlete_profile_id: int, **kwargs: Any) -> None:
-    status = get_sync_status(athlete_profile_id).copy()
+    status = get_sync_status(athlete_profile_id)
     status.update(kwargs)
     _sync_status[athlete_profile_id] = status
+
+
+def is_sync_running(athlete_profile_id: int) -> bool:
+    return bool(get_sync_status(athlete_profile_id).get("running"))
+
+
+def _claim_sync(athlete_profile_id: int, *, total: int = 5) -> bool:
+    """Claim the per-athlete COROS sync slot. Returns False if already running."""
+    with _status_lock:
+        if get_sync_status(athlete_profile_id).get("running"):
+            return False
+        _set_status(
+            athlete_profile_id,
+            running=True,
+            total=total,
+            processed=0,
+            imported=0,
+            skipped=0,
+            errors=[],
+        )
+        return True
 
 
 def get_coros_connection(db: Session, athlete_profile_id: int) -> ProviderConnection | None:
@@ -668,6 +702,16 @@ def sync_activities(
                         ),
                         "name": item.get("name") or item.get("title") or item.get("location"),
                         "sport_type": item.get("sportTypeName") or item.get("sportType"),
+                        "sport_type_code": (
+                            str(item.get("sportType"))
+                            if item.get("sportType") is not None
+                            and str(item.get("sportType")).isdigit()
+                            else (
+                                str(item.get("sportTypeCode"))
+                                if item.get("sportTypeCode") is not None
+                                else None
+                            )
+                        ),
                         "activity_date": _parse_datetime(
                             item.get("startTime") or item.get("date")
                         )
@@ -700,6 +744,7 @@ def sync_activities(
         moving_time_s = int(item.get("moving_time_s") or 0)
         name = item.get("name") or f"COROS activity {external_id}"
         sport_type = item.get("sport_type")
+        sport_type_code = item.get("sport_type_code")
         avg_hr = item.get("average_heartrate")
 
         if _activity_exists(db, athlete_profile_id, external_id):
@@ -713,20 +758,24 @@ def sync_activities(
                 )
                 .first()
             )
-            if existing is not None and existing.canonical_activity_id is None:
-                peer = find_cross_provider_match(
-                    db,
-                    athlete_profile_id=athlete_profile_id,
-                    activity_date=existing.activity_date or activity_date,
-                    distance_m=float(existing.distance_m or distance_m),
-                    moving_time_s=int(existing.moving_time_s or moving_time_s),
-                    other_provider="strava",
-                    exclude_id=existing.id,
-                )
-                if peer is not None:
-                    canonical, duplicate = choose_canonical(existing, peer)
-                    if link_duplicate(db, canonical, duplicate):
-                        db.commit()
+            if existing is not None:
+                if sport_type_code and not existing.sport_type_code:
+                    existing.sport_type_code = str(sport_type_code)
+                    db.commit()
+                if existing.canonical_activity_id is None:
+                    peer = find_cross_provider_match(
+                        db,
+                        athlete_profile_id=athlete_profile_id,
+                        activity_date=existing.activity_date or activity_date,
+                        distance_m=float(existing.distance_m or distance_m),
+                        moving_time_s=int(existing.moving_time_s or moving_time_s),
+                        other_provider="strava",
+                        exclude_id=existing.id,
+                    )
+                    if peer is not None:
+                        canonical, duplicate = choose_canonical(existing, peer)
+                        if link_duplicate(db, canonical, duplicate):
+                            db.commit()
             skipped += 1
             continue
 
@@ -743,6 +792,7 @@ def sync_activities(
             average_heartrate=avg_hr,
             max_heartrate=None,
             sport_type=str(sport_type) if sport_type is not None else None,
+            sport_type_code=str(sport_type_code) if sport_type_code else None,
             points_file_path=None,
             source_fit_file=f"coros_api:{external_id}",
         )
@@ -780,6 +830,29 @@ def sync_activities(
             errors.append(f"FIT {external_id}: {exc}")
             _set_status(athlete_profile_id, errors=errors[-20:])
 
+    # Sport-specific detail (laps / workout structure) for recent activities.
+    try:
+        from app.services.activity_detail import enrich_recent_activities_missing_detail
+
+        detail_result = enrich_recent_activities_missing_detail(
+            db,
+            athlete_profile_id,
+            client=client,
+            limit=15,
+        )
+        if detail_result.get("errors"):
+            status = get_sync_status(athlete_profile_id)
+            errors = list(status.get("errors") or [])
+            errors.extend(
+                f"detail: {err}" for err in detail_result["errors"]
+            )
+            _set_status(athlete_profile_id, errors=errors[-20:])
+    except Exception as exc:  # noqa: BLE001
+        status = get_sync_status(athlete_profile_id)
+        errors = list(status.get("errors") or [])
+        errors.append(f"detail enrich: {exc}")
+        _set_status(athlete_profile_id, errors=errors[-20:])
+
     return imported, skipped
 
 
@@ -810,18 +883,12 @@ def sync_all_for_athlete(db: Session, athlete_profile_id: int) -> dict[str, Any]
     if connection is None:
         raise CorosMcpError("No COROS connection found for this athlete.")
 
-    if get_sync_status(athlete_profile_id).get("running"):
-        raise CorosMcpError("A COROS sync is already running for this athlete.")
+    # Do not reset progress / clear another in-flight sync's lock.
+    if not _claim_sync(athlete_profile_id, total=5):
+        raise CorosSyncAlreadyRunning(
+            "A COROS sync is already running for this athlete."
+        )
 
-    _set_status(
-        athlete_profile_id,
-        running=True,
-        total=5,
-        processed=0,
-        imported=0,
-        skipped=0,
-        errors=[],
-    )
     client = _client_for_connection(db, connection)
     imported_total = 0
     skipped_total = 0
@@ -925,6 +992,12 @@ def sync_in_background(athlete_profile_id: int) -> None:
             errors = list(get_sync_status(athlete_profile_id).get("errors") or [])
             errors.append(f"post-coros strava sync: {strava_exc}")
             _set_status(athlete_profile_id, errors=errors[-20:])
+    except CorosSyncAlreadyRunning:
+        # Another job owns the slot — never clear running=True for that athlete.
+        status = get_sync_status(athlete_profile_id)
+        errors = list(status.get("errors") or [])
+        errors.append("COROS sync skipped: already running for this athlete.")
+        _set_status(athlete_profile_id, errors=errors[-20:])
     except Exception as exc:  # noqa: BLE001
         _set_status(
             athlete_profile_id,

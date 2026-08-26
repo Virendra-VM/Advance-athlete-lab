@@ -3,6 +3,19 @@ export function formatDistanceKm(distanceM) {
   return `${(distanceM / 1000).toFixed(2)} km`
 }
 
+/** Parse API timestamps that may be naive UTC (no Z) as UTC. */
+export function parseUtcDate(value) {
+  if (value == null || value === '') return null
+  if (value instanceof Date) return value
+  const text = String(value).trim()
+  if (!text) return null
+  if (/^\d+$/.test(text)) return new Date(Number(text))
+  if (/Z$|[+-]\d{2}:?\d{2}$/.test(text)) return new Date(text)
+  if (/^\d{4}-\d{2}-\d{2}$/.test(text)) return new Date(`${text}T00:00:00Z`)
+  const normalized = text.includes('T') ? text : text.replace(' ', 'T')
+  return new Date(`${normalized}Z`)
+}
+
 export function formatDuration(seconds) {
   if (seconds == null || Number.isNaN(Number(seconds))) return '—'
   const total = Math.max(0, Math.round(Number(seconds)))
@@ -20,7 +33,9 @@ export function formatDurationHours(seconds) {
 }
 
 export function formatDate(value) {
-  return new Date(value).toLocaleDateString(undefined, {
+  const date = parseUtcDate(value)
+  if (!date || Number.isNaN(date.getTime())) return '—'
+  return date.toLocaleDateString(undefined, {
     year: 'numeric',
     month: 'short',
     day: 'numeric',
@@ -28,7 +43,9 @@ export function formatDate(value) {
 }
 
 export function formatDateLong(value) {
-  return new Date(value).toLocaleDateString(undefined, {
+  const date = parseUtcDate(value)
+  if (!date || Number.isNaN(date.getTime())) return '—'
+  return date.toLocaleDateString(undefined, {
     weekday: 'short',
     year: 'numeric',
     month: 'short',
@@ -37,10 +54,18 @@ export function formatDateLong(value) {
 }
 
 export function formatClockTime(value) {
-  return new Date(value).toLocaleTimeString(undefined, {
+  const date = parseUtcDate(value)
+  if (!date || Number.isNaN(date.getTime())) return '—'
+  return date.toLocaleTimeString(undefined, {
     hour: '2-digit',
     minute: '2-digit',
   })
+}
+
+export function formatDateTime(value) {
+  const date = parseUtcDate(value)
+  if (!date || Number.isNaN(date.getTime())) return '—'
+  return `${formatDate(date)} · ${formatClockTime(date)}`
 }
 
 export function toISODateLocal(value = new Date()) {

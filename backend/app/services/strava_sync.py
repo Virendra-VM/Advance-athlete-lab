@@ -153,7 +153,10 @@ def get_connection_for_athlete(
 
 
 def api_activity_to_metadata(activity: dict) -> dict:
-    start_date = activity.get("start_date_local") or activity.get("start_date")
+    # Prefer UTC `start_date` so Strava aligns with COROS (which stores UTC).
+    # `start_date_local` is wall-clock without offset and caused false duplicates
+    # for athletes outside UTC (e.g. IST +5:30).
+    start_date = activity.get("start_date") or activity.get("start_date_local")
     activity_date = None
     if start_date:
         parsed = datetime.fromisoformat(str(start_date).replace("Z", "+00:00"))
@@ -175,17 +178,36 @@ def api_activity_to_metadata(activity: dict) -> dict:
 def _activity_exists(
     db: Session, athlete_profile_id: int, strava_activity_id: int
 ) -> bool:
+    return _get_strava_activity(db, athlete_profile_id, strava_activity_id) is not None
+
+
+def _get_strava_activity(
+    db: Session, athlete_profile_id: int, strava_activity_id: int
+) -> Activity | None:
     external_id = str(strava_activity_id)
     return (
-        db.query(Activity.id)
+        db.query(Activity)
         .filter(
             Activity.athlete_profile_id == athlete_profile_id,
             Activity.provider == "strava",
             Activity.external_activity_id == external_id,
         )
         .first()
-        is not None
     )
+
+
+def _apply_api_metadata(record: Activity, metadata: dict) -> None:
+    """Patch local activity fields from Strava API metadata."""
+    if metadata.get("name"):
+        record.name = metadata["name"]
+    if metadata.get("activity_date") is not None:
+        record.activity_date = metadata["activity_date"]
+    record.distance_m = float(metadata.get("distance_m") or 0.0)
+    record.moving_time_s = int(metadata.get("moving_time_s") or 0)
+    record.average_heartrate = metadata.get("average_heartrate")
+    record.max_heartrate = metadata.get("max_heartrate")
+    if metadata.get("sport_type"):
+        record.sport_type = metadata["sport_type"]
 
 
 def import_activity_summary(
@@ -360,17 +382,35 @@ def sync_single_activity(
     strava_activity_id: int,
     *,
     access_token: str | None = None,
+    aspect_type: str = "create",
 ) -> str:
     athlete_profile_id = connection.athlete_profile_id
     if athlete_profile_id is None:
         raise StravaApiError("Strava connection is not linked to an athlete profile.")
 
-    if _activity_exists(db, athlete_profile_id, strava_activity_id):
-        return "skipped"
-
     token = access_token or get_valid_access_token(connection, db)
     activity = get_activity(token, strava_activity_id)
     api_metadata = api_activity_to_metadata(activity)
+
+    existing = _get_strava_activity(db, athlete_profile_id, strava_activity_id)
+    if existing is not None:
+        # Webhook "update" (and duplicate "create") — refresh summary fields.
+        _apply_api_metadata(existing, api_metadata)
+        # Fill missing streams when useful; avoid re-downloading on every title edit.
+        if not existing.points_file_path:
+            streams = fetch_activity_streams(token, strava_activity_id)
+            if streams and streams.get("time"):
+                points_file_path = build_points_from_streams(
+                    streams,
+                    athlete_profile_id,
+                    strava_activity_id,
+                    activity_date=existing.activity_date,
+                )
+                if points_file_path:
+                    existing.points_file_path = points_file_path
+        db.commit()
+        db.refresh(existing)
+        return "updated" if aspect_type == "update" else "skipped"
 
     fit_bytes = download_activity_fit(token, strava_activity_id)
     if fit_bytes:
@@ -583,6 +623,7 @@ def sync_activities_in_background(athlete_profile_id: int) -> None:
 def sync_single_activity_in_background(
     strava_athlete_id: int,
     strava_activity_id: int,
+    aspect_type: str = "create",
 ) -> None:
     from app.database import SessionLocal
 
@@ -598,7 +639,12 @@ def sync_single_activity_in_background(
         if connection is None or connection.athlete_profile_id is None:
             return
         athlete_profile_id = connection.athlete_profile_id
-        sync_single_activity(db, connection, strava_activity_id)
+        sync_single_activity(
+            db,
+            connection,
+            strava_activity_id,
+            aspect_type=aspect_type,
+        )
     except Exception as exc:
         if athlete_profile_id is not None:
             status = get_sync_status(athlete_profile_id)

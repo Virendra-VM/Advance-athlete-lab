@@ -50,17 +50,17 @@ export function AuthProvider({ children }) {
     bootstrap()
   }, [refreshUser])
 
-  async function login(credentials) {
+  async function login(credentials, { remember = true } = {}) {
     const data = await apiLogin(credentials)
-    setStoredToken(data.access_token)
+    setStoredToken(data.access_token, remember)
     setToken(data.access_token)
     setUser(data.user)
     return data.user
   }
 
-  async function register(payload) {
+  async function register(payload, { remember = true } = {}) {
     const data = await apiRegister(payload)
-    setStoredToken(data.access_token)
+    setStoredToken(data.access_token, remember)
     setToken(data.access_token)
     setUser(data.user)
     return data.user

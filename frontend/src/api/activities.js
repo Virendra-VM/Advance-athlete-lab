@@ -71,6 +71,18 @@ export async function getActivity(activityId) {
   return handleResponse(response)
 }
 
+export async function enrichActivityDetail(activityId, { force = false } = {}) {
+  const search = force ? '?force=true' : ''
+  const response = await fetch(`${API_BASE_URL}/api/activities/${activityId}/enrich${search}`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${getStoredToken()}`,
+    },
+  })
+  return handleResponse(response)
+}
+
 export async function getActivityPoints(activityId) {
   const response = await fetch(`${API_BASE_URL}/api/activities/${activityId}/points`)
   return handleResponse(response)
@@ -86,6 +98,50 @@ export async function updateActivityNotes(activityId, notes) {
     body: JSON.stringify({ notes }),
   })
   return handleResponse(response)
+}
+
+export async function listActivityNotes(activityId) {
+  const response = await fetch(`${API_BASE_URL}/api/activities/${activityId}/notes`, {
+    headers: { Authorization: `Bearer ${getStoredToken()}` },
+  })
+  return handleResponse(response)
+}
+
+export async function createActivityNote(activityId, body) {
+  const response = await fetch(`${API_BASE_URL}/api/activities/${activityId}/notes`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${getStoredToken()}`,
+    },
+    body: JSON.stringify({ body }),
+  })
+  return handleResponse(response)
+}
+
+export async function updateActivityNote(activityId, noteId, body) {
+  const response = await fetch(`${API_BASE_URL}/api/activities/${activityId}/notes/${noteId}`, {
+    method: 'PATCH',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${getStoredToken()}`,
+    },
+    body: JSON.stringify({ body }),
+  })
+  return handleResponse(response)
+}
+
+export async function deleteActivityNote(activityId, noteId) {
+  const response = await fetch(`${API_BASE_URL}/api/activities/${activityId}/notes/${noteId}`, {
+    method: 'DELETE',
+    headers: { Authorization: `Bearer ${getStoredToken()}` },
+  })
+  if (!response.ok) {
+    const errorBody = await response.json().catch(() => ({}))
+    const message = errorBody.detail || `Request failed with status ${response.status}`
+    throw new Error(typeof message === 'string' ? message : JSON.stringify(message))
+  }
+  return true
 }
 
 export async function getActivitySummary(athleteProfileId) {

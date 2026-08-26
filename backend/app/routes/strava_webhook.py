@@ -55,11 +55,13 @@ async def strava_webhook_event(
     }:
         owner_id = payload.get("owner_id")
         object_id = payload.get("object_id")
+        aspect_type = payload.get("aspect_type") or "create"
         if owner_id is not None and object_id is not None:
             background_tasks.add_task(
                 sync_single_activity_in_background,
                 int(owner_id),
                 int(object_id),
+                str(aspect_type),
             )
 
     return {"status": "ok"}

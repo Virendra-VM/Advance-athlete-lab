@@ -13,6 +13,7 @@ import { collectSportOptions, filterHistoryActivities } from '../utils/activityF
 import { getActivityTitle } from '../utils/sportTypes'
 import { HistoryFilterBar } from './ActivityFilterBar'
 import Card from './ui/Card'
+import ScrollableTable, { stickyTheadClass } from './ui/ScrollableTable'
 import SportBadge from './SportBadge'
 
 const PAGE_SIZE = 50
@@ -192,9 +193,11 @@ export default function ActivityHistory({ athleteProfileId, refreshKey = 0 }) {
       />
 
       <Card className="overflow-hidden p-0">
-        <div className="overflow-x-auto">
+        <ScrollableTable autoHeight bottomOffset={72}>
           <table className="min-w-full text-left text-sm">
-            <thead className="border-b border-slate-100 bg-slate-50 text-xs uppercase tracking-wide text-slate-500 dark:border-white/10 dark:bg-gray-900/50 dark:text-slate-400">
+            <thead
+              className={`${stickyTheadClass} border-b border-slate-100 text-xs uppercase tracking-wide dark:border-white/10`}
+            >
               <tr>
                 <th className="px-4 py-3">Date</th>
                 <th className="px-4 py-3">Sport</th>
@@ -205,7 +208,7 @@ export default function ActivityHistory({ athleteProfileId, refreshKey = 0 }) {
                 <th className="px-4 py-3">Max HR</th>
               </tr>
             </thead>
-            <tbody>
+            <tbody className="bg-[var(--aal-card)]">
               {pageItems.length === 0 ? (
                 <tr>
                   <td colSpan={7} className="px-4 py-8 text-center text-slate-500">
@@ -252,7 +255,7 @@ export default function ActivityHistory({ athleteProfileId, refreshKey = 0 }) {
               )}
             </tbody>
           </table>
-        </div>
+        </ScrollableTable>
 
         <div className="flex items-center justify-between border-t border-slate-100 px-4 py-3 text-sm text-slate-500 dark:border-white/10 dark:text-slate-400">
           <span>

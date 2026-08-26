@@ -96,6 +96,8 @@ export default function SettingsPage() {
   const [showCycle, setShowCycle] = useState(
     () => localStorage.getItem('aal_show_cycle') === '1',
   )
+  const [dedupeRunning, setDedupeRunning] = useState(false)
+  const [dedupeMessage, setDedupeMessage] = useState('')
   const [importRunning, setImportRunning] = useState(false)
   const [importStatus, setImportStatus] = useState(null)
   const [importError, setImportError] = useState('')
@@ -286,6 +288,34 @@ export default function SettingsPage() {
     const next = !showCycle
     setShowCycle(next)
     localStorage.setItem('aal_show_cycle', next ? '1' : '0')
+  }
+
+  async function handleMergeDuplicates() {
+    setDedupeRunning(true)
+    setDedupeMessage('')
+    try {
+      const result = await dedupeActivities()
+      const linked = result?.linked ?? 0
+      setDedupeMessage(
+        linked > 0
+          ? `Merged ${linked} duplicate workout${linked === 1 ? '' : 's'}. Strava keeps the visible copy; COROS twin is hidden.`
+          : 'No new duplicates found — everything already looks linked.',
+      )
+      if (linked > 0) {
+        setSyncResult({
+          title: 'Duplicates merged',
+          message:
+            linked === 1
+              ? '1 COROS/Strava pair was the same workout. The Strava copy stays visible (with streams); the COROS twin is hidden from lists.'
+              : `${linked} COROS/Strava pairs were the same workouts. Strava copies stay visible; COROS twins are hidden from lists.`,
+          details: [`${linked} pair${linked === 1 ? '' : 's'} linked`],
+        })
+      }
+    } catch (err) {
+      setDedupeMessage(err.message || 'Failed to merge duplicates.')
+    } finally {
+      setDedupeRunning(false)
+    }
   }
 
   async function handleUploadClick() {
@@ -590,6 +620,38 @@ export default function SettingsPage() {
             </div>
           </section>
         )}
+
+        {/* Data cleanup */}
+        <section className="space-y-4">
+          <div>
+            <h2 className="text-lg font-semibold">Data cleanup</h2>
+            <p className="mt-0.5 text-sm text-[var(--aal-muted)]">
+              Merge workouts that arrived twice from COROS and Strava.
+            </p>
+          </div>
+          <div className="rounded-2xl border border-[var(--aal-line)] bg-[var(--aal-card)] p-5 sm:p-6">
+            <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+              <div>
+                <h3 className="text-base font-semibold">Merge duplicate activities</h3>
+                <p className="mt-1 text-sm text-[var(--aal-muted)]">
+                  Same workout from both apps (UTC vs local time) is linked so only one card
+                  shows in Activities and Schedule.
+                </p>
+              </div>
+              <ActionButton
+                onClick={handleMergeDuplicates}
+                disabled={dedupeRunning}
+                variant="primary"
+              >
+                <RefreshCw className={`h-4 w-4 ${dedupeRunning ? 'sync-spin' : ''}`} />
+                {dedupeRunning ? 'Merging…' : 'Merge duplicates now'}
+              </ActionButton>
+            </div>
+            {dedupeMessage ? (
+              <p className="mt-3 text-sm text-sage">{dedupeMessage}</p>
+            ) : null}
+          </div>
+        </section>
 
         {/* Historical import */}
         <section className="space-y-4">

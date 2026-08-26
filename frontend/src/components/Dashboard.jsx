@@ -12,6 +12,7 @@ import {
   XAxis,
   YAxis,
 } from 'recharts'
+import BarActiveGlow from './charts/BarActiveEffects'
 import { dedupeActivities, listActivities } from '../api/activities'
 import { getAthleteStats } from '../api/athlete'
 import { getCorosOverview, getCorosSyncStatus, startCorosSync } from '../api/coros'
@@ -276,8 +277,13 @@ export default function Dashboard() {
                       <CartesianGrid stroke="var(--aal-line)" strokeDasharray="3 3" />
                       <XAxis dataKey="label" tick={{ fontSize: 12 }} />
                       <YAxis tick={{ fontSize: 12 }} />
-                      <Tooltip />
-                      <Bar dataKey="km" fill="#6b9080" radius={[6, 6, 0, 0]} />
+                      <Tooltip cursor={{ fill: 'transparent' }} />
+                      <Bar
+                        dataKey="km"
+                        fill="#6b9080"
+                        radius={[6, 6, 0, 0]}
+                        activeBar={BarActiveGlow}
+                      />
                     </BarChart>
                   </ResponsiveContainer>
                 ) : (

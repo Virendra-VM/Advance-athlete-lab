@@ -18,6 +18,7 @@ import {
   YAxis,
 } from 'recharts'
 import { backfillMetricHistory, getMetricSeries } from '../api/coros'
+import BarActiveGlow from '../components/charts/BarActiveEffects'
 import AppShell from '../components/layout/AppShell'
 import EmptyState from '../components/ui/EmptyState'
 import LoadingDots from '../components/ui/LoadingDots'
@@ -778,14 +779,27 @@ export default function SleepPage() {
                     />
                     <YAxis tick={{ fontSize: 11 }} stroke="var(--aal-muted)" />
                     <Tooltip
+                      cursor={{ fill: 'transparent' }}
                       labelFormatter={(value) => formatDayLabel(value, 'full')}
                       formatter={(value, name) => [
                         name === 'Duration' ? formatMinutes(value) : formatNumber(value, 0),
                         name,
                       ]}
                     />
-                    <Bar dataKey="score" name="Score" fill="#6b9080" radius={[6, 6, 0, 0]} />
-                    <Bar dataKey="duration" name="Duration" fill="#6b9ac4" radius={[6, 6, 0, 0]} />
+                    <Bar
+                      dataKey="score"
+                      name="Score"
+                      fill="#6b9080"
+                      radius={[6, 6, 0, 0]}
+                      activeBar={BarActiveGlow}
+                    />
+                    <Bar
+                      dataKey="duration"
+                      name="Duration"
+                      fill="#6b9ac4"
+                      radius={[6, 6, 0, 0]}
+                      activeBar={BarActiveGlow}
+                    />
                   </BarChart>
                 </ResponsiveContainer>
               </div>
@@ -863,6 +877,7 @@ export default function SleepPage() {
                       />
                       <YAxis tick={{ fontSize: 11 }} stroke="var(--aal-muted)" />
                       <Tooltip
+                        cursor={{ fill: 'transparent' }}
                         labelFormatter={(_, payload) => payload?.[0]?.payload?.date || _}
                         formatter={(value, name) => [formatMinutes(value), name]}
                       />

@@ -151,9 +151,28 @@ def strava_callback(
         .first()
     )
 
-    if connection is None:
-        connection = StravaConnection(strava_athlete_id=strava_athlete_id)
-        db.add(connection)
+    if connection is not None:
+        owner_id = connection.athlete_profile_id
+        if owner_id is not None and owner_id != profile.id:
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail=(
+                    "This Strava account is already linked to another athlete profile."
+                ),
+            )
+    else:
+        # Same user reconnecting (possibly with a different Strava athlete id).
+        connection = (
+            db.query(StravaConnection)
+            .filter(StravaConnection.athlete_profile_id == profile.id)
+            .order_by(StravaConnection.id.desc())
+            .first()
+        )
+        if connection is None:
+            connection = StravaConnection(strava_athlete_id=strava_athlete_id)
+            db.add(connection)
+        else:
+            connection.strava_athlete_id = strava_athlete_id
 
     connection.access_token = token_data["access_token"]
     connection.refresh_token = token_data["refresh_token"]

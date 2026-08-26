@@ -1,6 +1,14 @@
-export default function PageHeader({ title, subtitle, actions = null, eyebrow = null }) {
+export default function PageHeader({
+  title,
+  subtitle,
+  actions = null,
+  eyebrow = null,
+  className = '',
+}) {
   return (
-    <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+    <div
+      className={`mb-6 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between ${className}`.trim()}
+    >
       <div>
         {eyebrow && (
           <p className="text-xs font-semibold uppercase tracking-[0.18em] text-sage">{eyebrow}</p>

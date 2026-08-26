@@ -102,8 +102,16 @@ export default function Sidebar({
           open ? 'translate-x-0' : '-translate-x-full'
         } ${collapsed ? 'lg:w-20' : 'lg:w-72'}`}
       >
-        <div className="flex items-center gap-2 px-3 py-5">
-          <div className="flex min-w-0 flex-1 items-center gap-3 px-1">
+        <div
+          className={`flex px-3 py-5 ${
+            collapsed ? 'flex-col items-center gap-3' : 'items-center gap-2'
+          }`}
+        >
+          <div
+            className={`flex min-w-0 items-center gap-3 px-1 ${
+              collapsed ? 'justify-center' : 'flex-1'
+            }`}
+          >
             <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-sage/20 text-sage-muted">
               <Activity className="h-5 w-5" />
             </div>

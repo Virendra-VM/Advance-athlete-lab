@@ -55,6 +55,7 @@ from app.services.coros_metrics import (
 from app.services.coros_sync import (
     get_coros_connection,
     get_sync_status,
+    is_sync_running,
     sync_in_background,
 )
 from app.services.schedule_completion import match_schedule_completions
@@ -233,7 +234,7 @@ def start_coros_sync(
     connection = get_coros_connection(db, profile.id)
     if connection is None:
         raise HTTPException(status_code=404, detail="No COROS connection found.")
-    if get_sync_status(profile.id).get("running"):
+    if is_sync_running(profile.id):
         raise HTTPException(status_code=409, detail="A COROS sync is already running.")
     background_tasks.add_task(sync_in_background, profile.id)
     return ImportStartResponse(
@@ -342,7 +343,10 @@ def get_coros_health(
         query = query.filter(DailyHealthMetric.metric_date >= from_date)
     if to_date:
         query = query.filter(DailyHealthMetric.metric_date <= to_date)
-    rows = query.order_by(DailyHealthMetric.metric_date.desc()).limit(90).all()
+    # Default: recent window. With an explicit range, return the full series
+    # up to a high safety cap (~3 years of daily rows).
+    limit = 1000 if (from_date is not None or to_date is not None) else 90
+    rows = query.order_by(DailyHealthMetric.metric_date.desc()).limit(limit).all()
     return [_serialize_health(row) for row in rows]
 
 

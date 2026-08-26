@@ -3,13 +3,8 @@ import { Link, useNavigate } from 'react-router-dom'
 import { ChevronLeft, ChevronRight, Info, Search } from 'lucide-react'
 import { listActivities } from '../api/activities'
 import { formatDate, formatDistanceKm, formatDuration } from '../utils/formatters'
-
-const TAB_PRESETS = [
-  { id: 'week', label: 'This week' },
-  { id: 'month', label: 'This month' },
-  { id: 'year', label: 'This year' },
-  { id: 'all', label: 'View all' },
-]
+import ScrollableTable, { stickyTheadClass } from './ui/ScrollableTable'
+import { ACTIVITY_RANGE_OPTIONS } from '../utils/activityRanges'
 
 function dateForTab(tabId) {
   const now = new Date()
@@ -27,9 +22,18 @@ export default function ActivitiesTable({
   embedded = false,
   hideToolbar = false,
   initialItems = null,
+  range: controlledRange = null,
+  onRangeChange = null,
+  fill = false,
 }) {
   const navigate = useNavigate()
-  const [tab, setTab] = useState(embedded ? 'all' : 'month')
+  const [internalRange, setInternalRange] = useState(embedded ? 'all' : 'month')
+  const tab = controlledRange ?? internalRange
+  const setTab = (next) => {
+    setPage(1)
+    if (onRangeChange) onRangeChange(next)
+    else setInternalRange(next)
+  }
   const [q, setQ] = useState('')
   const [provider, setProvider] = useState('')
   const [sport, setSport] = useState('')
@@ -84,32 +88,33 @@ export default function ActivitiesTable({
     return Array.from({ length: Math.min(maxButtons, totalPages) }, (_, i) => start + i)
   }, [page, totalPages])
 
-  return (
-    <div className="space-y-4">
-      {!hideToolbar && (
-        <>
-          <div className="flex flex-wrap gap-2">
-            {TAB_PRESETS.map((preset) => (
-              <button
-                key={preset.id}
-                type="button"
-                onClick={() => {
-                  setTab(preset.id)
-                  setPage(1)
-                }}
-                className={`rounded-xl border px-3 py-1.5 text-sm font-medium ${
-                  tab === preset.id
-                    ? 'border-[var(--aal-link)] text-[var(--aal-link)]'
-                    : 'border-[var(--aal-line)] text-[var(--aal-muted)]'
-                }`}
-              >
-                {preset.label}
-              </button>
-            ))}
-          </div>
+  const showInlineRange = !hideToolbar && controlledRange == null && !embedded
 
-          <div className="flex flex-col gap-3 sm:flex-row">
-            <div className="relative flex-1">
+  return (
+    <div className={fill ? 'flex min-h-0 flex-1 flex-col gap-4 overflow-hidden' : 'space-y-4'}>
+      {!hideToolbar && (
+        <div className="shrink-0 space-y-4">
+          {showInlineRange ? (
+            <div className="flex flex-wrap gap-2">
+              {ACTIVITY_RANGE_OPTIONS.map((preset) => (
+                <button
+                  key={preset.id}
+                  type="button"
+                  onClick={() => setTab(preset.id)}
+                  className={`inline-flex h-9 min-w-[5.75rem] items-center justify-center rounded-xl border px-3 text-sm font-medium ${
+                    tab === preset.id
+                      ? 'border-[var(--aal-link)] text-[var(--aal-link)]'
+                      : 'border-[var(--aal-line)] text-[var(--aal-muted)]'
+                  }`}
+                >
+                  {preset.label}
+                </button>
+              ))}
+            </div>
+          ) : null}
+
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+            <div className="relative min-h-10 flex-1">
               <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[var(--aal-muted)]" />
               <input
                 value={q}
@@ -118,13 +123,17 @@ export default function ActivitiesTable({
                   setPage(1)
                 }}
                 placeholder="Search"
-                className="w-full rounded-xl border border-[var(--aal-line)] bg-[var(--aal-card)] py-2.5 pl-9 pr-3 text-sm outline-none focus:border-sage"
+                className="h-10 w-full rounded-xl border border-[var(--aal-line)] bg-[var(--aal-card)] py-0 pl-9 pr-3 text-sm outline-none focus:border-sage"
               />
             </div>
             <button
               type="button"
               onClick={() => setShowFilters((v) => !v)}
-              className="rounded-xl border border-[var(--aal-line)] px-4 py-2.5 text-sm font-medium"
+              className={`inline-flex h-10 min-w-[6.5rem] items-center justify-center rounded-xl border px-4 text-sm font-medium ${
+                showFilters
+                  ? 'border-sage bg-sage/10 text-sage'
+                  : 'border-[var(--aal-line)] text-[var(--aal-ink)]'
+              }`}
             >
               Filters
             </button>
@@ -140,7 +149,7 @@ export default function ActivitiesTable({
                     setProvider(e.target.value)
                     setPage(1)
                   }}
-                  className="w-full rounded-lg border border-[var(--aal-line)] bg-transparent px-3 py-2"
+                  className="h-10 w-full rounded-lg border border-[var(--aal-line)] bg-transparent px-3"
                 >
                   <option value="">All</option>
                   <option value="strava">Strava</option>
@@ -155,7 +164,7 @@ export default function ActivitiesTable({
                     setSport(e.target.value)
                     setPage(1)
                   }}
-                  className="w-full rounded-lg border border-[var(--aal-line)] bg-transparent px-3 py-2"
+                  className="h-10 w-full rounded-lg border border-[var(--aal-line)] bg-transparent px-3"
                 />
               </label>
               <label className="text-sm">
@@ -163,7 +172,7 @@ export default function ActivitiesTable({
                 <select
                   value={sort}
                   onChange={(e) => setSort(e.target.value)}
-                  className="w-full rounded-lg border border-[var(--aal-line)] bg-transparent px-3 py-2"
+                  className="h-10 w-full rounded-lg border border-[var(--aal-line)] bg-transparent px-3"
                 >
                   <option value="date_desc">Date (newest)</option>
                   <option value="date_asc">Date (oldest)</option>
@@ -173,15 +182,26 @@ export default function ActivitiesTable({
               </label>
             </div>
           )}
-        </>
+        </div>
       )}
 
-      {error && <p className="text-sm text-danger-muted">{error}</p>}
+      {error && <p className="shrink-0 text-sm text-danger-muted">{error}</p>}
 
-      <div className="overflow-hidden rounded-xl border border-[var(--aal-line)] bg-[var(--aal-card)]">
-        <div className="overflow-x-auto">
+      <div
+        className={
+          fill
+            ? 'flex min-h-0 flex-1 flex-col overflow-hidden rounded-xl border border-[var(--aal-line)] bg-[var(--aal-card)]'
+            : 'overflow-hidden rounded-xl border border-[var(--aal-line)] bg-[var(--aal-card)]'
+        }
+      >
+        <ScrollableTable
+          fill={fill}
+          autoHeight={!fill && !embedded}
+          bottomOffset={embedded ? 24 : 88}
+          maxHeightClass="max-h-72"
+        >
           <table className="min-w-full text-left text-sm">
-            <thead className="bg-slate-50 text-[var(--aal-muted)] dark:bg-white/5">
+            <thead className={stickyTheadClass}>
               <tr>
                 <th className="px-4 py-3 font-medium">Date</th>
                 <th className="px-4 py-3 font-medium">Name</th>
@@ -193,7 +213,7 @@ export default function ActivitiesTable({
                 <th className="px-4 py-3 font-medium" />
               </tr>
             </thead>
-            <tbody>
+            <tbody className="bg-[var(--aal-card)]">
               {loading ? (
                 <tr>
                   <td colSpan={8} className="px-4 py-8 text-center text-[var(--aal-muted)]">
@@ -244,10 +264,10 @@ export default function ActivitiesTable({
               )}
             </tbody>
           </table>
-        </div>
+        </ScrollableTable>
 
         {!embedded && (
-          <div className="flex flex-col gap-3 border-t border-[var(--aal-line)] px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex shrink-0 flex-col gap-3 border-t border-[var(--aal-line)] px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
             <p className="text-sm font-semibold text-[var(--aal-ink)]">Total: {data.total || 0}</p>
             <div className="flex items-center gap-1">
               <button

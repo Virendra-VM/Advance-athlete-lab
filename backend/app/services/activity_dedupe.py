@@ -3,6 +3,14 @@
 Policy: keep one visible "canonical" row per real-world workout.
 Prefer Strava as canonical (better streams); link the other row via
 `canonical_activity_id` so lists/Schedule can hide duplicates.
+
+Failure modes this matcher handles
+----------------------------------
+1) UTC vs local start (e.g. COROS 13:31Z vs Strava 19:01 IST).
+2) Outdoor twins with near-identical distance but different moving/elapsed time.
+3) Indoor gym twins with *no GPS distance*: COROS labels them ``Strength`` while
+   Strava uses ``WeightTraining``, and durations often differ ~25–40% (paused
+   rest vs moving time). Those must match on sport-family + duration, not distance.
 """
 
 from __future__ import annotations
@@ -14,13 +22,103 @@ from sqlalchemy.orm import Session
 
 from app.models import Activity
 
-# Tight window when both sides have real start timestamps.
-TIME_WINDOW = timedelta(minutes=15)
-# Same calendar-day fallback when one side is date-only / midnight.
-DAY_DURATION_TOLERANCE = 0.08  # 8%
-DAY_DISTANCE_TOLERANCE = 0.05  # 5%
-TIGHT_DURATION_TOLERANCE = 0.05
-TIGHT_DISTANCE_TOLERANCE = 0.02
+# Same-clock starts (after stripping tzinfo / comparing as naive clocks).
+TIME_WINDOW = timedelta(minutes=25)
+# How close a delta must be to a civil timezone offset to count as "skew".
+TZ_SKEW_TOLERANCE = timedelta(minutes=30)
+# Half-hour civil offsets commonly seen between UTC storage and local wall time.
+_COMMON_TZ_OFFSET_HOURS = (
+    0.5,
+    1.0,
+    1.5,
+    2.0,
+    2.5,
+    3.0,
+    3.5,
+    4.0,
+    4.5,
+    5.0,
+    5.5,  # India
+    6.0,
+    6.5,
+    7.0,
+    8.0,
+    9.0,
+    9.5,
+    10.0,
+    10.5,
+    11.0,
+    12.0,
+    12.75,
+    13.0,
+    14.0,
+)
+
+# Distance is the strongest cross-provider signal for outdoor sports.
+TIGHT_DISTANCE_TOLERANCE = 0.03  # 3%
+DAY_DISTANCE_TOLERANCE = 0.06  # 6%
+TIGHT_DURATION_TOLERANCE = 0.12  # 12%
+LOOSE_DURATION_TOLERANCE = 0.45  # 45% — moving vs elapsed / gym rest pauses
+# Indoor (no GPS): allow slightly looser duration when sport family matches.
+INDOOR_DURATION_TOLERANCE = 0.50  # 50%
+
+# Normalized sport families so COROS "Strength" ↔ Strava "WeightTraining".
+_SPORT_FAMILIES: dict[str, set[str]] = {
+    "strength": {
+        "strength",
+        "weighttraining",
+        "weight_training",
+        "workout",
+        "traditionalstrengthtraining",
+        "functionalstrengthtraining",
+        "crossfit",
+        "gym",
+        "weightlifting",
+    },
+    "run": {"run", "trailrun", "virtualrun", "treadmill"},
+    "ride": {"ride", "virtualride", "gravelride", "mountainbikeride", "ebikeride", "cycling"},
+    "walk": {"walk", "hike", "hiking"},
+    "swim": {"swim", "swimming", "openwaterswim"},
+    "row": {"rowing", "virtualrow", "canoeing", "kayaking"},
+    "yoga": {"yoga", "pilates", "stretching"},
+}
+
+
+def _naive(dt: datetime) -> datetime:
+    if dt is None:
+        raise ValueError("datetime required")
+    return dt.replace(tzinfo=None) if dt.tzinfo else dt
+
+
+def _norm_sport(sport: str | None) -> str:
+    if not sport:
+        return ""
+    return "".join(ch for ch in str(sport).lower() if ch.isalnum())
+
+
+def sport_family(sport: str | None) -> str | None:
+    """Return canonical family name, or None if unknown."""
+    key = _norm_sport(sport)
+    if not key:
+        return None
+    for family, members in _SPORT_FAMILIES.items():
+        if key in members:
+            return family
+    return None
+
+
+def sports_compatible(sport_a: str | None, sport_b: str | None) -> bool:
+    """True when sports are the same family, or identical raw labels."""
+    a = _norm_sport(sport_a)
+    b = _norm_sport(sport_b)
+    if not a or not b:
+        # Missing sport: allow only when both missing (rare); otherwise require family.
+        return not a and not b
+    if a == b:
+        return True
+    fa = sport_family(sport_a)
+    fb = sport_family(sport_b)
+    return fa is not None and fa == fb
 
 
 def _rel_close(a: float, b: float, tol: float) -> bool:
@@ -30,26 +128,78 @@ def _rel_close(a: float, b: float, tol: float) -> bool:
     return abs(a - b) / max(a, b, 1.0) <= tol
 
 
-def _metrics_match(
+def _is_timezone_skew(delta: timedelta) -> bool:
+    """True when |delta| is within tolerance of a common UTC↔local offset."""
+    seconds = abs(delta.total_seconds())
+    if seconds < TIME_WINDOW.total_seconds():
+        return False
+    tol = TZ_SKEW_TOLERANCE.total_seconds()
+    for hours in _COMMON_TZ_OFFSET_HOURS:
+        if abs(seconds - hours * 3600.0) <= tol:
+            return True
+    return False
+
+
+def _same_or_adjacent_calendar_day(da: datetime, db_: datetime) -> bool:
+    return abs((da.date() - db_.date()).days) <= 1
+
+
+def _metrics_support_match(
     distance_a: float,
     duration_a: float,
     distance_b: float,
     duration_b: float,
     *,
-    distance_tol: float,
-    duration_tol: float,
+    mode: str,
+    sports_ok: bool,
 ) -> bool:
-    """Require at least one comparable metric; zero/missing metrics never match alone."""
-    distance_ok = _rel_close(distance_a, distance_b, distance_tol)
-    duration_ok = _rel_close(duration_a, duration_b, duration_tol)
+    """Decide whether distance/duration/sport support a duplicate link.
+
+    mode:
+      - "aligned": starts already agree (tight clock or timezone-skew)
+      - "same_day": weaker time signal; need stronger metrics
+    """
     has_distance = distance_a > 0 and distance_b > 0
     has_duration = duration_a > 0 and duration_b > 0
-    if has_distance and has_duration:
-        return distance_ok and duration_ok
-    if has_distance:
-        return distance_ok
-    if has_duration:
-        return duration_ok
+    indoor = (distance_a <= 0) and (distance_b <= 0)
+    distance_tight = has_distance and _rel_close(
+        distance_a, distance_b, TIGHT_DISTANCE_TOLERANCE
+    )
+    distance_ok = has_distance and _rel_close(
+        distance_a, distance_b, DAY_DISTANCE_TOLERANCE
+    )
+    duration_tight = has_duration and _rel_close(
+        duration_a, duration_b, TIGHT_DURATION_TOLERANCE
+    )
+    duration_loose = has_duration and _rel_close(
+        duration_a, duration_b, LOOSE_DURATION_TOLERANCE
+    )
+    duration_indoor = has_duration and _rel_close(
+        duration_a, duration_b, INDOOR_DURATION_TOLERANCE
+    )
+
+    if mode == "aligned":
+        # Same start (or UTC vs local of the same start): distance alone is enough
+        # when nearly identical — duration often disagrees (moving vs elapsed).
+        if distance_tight:
+            return True
+        if distance_ok and (duration_loose or not has_duration):
+            return True
+        if indoor and sports_ok and duration_indoor:
+            return True
+        if duration_tight and not has_distance and sports_ok:
+            return True
+        return False
+
+    # same_day / weak time — require sport agreement for indoor gym sessions.
+    if distance_tight and duration_loose:
+        return True
+    if distance_tight and not has_duration:
+        return True
+    if distance_ok and duration_tight:
+        return True
+    if indoor and sports_ok and duration_indoor:
+        return True
     return False
 
 
@@ -61,42 +211,49 @@ def fingerprint_match(
     date_b: datetime,
     distance_b: float,
     duration_b: int,
+    sport_a: str | None = None,
+    sport_b: str | None = None,
 ) -> bool:
     """Return True when two activity fingerprints likely describe the same workout."""
     if date_a is None or date_b is None:
         return False
 
-    # Normalize naive datetimes for comparison.
-    da = date_a.replace(tzinfo=None) if date_a.tzinfo else date_a
-    db_ = date_b.replace(tzinfo=None) if date_b.tzinfo else date_b
-
+    da = _naive(date_a)
+    db_ = _naive(date_b)
     delta = abs(da - db_)
-    same_calendar_day = da.date() == db_.date()
+    sports_ok = sports_compatible(sport_a, sport_b)
 
-    # Midnight (or near) on either side → treat as weak timestamp; use day + metrics.
+    # Outdoor twins can match without sport labels; indoor gym must agree on family.
+    indoor = float(distance_a or 0.0) <= 0 and float(distance_b or 0.0) <= 0
+    if indoor and not sports_ok:
+        return False
+
     weak_time = (
         (da.hour == 0 and da.minute == 0 and da.second == 0)
         or (db_.hour == 0 and db_.minute == 0 and db_.second == 0)
     )
 
-    if delta <= TIME_WINDOW and not weak_time:
-        return _metrics_match(
-            distance_a,
-            float(duration_a),
-            distance_b,
-            float(duration_b),
-            distance_tol=TIGHT_DISTANCE_TOLERANCE,
-            duration_tol=TIGHT_DURATION_TOLERANCE,
+    aligned = (delta <= TIME_WINDOW and not weak_time) or _is_timezone_skew(delta)
+    if aligned:
+        return _metrics_support_match(
+            float(distance_a or 0.0),
+            float(duration_a or 0.0),
+            float(distance_b or 0.0),
+            float(duration_b or 0.0),
+            mode="aligned",
+            sports_ok=sports_ok,
         )
 
-    if same_calendar_day or (weak_time and delta <= timedelta(hours=36)):
-        return _metrics_match(
-            distance_a,
-            float(duration_a),
-            distance_b,
-            float(duration_b),
-            distance_tol=DAY_DISTANCE_TOLERANCE,
-            duration_tol=DAY_DURATION_TOLERANCE,
+    if _same_or_adjacent_calendar_day(da, db_) or (
+        weak_time and delta <= timedelta(hours=36)
+    ):
+        return _metrics_support_match(
+            float(distance_a or 0.0),
+            float(duration_a or 0.0),
+            float(distance_b or 0.0),
+            float(duration_b or 0.0),
+            mode="same_day",
+            sports_ok=sports_ok,
         )
     return False
 
@@ -111,6 +268,14 @@ def choose_canonical(a: Activity, b: Activity) -> tuple[Activity, Activity]:
         return a, b
     if b.points_file_path and not a.points_file_path:
         return b, a
+    # Prefer longer duration when both are indoor (more complete gym session).
+    da = float(a.distance_m or 0.0)
+    db = float(b.distance_m or 0.0)
+    if da <= 0 and db <= 0:
+        if int(a.moving_time_s or 0) > int(b.moving_time_s or 0):
+            return a, b
+        if int(b.moving_time_s or 0) > int(a.moving_time_s or 0):
+            return b, a
     # Stable: older id stays canonical.
     if a.id and b.id and a.id < b.id:
         return a, b
@@ -151,12 +316,14 @@ def find_cross_provider_match(
     distance_m: float,
     moving_time_s: int,
     other_provider: str,
+    sport_type: str | None = None,
     exclude_id: int | None = None,
 ) -> Activity | None:
     """Find the best matching activity from the other provider."""
     if activity_date is None:
         return None
     day = activity_date.date() if hasattr(activity_date, "date") else activity_date
+    # Wide window: UTC vs local can land on adjacent calendar days near midnight.
     window_start = datetime.combine(day, datetime.min.time()) - timedelta(days=1)
     window_end = datetime.combine(day, datetime.max.time().replace(microsecond=0)) + timedelta(
         days=1
@@ -173,7 +340,7 @@ def find_cross_provider_match(
 
     candidates = query.all()
     best: Activity | None = None
-    best_delta: timedelta | None = None
+    best_score: tuple[float, float, float] | None = None
     for candidate in candidates:
         if not fingerprint_match(
             date_a=activity_date,
@@ -182,19 +349,27 @@ def find_cross_provider_match(
             date_b=candidate.activity_date,
             distance_b=float(candidate.distance_m or 0.0),
             duration_b=int(candidate.moving_time_s or 0),
+            sport_a=sport_type,
+            sport_b=candidate.sport_type,
         ):
             continue
-        delta = abs(
-            (activity_date.replace(tzinfo=None) if activity_date.tzinfo else activity_date)
-            - (
-                candidate.activity_date.replace(tzinfo=None)
-                if candidate.activity_date.tzinfo
-                else candidate.activity_date
-            )
-        )
-        if best is None or best_delta is None or delta < best_delta:
+        da = _naive(activity_date)
+        db_ = _naive(candidate.activity_date)
+        delta_s = abs((da - db_).total_seconds())
+        dist_err = abs(float(distance_m or 0.0) - float(candidate.distance_m or 0.0))
+        dur_err = abs(float(moving_time_s or 0) - float(candidate.moving_time_s or 0))
+        # Collapse common TZ offsets so 5.5h IST skew scores like "aligned".
+        align_penalty = delta_s
+        if _is_timezone_skew(timedelta(seconds=delta_s)):
+            align_penalty = 0.0
+        elif delta_s <= TIME_WINDOW.total_seconds():
+            align_penalty = 0.0
+        # Prefer aligned starts, then closer distance, then closer duration
+        # (important when several WeightTraining rows exist on one day).
+        score = (align_penalty, dist_err, dur_err)
+        if best is None or best_score is None or score < best_score:
             best = candidate
-            best_delta = delta
+            best_score = score
     return best
 
 
@@ -211,6 +386,7 @@ def link_new_activity_to_peer(db: Session, activity: Activity) -> Activity | Non
         distance_m=float(activity.distance_m or 0.0),
         moving_time_s=int(activity.moving_time_s or 0),
         other_provider=other,
+        sport_type=activity.sport_type,
         exclude_id=activity.id,
     )
     if peer is None:
@@ -222,21 +398,24 @@ def link_new_activity_to_peer(db: Session, activity: Activity) -> Activity | Non
 
 
 def backfill_athlete_duplicates(db: Session, athlete_profile_id: int) -> dict[str, Any]:
-    """Scan athlete activities and link unlinked Strava↔COROS pairs."""
+    """Scan athlete activities and link unlinked Strava↔COROS pairs.
+
+    Prefer matching longer Strava sessions first so a short WeightTraining
+    fragment does not steal the COROS Strength twin from the real gym workout.
+    """
     strava_rows = (
         db.query(Activity)
         .filter(
             Activity.athlete_profile_id == athlete_profile_id,
             Activity.provider == "strava",
         )
-        .order_by(Activity.activity_date.asc())
+        .order_by(Activity.moving_time_s.desc().nullslast(), Activity.activity_date.asc())
         .all()
     )
     linked = 0
     scanned = 0
     for strava in strava_rows:
         scanned += 1
-        # Find unmatched COROS peer (prefer unlinked COROS).
         peer = find_cross_provider_match(
             db,
             athlete_profile_id=athlete_profile_id,
@@ -244,6 +423,7 @@ def backfill_athlete_duplicates(db: Session, athlete_profile_id: int) -> dict[st
             distance_m=float(strava.distance_m or 0.0),
             moving_time_s=int(strava.moving_time_s or 0),
             other_provider="coros",
+            sport_type=strava.sport_type,
             exclude_id=strava.id,
         )
         if peer is None:

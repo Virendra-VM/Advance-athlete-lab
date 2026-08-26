@@ -10,6 +10,7 @@ import {
 } from 'recharts'
 import { getAthleteStats } from '../api/athlete'
 import { useAuth } from '../context/AuthContext'
+import BarActiveGlow from '../components/charts/BarActiveEffects'
 import AppShell from '../components/layout/AppShell'
 import ACWRGauge from '../components/ACWRGauge'
 import AcuteChronicCards from '../components/AcuteChronicCards'
@@ -63,8 +64,13 @@ export default function VolumePage() {
                     <CartesianGrid stroke="var(--aal-line)" strokeDasharray="3 3" />
                     <XAxis dataKey="label" tick={{ fontSize: 12 }} />
                     <YAxis tick={{ fontSize: 12 }} />
-                    <Tooltip />
-                    <Bar dataKey="km" fill="#6b9080" radius={[6, 6, 0, 0]} />
+                    <Tooltip cursor={{ fill: 'transparent' }} />
+                    <Bar
+                      dataKey="km"
+                      fill="#6b9080"
+                      radius={[6, 6, 0, 0]}
+                      activeBar={BarActiveGlow}
+                    />
                   </BarChart>
                 </ResponsiveContainer>
               </div>

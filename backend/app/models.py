@@ -128,7 +128,27 @@ class Activity(Base):
     points_file_path = Column(String(1024), nullable=True)
     source_fit_file = Column(String(512), nullable=False)
     notes = Column(Text, nullable=True)
+    # Normalized COROS/Strava detail (laps, exercises, zones, summary extras).
+    detail_json = Column(Text, nullable=True)
+    detail_fetched_at = Column(DateTime, nullable=True)
+    # Optional COROS numeric sport type code for getActivityDetail.
+    sport_type_code = Column(String(64), nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+
+
+class ActivityNote(Base):
+    __tablename__ = "activity_notes"
+
+    id = Column(Integer, primary_key=True, index=True, autoincrement=True)
+    activity_id = Column(
+        Integer, ForeignKey("activities.id"), nullable=False, index=True
+    )
+    athlete_profile_id = Column(
+        Integer, ForeignKey("athlete_profiles.id"), nullable=False, index=True
+    )
+    body = Column(Text, nullable=False)
+    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False)
 
 
 class DailyHealthMetric(Base):

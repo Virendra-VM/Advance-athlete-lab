@@ -103,24 +103,129 @@ def run_migrations() -> None:
                 )
             )
 
-            conn.execute(
-                text("ALTER TABLE activities DROP CONSTRAINT IF EXISTS uq_athlete_strava_activity")
-            )
+            # Blank/NULL external ids collide under UNIQUE; give each row a stable unique value.
             conn.execute(
                 text(
                     """
-                    DO $$
-                    BEGIN
-                        IF NOT EXISTS (
-                            SELECT 1 FROM pg_constraint
-                            WHERE conname = 'uq_athlete_provider_activity'
-                        ) THEN
-                            ALTER TABLE activities
-                            ADD CONSTRAINT uq_athlete_provider_activity
-                            UNIQUE (athlete_profile_id, provider, external_activity_id);
-                        END IF;
-                    END $$;
+                    UPDATE activities
+                    SET external_activity_id = 'legacy-' || id::text
+                    WHERE external_activity_id IS NULL
+                       OR BTRIM(external_activity_id) = ''
                     """
+                )
+            )
+
+            conn.execute(
+                text("ALTER TABLE activities DROP CONSTRAINT IF EXISTS uq_athlete_strava_activity")
+            )
+
+            # Resolve duplicate (athlete, provider, external_id) groups before UNIQUE.
+            # Keep the row with stream points when possible, else the lowest id.
+            has_unique = conn.execute(
+                text(
+                    """
+                    SELECT 1
+                    FROM pg_constraint
+                    WHERE conname = 'uq_athlete_provider_activity'
+                    LIMIT 1
+                    """
+                )
+            ).first()
+            if has_unique is None:
+                conn.execute(
+                    text(
+                        """
+                        CREATE TEMP TABLE _activity_dedupe_map ON COMMIT DROP AS
+                        WITH ranked AS (
+                            SELECT
+                                id,
+                                FIRST_VALUE(id) OVER (
+                                    PARTITION BY athlete_profile_id, provider, external_activity_id
+                                    ORDER BY
+                                        CASE
+                                            WHEN points_file_path IS NOT NULL
+                                             AND points_file_path <> '' THEN 0
+                                            ELSE 1
+                                        END,
+                                        id ASC
+                                ) AS keep_id,
+                                ROW_NUMBER() OVER (
+                                    PARTITION BY athlete_profile_id, provider, external_activity_id
+                                    ORDER BY
+                                        CASE
+                                            WHEN points_file_path IS NOT NULL
+                                             AND points_file_path <> '' THEN 0
+                                            ELSE 1
+                                        END,
+                                        id ASC
+                                ) AS rn
+                            FROM activities
+                        )
+                        SELECT id AS drop_id, keep_id
+                        FROM ranked
+                        WHERE rn > 1
+                        """
+                    )
+                )
+                conn.execute(
+                    text(
+                        """
+                        UPDATE activities AS a
+                        SET canonical_activity_id = m.keep_id
+                        FROM _activity_dedupe_map AS m
+                        WHERE a.canonical_activity_id = m.drop_id
+                        """
+                    )
+                )
+                if "coros_schedule_items" in tables:
+                    schedule_columns = {
+                        col["name"]
+                        for col in inspector.get_columns("coros_schedule_items")
+                    }
+                    if "completed_activity_id" in schedule_columns:
+                        conn.execute(
+                            text(
+                                """
+                                UPDATE coros_schedule_items AS s
+                                SET completed_activity_id = m.keep_id
+                                FROM _activity_dedupe_map AS m
+                                WHERE s.completed_activity_id = m.drop_id
+                                """
+                            )
+                        )
+                conn.execute(
+                    text(
+                        """
+                        UPDATE activities AS a
+                        SET canonical_activity_id = NULL
+                        FROM _activity_dedupe_map AS m
+                        WHERE a.id = m.drop_id
+                        """
+                    )
+                )
+                conn.execute(
+                    text(
+                        """
+                        DELETE FROM activities AS a
+                        USING _activity_dedupe_map AS m
+                        WHERE a.id = m.drop_id
+                        """
+                    )
+                )
+
+                conn.execute(
+                    text(
+                        """
+                        ALTER TABLE activities
+                        ADD CONSTRAINT uq_athlete_provider_activity
+                        UNIQUE (athlete_profile_id, provider, external_activity_id)
+                        """
+                    )
+                )
+
+            conn.execute(
+                text(
+                    "ALTER TABLE activities ALTER COLUMN external_activity_id SET NOT NULL"
                 )
             )
             conn.execute(
@@ -140,6 +245,23 @@ def run_migrations() -> None:
 
             if "notes" not in activity_columns:
                 conn.execute(text("ALTER TABLE activities ADD COLUMN notes TEXT"))
+
+            inspector = inspect(conn)
+            activity_columns = {
+                col["name"] for col in inspector.get_columns("activities")
+            }
+            detail_additions = [
+                ("detail_json", "TEXT"),
+                ("detail_fetched_at", "TIMESTAMP"),
+                ("sport_type_code", "VARCHAR(64)"),
+            ]
+            for column_name, column_type in detail_additions:
+                if column_name not in activity_columns:
+                    conn.execute(
+                        text(
+                            f"ALTER TABLE activities ADD COLUMN {column_name} {column_type}"
+                        )
+                    )
 
         inspector = inspect(conn)
         tables = set(inspector.get_table_names())
@@ -216,6 +338,53 @@ def run_migrations() -> None:
                         SELECT 1 FROM provider_connections pc
                         WHERE pc.athlete_profile_id = sc.athlete_profile_id
                           AND pc.provider = 'strava'
+                      )
+                    """
+                )
+            )
+
+        inspector = inspect(conn)
+        tables = set(inspector.get_table_names())
+        if "activity_notes" not in tables:
+            conn.execute(
+                text(
+                    """
+                    CREATE TABLE activity_notes (
+                        id SERIAL PRIMARY KEY,
+                        activity_id INTEGER NOT NULL REFERENCES activities(id) ON DELETE CASCADE,
+                        athlete_profile_id INTEGER NOT NULL REFERENCES athlete_profiles(id),
+                        body TEXT NOT NULL,
+                        created_at TIMESTAMP NOT NULL DEFAULT NOW(),
+                        updated_at TIMESTAMP NOT NULL DEFAULT NOW()
+                    )
+                    """
+                )
+            )
+            conn.execute(
+                text(
+                    "CREATE INDEX IF NOT EXISTS ix_activity_notes_activity_id ON activity_notes (activity_id)"
+                )
+            )
+            conn.execute(
+                text(
+                    "CREATE INDEX IF NOT EXISTS ix_activity_notes_athlete_profile_id ON activity_notes (athlete_profile_id)"
+                )
+            )
+            conn.execute(
+                text(
+                    """
+                    INSERT INTO activity_notes (activity_id, athlete_profile_id, body, created_at, updated_at)
+                    SELECT
+                        a.id,
+                        a.athlete_profile_id,
+                        a.notes,
+                        COALESCE(a.created_at, NOW()),
+                        COALESCE(a.created_at, NOW())
+                    FROM activities a
+                    WHERE a.notes IS NOT NULL
+                      AND BTRIM(a.notes) <> ''
+                      AND NOT EXISTS (
+                        SELECT 1 FROM activity_notes n WHERE n.activity_id = a.id
                       )
                     """
                 )

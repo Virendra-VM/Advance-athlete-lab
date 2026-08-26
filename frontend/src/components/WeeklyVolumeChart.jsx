@@ -7,6 +7,7 @@ import {
   sumVolumeTotals,
   VOLUME_RANGE_OPTIONS,
 } from '../utils/volumeHistory'
+import BarActiveGlow from './charts/BarActiveEffects'
 import Card from './ui/Card'
 
 function VolumeTooltip({ active, payload, mode, isDark }) {
@@ -147,7 +148,7 @@ export default function WeeklyVolumeChart({ activities = [] }) {
               }
             />
             <Tooltip
-              cursor={{ fill: isDark ? 'rgba(255,255,255,0.04)' : 'rgba(15,23,42,0.04)' }}
+              cursor={{ fill: 'transparent' }}
               content={<VolumeTooltip mode={mode} isDark={isDark} />}
             />
             <Bar
@@ -156,6 +157,7 @@ export default function WeeklyVolumeChart({ activities = [] }) {
               isAnimationActive
               animationDuration={600}
               maxBarSize={buckets.length > 20 ? 18 : 36}
+              activeBar={BarActiveGlow}
             >
               {buckets.map((entry) => {
                 const value = entry[dataKey] || 0

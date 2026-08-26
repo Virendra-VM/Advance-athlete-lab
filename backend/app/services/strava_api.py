@@ -141,6 +141,23 @@ def get_activity(access_token: str, activity_id: int) -> dict:
         raise StravaApiError(f"Failed to fetch Strava activity {activity_id}: {exc}") from exc
 
 
+def get_activity_laps(access_token: str, activity_id: int) -> list[dict]:
+    """Fetch lap/split rows for a Strava activity. Returns [] on failure."""
+    try:
+        response = httpx.get(
+            f"{STRAVA_API_BASE}/activities/{activity_id}/laps",
+            headers={"Authorization": f"Bearer {access_token}"},
+            timeout=20.0,
+        )
+        if response.status_code == 404:
+            return []
+        _raise_for_strava_response(response, f"fetch Strava laps for {activity_id}")
+        payload = response.json()
+        return payload if isinstance(payload, list) else []
+    except (StravaApiError, httpx.HTTPError):
+        return []
+
+
 def download_activity_fit(access_token: str, activity_id: int) -> bytes | None:
     try:
         response = httpx.get(
