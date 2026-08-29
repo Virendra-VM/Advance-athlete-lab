@@ -348,8 +348,9 @@ def write_points_parquet(
     athlete_profile_id: int,
     strava_activity_id: int,
     points_root: Path,
+    provider: str = "strava",
 ) -> str:
-    athlete_dir = points_root / str(athlete_profile_id)
+    athlete_dir = points_root / str(athlete_profile_id) / provider
     athlete_dir.mkdir(parents=True, exist_ok=True)
     parquet_path = athlete_dir / f"{strava_activity_id}.parquet"
     points_df.to_parquet(parquet_path, index=False)
@@ -422,7 +423,13 @@ def backfill_activity_metadata(
 
     updated = 0
     for activity in activities:
-        metadata = csv_index.get(activity.strava_activity_id)
+        lookup_id = activity.strava_activity_id
+        if lookup_id is None and activity.external_activity_id:
+            try:
+                lookup_id = int(activity.external_activity_id)
+            except ValueError:
+                lookup_id = None
+        metadata = csv_index.get(lookup_id) if lookup_id is not None else None
         if metadata is None:
             continue
 
@@ -511,6 +518,69 @@ def extract_uploaded_zip(zip_path: Path) -> Path:
     return find_export_root(extract_dir)
 
 
+def import_single_fit_file(
+    db: Session,
+    athlete_profile_id: int,
+    fit_path: Path,
+    strava_activity_id: int,
+    csv_metadata: dict | None = None,
+    source_fit_file: str | None = None,
+) -> Activity | None:
+    """Import one FIT file into the database. Returns None if already imported."""
+    existing = (
+        db.query(Activity)
+        .filter(
+            Activity.athlete_profile_id == athlete_profile_id,
+            Activity.provider == "strava",
+            Activity.external_activity_id == str(strava_activity_id),
+        )
+        .first()
+    )
+    if existing is not None:
+        return None
+
+    points_root = Path(ACTIVITY_POINTS_DIR).expanduser().resolve()
+    points_root.mkdir(parents=True, exist_ok=True)
+
+    lap_df, point_df = _fit_file_to_dataframes(str(fit_path))
+    lap_summary = extract_lap_summary(lap_df)
+    summary = merge_summary(lap_summary, csv_metadata, strava_activity_id)
+    normalized_points = normalize_point_dataframe(point_df)
+    points_file_path = None
+    if not normalized_points.empty:
+        points_file_path = write_points_parquet(
+            normalized_points,
+            athlete_profile_id,
+            strava_activity_id,
+            points_root,
+            provider="strava",
+        )
+
+    activity = Activity(
+        athlete_profile_id=athlete_profile_id,
+        provider="strava",
+        external_activity_id=str(strava_activity_id),
+        strava_activity_id=strava_activity_id,
+        name=summary["name"],
+        activity_date=summary["activity_date"],
+        distance_m=float(summary["distance_m"] or 0.0),
+        moving_time_s=int(summary["moving_time_s"] or 0),
+        average_heartrate=summary["average_heartrate"],
+        max_heartrate=summary["max_heartrate"],
+        sport_type=summary["sport_type"],
+        points_file_path=points_file_path,
+        source_fit_file=source_fit_file or fit_path.name,
+    )
+    db.add(activity)
+    db.commit()
+    db.refresh(activity)
+    from app.services.activity_dedupe import link_new_activity_to_peer
+
+    link_new_activity_to_peer(db, activity)
+    db.refresh(activity)
+    return activity
+
+
 def run_import(
     db: Session,
     athlete_profile_id: int,
@@ -554,10 +624,14 @@ def run_import(
         import_status["total"] = len(fit_files)
 
         existing_ids = {
-            row.strava_activity_id
-            for row in db.query(Activity.strava_activity_id)
-            .filter(Activity.athlete_profile_id == athlete_profile_id)
+            int(row.external_activity_id)
+            for row in db.query(Activity.external_activity_id)
+            .filter(
+                Activity.athlete_profile_id == athlete_profile_id,
+                Activity.provider == "strava",
+            )
             .all()
+            if row.external_activity_id and str(row.external_activity_id).isdigit()
         }
 
         for fit_path in fit_files:
@@ -574,38 +648,17 @@ def run_import(
                 continue
 
             try:
-                lap_df, point_df = _fit_file_to_dataframes(str(fit_path))
-                lap_summary = extract_lap_summary(lap_df)
-                summary = merge_summary(
-                    lap_summary,
-                    csv_index.get(strava_activity_id),
+                activity = import_single_fit_file(
+                    db,
+                    athlete_profile_id,
+                    fit_path,
                     strava_activity_id,
-                )
-                normalized_points = normalize_point_dataframe(point_df)
-                points_file_path = None
-                if not normalized_points.empty:
-                    points_file_path = write_points_parquet(
-                        normalized_points,
-                        athlete_profile_id,
-                        strava_activity_id,
-                        points_root,
-                    )
-
-                activity = Activity(
-                    athlete_profile_id=athlete_profile_id,
-                    strava_activity_id=strava_activity_id,
-                    name=summary["name"],
-                    activity_date=summary["activity_date"],
-                    distance_m=float(summary["distance_m"] or 0.0),
-                    moving_time_s=int(summary["moving_time_s"] or 0),
-                    average_heartrate=summary["average_heartrate"],
-                    max_heartrate=summary["max_heartrate"],
-                    sport_type=summary["sport_type"],
-                    points_file_path=points_file_path,
+                    csv_metadata=csv_index.get(strava_activity_id),
                     source_fit_file=fit_path.name,
                 )
-                db.add(activity)
-                db.commit()
+                if activity is None:
+                    import_status["skipped"] += 1
+                    continue
                 existing_ids.add(strava_activity_id)
                 import_status["imported"] += 1
             except Exception as exc:

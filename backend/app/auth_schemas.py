@@ -54,6 +54,7 @@ class AthleteProfileResponse(BaseModel):
     avatar_letter: str | None = None
     onboarding_completed: bool = False
     strava_onboarding_done: bool = False
+    coros_onboarding_done: bool = False
     primary_goal: str | None = None
     secondary_goal: str | None = None
     equipment: str | None = None

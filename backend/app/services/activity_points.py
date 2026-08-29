@@ -23,12 +23,29 @@ def _resolve_parquet_path(activity: Activity) -> Path | None:
         if candidate.exists():
             return candidate
 
-    fallback = (
-        Path(ACTIVITY_POINTS_DIR)
-        / str(activity.athlete_profile_id)
-        / f"{activity.strava_activity_id}.parquet"
+    external_id = activity.external_activity_id or (
+        str(activity.strava_activity_id) if activity.strava_activity_id is not None else None
     )
-    return fallback if fallback.exists() else None
+    provider = activity.provider or "strava"
+    if external_id:
+        provider_path = (
+            Path(ACTIVITY_POINTS_DIR)
+            / str(activity.athlete_profile_id)
+            / provider
+            / f"{external_id}.parquet"
+        )
+        if provider_path.exists():
+            return provider_path
+
+        legacy = (
+            Path(ACTIVITY_POINTS_DIR)
+            / str(activity.athlete_profile_id)
+            / f"{external_id}.parquet"
+        )
+        if legacy.exists():
+            return legacy
+
+    return None
 
 
 def _build_points_dataframe(parquet_path: Path) -> pd.DataFrame:

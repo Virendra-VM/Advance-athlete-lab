@@ -30,6 +30,7 @@ def _sum_distance_km(
             Activity.athlete_profile_id == athlete_profile_id,
             Activity.activity_date >= start,
             Activity.activity_date <= end,
+            Activity.canonical_activity_id.is_(None),
         )
         .scalar()
     )
@@ -50,6 +51,7 @@ def _build_weekly_buckets(
             Activity.athlete_profile_id == athlete_profile_id,
             Activity.activity_date >= window_start,
             Activity.activity_date <= now,
+            Activity.canonical_activity_id.is_(None),
         )
         .all()
     )

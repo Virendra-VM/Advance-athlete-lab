@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { ChevronLeft, ChevronRight } from 'lucide-react'
 import { listActivities } from '../api/activities'
+import { getStravaConnectionStatus, getStravaSyncStatus, startStravaSync } from '../api/strava'
 import { cardShellClass } from '../utils/statusColors'
 import {
   formatDate,
@@ -12,11 +13,12 @@ import { collectSportOptions, filterHistoryActivities } from '../utils/activityF
 import { getActivityTitle } from '../utils/sportTypes'
 import { HistoryFilterBar } from './ActivityFilterBar'
 import Card from './ui/Card'
+import ScrollableTable, { stickyTheadClass } from './ui/ScrollableTable'
 import SportBadge from './SportBadge'
 
 const PAGE_SIZE = 50
 
-export default function ActivityHistory({ athleteProfileId }) {
+export default function ActivityHistory({ athleteProfileId, refreshKey = 0 }) {
   const navigate = useNavigate()
   const [activities, setActivities] = useState([])
   const [loading, setLoading] = useState(true)
@@ -37,8 +39,11 @@ export default function ActivityHistory({ athleteProfileId }) {
     setError('')
 
     try {
-      const activityRows = await listActivities(athleteProfileId)
-      setActivities(activityRows)
+      const activityPage = await listActivities(athleteProfileId, {
+        page: 1,
+        page_size: 500,
+      })
+      setActivities(activityPage.items || [])
     } catch (err) {
       setError(err.message || 'Failed to load activity history.')
     } finally {
@@ -48,7 +53,7 @@ export default function ActivityHistory({ athleteProfileId }) {
 
   useEffect(() => {
     loadActivities()
-  }, [loadActivities])
+  }, [loadActivities, refreshKey])
 
   const sportOptions = useMemo(() => collectSportOptions(activities), [activities])
 
@@ -85,6 +90,38 @@ export default function ActivityHistory({ athleteProfileId }) {
     setMinDistanceKm('')
     setHasHr('all')
     setSort('date_desc')
+  }
+
+  async function handleRefresh() {
+    setLoading(true)
+    setError('')
+    try {
+      const status = await getStravaConnectionStatus()
+      if (status.connected) {
+        const syncStatus = await getStravaSyncStatus()
+        if (!syncStatus.running) {
+          try {
+            await startStravaSync()
+          } catch (err) {
+            if (!String(err.message || '').includes('409')) throw err
+          }
+        }
+        let attempts = 0
+        let current = await getStravaSyncStatus()
+        while (current.running && attempts < 90) {
+          await new Promise((resolve) => setTimeout(resolve, 2000))
+          current = await getStravaSyncStatus()
+          attempts += 1
+        }
+        if (current.errors?.length) {
+          setError(current.errors[0])
+        }
+      }
+      await loadActivities()
+    } catch (err) {
+      setError(err.message || 'Failed to refresh activities.')
+      setLoading(false)
+    }
   }
 
   if (loading) {
@@ -129,7 +166,7 @@ export default function ActivityHistory({ athleteProfileId }) {
         </div>
         <button
           type="button"
-          onClick={loadActivities}
+          onClick={handleRefresh}
           className="self-start rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm text-slate-600 dark:border-white/10 dark:bg-gray-800 dark:text-slate-300"
         >
           Refresh
@@ -156,9 +193,11 @@ export default function ActivityHistory({ athleteProfileId }) {
       />
 
       <Card className="overflow-hidden p-0">
-        <div className="overflow-x-auto">
+        <ScrollableTable autoHeight bottomOffset={72}>
           <table className="min-w-full text-left text-sm">
-            <thead className="border-b border-slate-100 bg-slate-50 text-xs uppercase tracking-wide text-slate-500 dark:border-white/10 dark:bg-gray-900/50 dark:text-slate-400">
+            <thead
+              className={`${stickyTheadClass} border-b border-slate-100 text-xs uppercase tracking-wide dark:border-white/10`}
+            >
               <tr>
                 <th className="px-4 py-3">Date</th>
                 <th className="px-4 py-3">Sport</th>
@@ -169,7 +208,7 @@ export default function ActivityHistory({ athleteProfileId }) {
                 <th className="px-4 py-3">Max HR</th>
               </tr>
             </thead>
-            <tbody>
+            <tbody className="bg-[var(--aal-card)]">
               {pageItems.length === 0 ? (
                 <tr>
                   <td colSpan={7} className="px-4 py-8 text-center text-slate-500">
@@ -216,7 +255,7 @@ export default function ActivityHistory({ athleteProfileId }) {
               )}
             </tbody>
           </table>
-        </div>
+        </ScrollableTable>
 
         <div className="flex items-center justify-between border-t border-slate-100 px-4 py-3 text-sm text-slate-500 dark:border-white/10 dark:text-slate-400">
           <span>

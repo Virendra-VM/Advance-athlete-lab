@@ -1,8 +1,8 @@
 const selectClass =
-  'rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-xs text-slate-700 outline-none focus:ring-2 focus:ring-sage dark:border-white/10 dark:bg-gray-900 dark:text-slate-200'
+  'inline-flex h-9 min-w-[7.5rem] items-center rounded-lg border border-slate-200 bg-white px-2.5 text-xs text-slate-700 outline-none focus:ring-2 focus:ring-sage dark:border-white/10 dark:bg-gray-900 dark:text-slate-200'
 
 const inputClass =
-  'rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-xs text-slate-700 outline-none focus:ring-2 focus:ring-sage dark:border-white/10 dark:bg-gray-900 dark:text-slate-200'
+  'inline-flex h-9 items-center rounded-lg border border-slate-200 bg-white px-2.5 text-xs text-slate-700 outline-none focus:ring-2 focus:ring-sage dark:border-white/10 dark:bg-gray-900 dark:text-slate-200'
 
 export function OverviewFilterBar({ period, sport, sportOptions, onPeriodChange, onSportChange }) {
   return (
@@ -96,7 +96,7 @@ export function HistoryFilterBar({
       <button
         type="button"
         onClick={onClear}
-        className="rounded-lg px-2 py-1.5 text-xs text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200"
+        className="inline-flex h-9 items-center rounded-lg px-3 text-xs font-medium text-slate-500 hover:bg-slate-100 hover:text-slate-700 dark:text-slate-400 dark:hover:bg-white/5 dark:hover:text-slate-200"
       >
         Clear
       </button>

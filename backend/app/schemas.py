@@ -1,6 +1,6 @@
-from datetime import datetime
+from datetime import date, datetime, timezone
 
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, Field, field_serializer
 
 
 class AthleteProfileCreate(BaseModel):
@@ -51,7 +51,10 @@ class ActivityRead(BaseModel):
 
     id: int
     athlete_profile_id: int
-    strava_activity_id: int
+    provider: str = "strava"
+    external_activity_id: str | None = None
+    strava_activity_id: int | None = None
+    canonical_activity_id: int | None = None
     name: str
     activity_date: datetime
     distance_m: float
@@ -59,9 +62,65 @@ class ActivityRead(BaseModel):
     average_heartrate: float | None = None
     max_heartrate: float | None = None
     sport_type: str | None = None
+    sport_type_code: str | None = None
     points_file_path: str | None = None
     source_fit_file: str
+    notes: str | None = None
+    detail: dict | None = None
+    sport_family: str | None = None
+    detail_fetched_at: datetime | None = None
     created_at: datetime | None = None
+
+
+class ActivityNotesUpdate(BaseModel):
+    notes: str | None = None
+
+
+class ActivityNoteCreate(BaseModel):
+    body: str = Field(min_length=1, max_length=10000)
+
+
+class ActivityNoteUpdate(BaseModel):
+    body: str = Field(min_length=1, max_length=10000)
+
+
+class ActivityNoteRead(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    activity_id: int
+    athlete_profile_id: int
+    body: str
+    created_at: datetime
+    updated_at: datetime
+
+    @field_serializer("created_at", "updated_at")
+    def serialize_utc(self, value: datetime) -> str:
+        if value.tzinfo is None:
+            value = value.replace(tzinfo=timezone.utc)
+        return value.astimezone(timezone.utc).isoformat().replace("+00:00", "Z")
+
+
+class ActivityNoteListResponse(BaseModel):
+    items: list[ActivityNoteRead]
+
+
+class ActivityEnrichResponse(BaseModel):
+    ok: bool
+    skipped: bool = False
+    reason: str | None = None
+    activity_id: int
+    detail: dict | None = None
+    errors: list[str] = []
+    sources: list[str] = []
+    activity: ActivityRead | None = None
+
+
+class ActivityListResponse(BaseModel):
+    items: list[ActivityRead]
+    total: int
+    page: int
+    page_size: int
 
 
 class ActivitySummaryBucket(BaseModel):
@@ -121,3 +180,132 @@ class ImportStatusResponse(BaseModel):
     imported: int
     skipped: int
     errors: list[str]
+
+
+class CorosAuthUrlResponse(BaseModel):
+    authorization_url: str
+
+
+class CorosCallbackRequest(BaseModel):
+    code: str
+    state: str
+
+
+class CorosConnectionStatus(BaseModel):
+    connected: bool
+    external_user_id: str | None = None
+    last_synced_at: datetime | None = None
+
+
+class CorosConnectionRead(BaseModel):
+    id: int
+    athlete_profile_id: int
+    provider: str
+    external_user_id: str | None = None
+    last_synced_at: datetime | None = None
+    created_at: datetime | None = None
+
+
+class CorosHealthMetricRead(BaseModel):
+    metric_date: date
+    sleep_score: float | None = None
+    sleep_duration_min: float | None = None
+    deep_sleep_pct: float | None = None
+    light_sleep_pct: float | None = None
+    rem_sleep_pct: float | None = None
+    awake_min: float | None = None
+    bedtime: str | None = None
+    wake_time: str | None = None
+    nap_duration_min: float | None = None
+    sleep_avg_hr: float | None = None
+    steps: int | None = None
+    calories: float | None = None
+    avg_heart_rate: float | None = None
+    resting_heart_rate: float | None = None
+    stress: float | None = None
+    hrv: float | None = None
+    hrv_assessment: str | None = None
+
+
+class CorosFitnessRead(BaseModel):
+    snapshot_at: datetime
+    vo2max: float | None = None
+    running_performance: float | None = None
+    threshold_pace: str | None = None
+    race_predictions: dict = {}
+    recovery_pct: float | None = None
+    recovery_level: str | None = None
+    recovery_full_at: str | None = None
+
+
+class CorosTrainingLoadRead(BaseModel):
+    snapshot_at: datetime
+    short_load: float | None = None
+    long_load: float | None = None
+    load_ratio: float | None = None
+    daily_comments: list = []
+
+
+class CorosScheduleItemRead(BaseModel):
+    external_id: str
+    schedule_date: date
+    title: str | None = None
+    sport_type: str | None = None
+    duration_min: float | None = None
+    distance_m: float | None = None
+    day_no: int | None = None
+    completed_activity_id: int | None = None
+    status: str = "planned"  # planned | completed
+    completed_activity_name: str | None = None
+    completed_activity_provider: str | None = None
+    completed_distance_m: float | None = None
+    completed_moving_time_s: int | None = None
+
+
+class CorosOverviewResponse(BaseModel):
+    connected: bool
+    last_synced_at: datetime | None = None
+    today_health: CorosHealthMetricRead | None = None
+    health_trend: list[CorosHealthMetricRead] = []
+    fitness: CorosFitnessRead | None = None
+    training_load: CorosTrainingLoadRead | None = None
+    schedule: list[CorosScheduleItemRead] = []
+    sync_status: dict = {}
+
+
+class MetricPoint(BaseModel):
+    date: str
+    value: float | None = None
+    secondary: float | None = None
+    label: str | None = None
+    meta: dict = {}
+
+
+class MetricSeriesResponse(BaseModel):
+    metric: str
+    from_date: date | None = None
+    to_date: date | None = None
+    points: list[MetricPoint]
+    latest: dict = {}
+    source: str = "cache"
+
+
+class CorosDeviceRead(BaseModel):
+    device_id: str | None = None
+    name: str | None = None
+    firmware: str | None = None
+    raw: dict = {}
+
+
+class CorosHistoryBackfillRequest(BaseModel):
+    metric: str | None = None
+    range: str = "3m"
+
+
+class CoachContextResponse(BaseModel):
+    athlete_profile_id: int
+    generated_at: datetime
+    profile: dict
+    readiness_flags: list[str]
+    recent_activities: list[dict]
+    coros: dict

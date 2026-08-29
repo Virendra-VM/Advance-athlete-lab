@@ -31,9 +31,44 @@ const SPORT_COLORS = {
   Workout: 'bg-slate-100 text-slate-700 dark:bg-gray-700 dark:text-slate-300',
 }
 
+const SPORT_FAMILIES = {
+  strength: [
+    'strength',
+    'weighttraining',
+    'weight_training',
+    'workout',
+    'traditionalstrengthtraining',
+    'functionalstrengthtraining',
+    'crossfit',
+    'gym',
+    'weightlifting',
+  ],
+  run: ['run', 'trailrun', 'virtualrun', 'treadmill'],
+  ride: ['ride', 'virtualride', 'gravelride', 'mountainbikeride', 'ebikeride', 'cycling', 'bike'],
+  walk: ['walk', 'hike', 'hiking'],
+  swim: ['swim', 'swimming', 'openwaterswim'],
+  row: ['rowing', 'virtualrow', 'canoeing', 'kayaking'],
+  yoga: ['yoga', 'pilates', 'stretching'],
+}
+
+function normalizeSportKey(sportType) {
+  if (!sportType) return ''
+  return String(sportType).toLowerCase().replace(/[^a-z0-9]/g, '')
+}
+
 export function formatSportType(sportType) {
   if (!sportType) return 'Workout'
   return SPORT_LABELS[sportType] || sportType.replace(/([a-z])([A-Z])/g, '$1 $2')
+}
+
+export function getSportFamily(sportType) {
+  const key = normalizeSportKey(sportType)
+  if (!key) return 'other'
+  const labelKey = normalizeSportKey(formatSportType(sportType))
+  for (const [family, members] of Object.entries(SPORT_FAMILIES)) {
+    if (members.includes(key) || members.includes(labelKey)) return family
+  }
+  return 'other'
 }
 
 export function getSportBadgeClass(sportType) {

@@ -1,9 +1,10 @@
 import { useEffect, useState } from 'react'
 import { Navigate } from 'react-router-dom'
+import { LogOut } from 'lucide-react'
 import { useAuth } from '../context/AuthContext'
-import { pagePaddingClass, pageShellClass } from '../utils/statusColors'
-import Navigation from './Navigation'
-import Card from './ui/Card'
+import AppShell from './layout/AppShell'
+import PageHeader from './ui/PageHeader'
+import SectionCard from './ui/SectionCard'
 import UserAvatar from './UserAvatar'
 
 const FITNESS_FIELDS = [
@@ -20,7 +21,7 @@ const FITNESS_FIELDS = [
 ]
 
 export default function ProfilePage() {
-  const { isAuthenticated, profile, updateProfile } = useAuth()
+  const { isAuthenticated, profile, updateProfile, logout } = useAuth()
   const [form, setForm] = useState(null)
   const [saving, setSaving] = useState(false)
   const [message, setMessage] = useState('')
@@ -35,10 +36,9 @@ export default function ProfilePage() {
   if (!isAuthenticated) return <Navigate to="/signin" replace />
   if (!form) {
     return (
-      <div className={pageShellClass}>
-        <Navigation subtitle="Profile" />
-        <main className={pagePaddingClass}>Loading profile...</main>
-      </div>
+      <AppShell title="Profile">
+        <p className="text-sm text-[var(--aal-muted)]">Loading profile...</p>
+      </AppShell>
     )
   }
 
@@ -80,107 +80,142 @@ export default function ProfilePage() {
   }
 
   return (
-    <div className={pageShellClass}>
-      <Navigation subtitle="Profile" />
+    <AppShell title="Profile">
+      <div className="w-full space-y-8">
+        <PageHeader
+          eyebrow="Account"
+          title="Profile"
+          subtitle="Basics and coaching preferences used for future AI plans."
+          actions={
+            <button
+              type="button"
+              onClick={logout}
+              className="inline-flex items-center gap-2 rounded-xl border border-danger-muted/40 px-4 py-2.5 text-sm font-semibold text-danger-muted transition hover:bg-danger-muted/5"
+            >
+              <LogOut className="h-4 w-4" />
+              Log out
+            </button>
+          }
+        />
 
-      <main className={`${pagePaddingClass} space-y-8`}>
-        <Card className="p-8">
+        <SectionCard>
           <div className="flex flex-col items-center gap-4 sm:flex-row sm:items-start">
             <UserAvatar letter={form.avatar_letter} name={form.name} size="xl" />
             <div className="flex-1 text-center sm:text-left">
-              <h2 className="text-2xl font-bold text-slate-900 dark:text-white">{form.name}</h2>
-              <p className="mt-1 text-sm text-slate-500">
+              <h2 className="text-2xl font-bold">{form.name}</h2>
+              <p className="mt-1 text-sm text-[var(--aal-muted)]">
                 Your avatar uses the first letter of your name. Photo upload coming soon.
               </p>
             </div>
           </div>
-        </Card>
+        </SectionCard>
 
         <form onSubmit={handleSave} className="space-y-8">
-          <Card className="p-6">
-            <h3 className="text-lg font-semibold text-slate-900 dark:text-white">Basic info</h3>
-            <div className="mt-4 grid gap-4 md:grid-cols-2">
+          <SectionCard title="Basic info">
+            <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
               <label className="block">
-                <span className="text-xs font-semibold uppercase tracking-wide text-slate-500">Name</span>
+                <span className="text-xs font-semibold uppercase tracking-wide text-[var(--aal-muted)]">
+                  Name
+                </span>
                 <input
                   value={form.name}
                   onChange={(e) => updateField('name', e.target.value)}
-                  className="mt-2 w-full rounded-xl border border-slate-200 px-4 py-3 dark:border-white/10 dark:bg-gray-900"
+                  className="mt-2 w-full rounded-xl border border-[var(--aal-line)] bg-[var(--aal-card)] px-4 py-3"
                   required
                 />
               </label>
               <label className="block">
-                <span className="text-xs font-semibold uppercase tracking-wide text-slate-500">Avatar letter</span>
+                <span className="text-xs font-semibold uppercase tracking-wide text-[var(--aal-muted)]">
+                  Avatar letter
+                </span>
                 <input
                   value={form.avatar_letter || ''}
                   maxLength={1}
                   onChange={(e) => updateField('avatar_letter', e.target.value.toUpperCase())}
-                  className="mt-2 w-full rounded-xl border border-slate-200 px-4 py-3 dark:border-white/10 dark:bg-gray-900"
+                  className="mt-2 w-full rounded-xl border border-[var(--aal-line)] bg-[var(--aal-card)] px-4 py-3"
                 />
               </label>
               <label className="block">
-                <span className="text-xs font-semibold uppercase tracking-wide text-slate-500">Age</span>
+                <span className="text-xs font-semibold uppercase tracking-wide text-[var(--aal-muted)]">
+                  Age
+                </span>
                 <input
                   type="number"
                   value={form.age}
                   onChange={(e) => updateField('age', e.target.value)}
-                  className="mt-2 w-full rounded-xl border border-slate-200 px-4 py-3 dark:border-white/10 dark:bg-gray-900"
+                  className="mt-2 w-full rounded-xl border border-[var(--aal-line)] bg-[var(--aal-card)] px-4 py-3"
                 />
               </label>
               <label className="block">
-                <span className="text-xs font-semibold uppercase tracking-wide text-slate-500">Weight (kg)</span>
+                <span className="text-xs font-semibold uppercase tracking-wide text-[var(--aal-muted)]">
+                  Weight (kg)
+                </span>
                 <input
                   type="number"
                   step="0.1"
                   value={form.weight}
                   onChange={(e) => updateField('weight', e.target.value)}
-                  className="mt-2 w-full rounded-xl border border-slate-200 px-4 py-3 dark:border-white/10 dark:bg-gray-900"
+                  className="mt-2 w-full rounded-xl border border-[var(--aal-line)] bg-[var(--aal-card)] px-4 py-3"
                 />
               </label>
             </div>
-          </Card>
+          </SectionCard>
 
-          <Card className="p-6">
-            <h3 className="text-lg font-semibold text-slate-900 dark:text-white">Coaching preferences</h3>
-            <p className="mt-1 text-sm text-slate-500">
-              Saved permanently — your coach won't ask again unless you update these.
-            </p>
-            <div className="mt-4 grid gap-4 md:grid-cols-2">
+          <SectionCard
+            title="Coaching preferences"
+            subtitle="Saved permanently — your coach won't ask again unless you update these."
+          >
+            <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
               {FITNESS_FIELDS.map(({ key, label, type }) => (
-                <label key={key} className={`block ${type === 'textarea' ? 'md:col-span-2' : ''}`}>
-                  <span className="text-xs font-semibold uppercase tracking-wide text-slate-500">{label}</span>
+                <label
+                  key={key}
+                  className={`block ${type === 'textarea' ? 'md:col-span-2 xl:col-span-3' : ''}`}
+                >
+                  <span className="text-xs font-semibold uppercase tracking-wide text-[var(--aal-muted)]">
+                    {label}
+                  </span>
                   {type === 'textarea' ? (
                     <textarea
                       value={form[key] || ''}
                       onChange={(e) => updateField(key, e.target.value)}
                       rows={3}
-                      className="mt-2 w-full rounded-xl border border-slate-200 px-4 py-3 dark:border-white/10 dark:bg-gray-900"
+                      className="mt-2 w-full rounded-xl border border-[var(--aal-line)] bg-[var(--aal-card)] px-4 py-3"
                     />
                   ) : (
                     <input
                       type={type}
                       value={form[key] ?? ''}
                       onChange={(e) => updateField(key, e.target.value)}
-                      className="mt-2 w-full rounded-xl border border-slate-200 px-4 py-3 dark:border-white/10 dark:bg-gray-900"
+                      className="mt-2 w-full rounded-xl border border-[var(--aal-line)] bg-[var(--aal-card)] px-4 py-3"
                     />
                   )}
                 </label>
               ))}
             </div>
-          </Card>
+          </SectionCard>
 
           {message && <p className="text-sm text-sage">{message}</p>}
           {error && <p className="text-sm text-danger-muted">{error}</p>}
 
-          <button
-            type="submit"
-            disabled={saving}
-            className="rounded-xl bg-sage px-6 py-3 font-semibold text-white disabled:opacity-60"
-          >
-            {saving ? 'Saving...' : 'Save profile'}
-          </button>
+          <div className="flex flex-wrap items-center gap-3">
+            <button
+              type="submit"
+              disabled={saving}
+              className="rounded-xl bg-sage px-6 py-3 font-semibold text-white disabled:opacity-60"
+            >
+              {saving ? 'Saving...' : 'Save profile'}
+            </button>
+            <button
+              type="button"
+              onClick={logout}
+              className="inline-flex items-center gap-2 rounded-xl border border-danger-muted/40 px-5 py-3 text-sm font-semibold text-danger-muted transition hover:bg-danger-muted/5"
+            >
+              <LogOut className="h-4 w-4" />
+              Log out
+            </button>
+          </div>
         </form>
-      </main>
-    </div>
+      </div>
+    </AppShell>
   )
 }
