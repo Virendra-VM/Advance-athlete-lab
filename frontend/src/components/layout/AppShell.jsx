@@ -1,10 +1,17 @@
 import { useState } from 'react'
 import { Menu } from 'lucide-react'
+import EmailVerifyBanner from '../EmailVerifyBanner'
 import Sidebar from './Sidebar'
 
-export default function AppShell({ title: _title, children, flush = false }) {
+export default function AppShell({ title: _title, children, flush = false, fill = false }) {
   const [mobileOpen, setMobileOpen] = useState(false)
   const [collapsed, setCollapsed] = useState(false)
+
+  const mainClass = flush
+    ? 'flex min-h-0 flex-1 flex-col overflow-hidden'
+      : fill
+        ? 'flex min-h-0 flex-1 flex-col overflow-hidden px-3 py-3 pt-14 sm:px-5 lg:px-6 lg:pt-3'
+      : 'min-h-0 flex-1 overflow-y-auto px-4 py-6 pt-14 sm:px-6 lg:px-8 lg:pt-6'
 
   return (
     <div className="flex h-screen overflow-hidden bg-[var(--aal-bg)] text-[var(--aal-ink)]">
@@ -25,14 +32,17 @@ export default function AppShell({ title: _title, children, flush = false }) {
           <Menu className="h-4 w-4" />
         </button>
 
-        <main
-          className={
-            flush
-              ? 'flex min-h-0 flex-1 flex-col overflow-hidden'
-              : 'min-h-0 flex-1 overflow-y-auto px-4 py-6 pt-14 sm:px-6 lg:px-8 lg:pt-6'
-          }
-        >
-          {children}
+        <main className={mainClass}>
+          {flush ? null : (
+            <div className="shrink-0">
+              <EmailVerifyBanner />
+            </div>
+          )}
+          {fill ? (
+            <div className="flex min-h-0 flex-1 flex-col overflow-hidden">{children}</div>
+          ) : (
+            children
+          )}
         </main>
       </div>
     </div>

@@ -7,7 +7,9 @@ export default function PageHeader({
 }) {
   return (
     <div
-      className={`mb-6 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between ${className}`.trim()}
+      className={`flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between ${
+        className.includes('mb-') ? className : `mb-6 ${className}`
+      }`.trim()}
     >
       <div>
         {eyebrow && (

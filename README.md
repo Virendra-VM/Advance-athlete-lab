@@ -209,6 +209,14 @@ docker compose restart postgres
 | GET | `/api/activities` | List imported activities for an athlete |
 | GET | `/api/activities/summary` | Monthly distance summary for charts |
 | GET | `/api/activities/{id}` | Get a single imported activity |
+| GET | `/api/coach/status` | Provider/consent/knowledge-base state for the coach UI |
+| GET | `/api/coach/context` | Unified athlete context (profile, load, readiness, safety caps) |
+| GET/POST | `/api/coach/plan` | Read or generate the week's training plan |
+| GET | `/api/coach/advice` | Today's readiness guidance |
+| GET/POST | `/api/coach/chat` | Coach chat history and messages |
+| GET | `/api/coach/planned-workouts` | Coach plans in Schedule-compatible rows |
+| GET | `/api/science/search` | Retrieve citable evidence chunks |
+| GET | `/api/science/sources` | List knowledge-base sources |
 
 ### Athlete profile fields
 
@@ -273,6 +281,39 @@ Summary metrics are stored in PostgreSQL (`activities` table); second-by-second 
 
 **Note:** `fit2gpx` may require Python 3.11 or 3.12 if installation fails on Python 3.13.
 
+## AI Coach
+
+The coach combines three layers, and works with or without an AI provider:
+
+1. **Athlete context** — profile v2, recent activities, COROS health/load, readiness flags.
+2. **Science knowledge base** — curated, citable chunks under `backend/data/science_corpus/`,
+   seeded on first boot. Policy: [`docs/science-kb-policy.md`](docs/science-kb-policy.md).
+3. **Deterministic safety layer** — `backend/app/services/coach_safety.py` derives hard caps
+   (weekly minutes, hard sessions, injury contraindications, rest days) and repairs or blocks
+   any generated plan that violates them.
+
+Without an API key everything still works: plans, advice, and chat come from deterministic
+templates and responses are labelled `provider: "rules"`. Add a key to switch on generation:
+
+```env
+AI_PROVIDER=claude          # claude | openai | gemini
+AI_FALLBACK_PROVIDER=gemini
+ANTHROPIC_API_KEY=...
+```
+
+Provider choice is evidence-based — see [`docs/ai-provider-evaluation.md`](docs/ai-provider-evaluation.md).
+To re-run the comparison on 30 synthetic athletes:
+
+```bash
+cd backend
+python scripts/ai_eval/run_eval.py --provider rules          # free baseline
+python scripts/ai_eval/run_eval.py --provider claude --provider gemini
+python scripts/ai_eval/smoke_coach.py                        # end-to-end pipeline check
+```
+
+AI coaching requires explicit consent on the athlete profile; plan, advice, and chat endpoints
+return `403` until it is granted.
+
 ## Environment Variables
 
 | Variable | Used by | Default | Description |
@@ -285,6 +326,12 @@ Summary metrics are stored in PostgreSQL (`activities` table); second-by-second 
 | `STRAVA_WEBHOOK_VERIFY_TOKEN` | Backend | — | Secret token for Strava webhook validation |
 | `STRAVA_EXPORT_DIR` | Backend | — | Absolute path to unzipped Strava bulk export folder |
 | `ACTIVITY_POINTS_DIR` | Backend | `./data/activity_points` | Directory for Parquet point-data files |
+| `EMAIL_PROVIDER` | Backend | `console` | Verification email transport: `console`, `resend`, `smtp` |
+| `APP_BASE_URL` | Backend | `http://localhost:5173` | Base URL used in verification links |
+| `AI_PROVIDER` | Backend | `claude` | Primary coach provider; falls back to rules without a key |
+| `AI_FALLBACK_PROVIDER` | Backend | `gemini` | Second choice when the primary fails |
+| `ANTHROPIC_API_KEY` / `OPENAI_API_KEY` / `GEMINI_API_KEY` | Backend | — | Provider credentials |
+| `AI_LOG_PROMPTS` | Backend | `false` | Log redacted prompts/responses for debugging |
 
 ## Troubleshooting
 

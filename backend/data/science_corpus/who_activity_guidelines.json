@@ -1,0 +1,44 @@
+{
+  "slug": "who-2020-physical-activity",
+  "title": "WHO Guidelines on Physical Activity and Sedentary Behaviour (2020) — key recommendations",
+  "authors": "World Health Organization",
+  "year": 2020,
+  "publisher": "World Health Organization",
+  "license": "CC BY-NC-SA 3.0 IGO (paraphrased summary)",
+  "url": "https://www.who.int/publications/i/item/9789240015128",
+  "source_type": "guideline",
+  "chunks": [
+    {
+      "key": "adult-aerobic-minimums",
+      "heading": "Adult aerobic activity recommendations",
+      "audience": "shared",
+      "sport_tags": ["general", "run", "ride", "swim"],
+      "topic_tags": ["public-health", "minimums", "weekly-volume"],
+      "body": "For adults aged 18-64, the WHO recommends at least 150-300 minutes of moderate-intensity aerobic activity per week, or 75-150 minutes of vigorous-intensity activity, or an equivalent combination. Additional health benefits continue beyond 300 minutes of moderate activity. Any amount is better than none, and activity can be accumulated in bouts of any length. Use these figures as the floor for a beginner plan and as a sanity check that a prescribed week is neither trivial nor wildly beyond public-health norms for an untrained athlete."
+    },
+    {
+      "key": "adult-strength",
+      "heading": "Muscle-strengthening recommendations",
+      "audience": "shared",
+      "sport_tags": ["strength", "general"],
+      "topic_tags": ["public-health", "strength", "minimums"],
+      "body": "Adults should perform muscle-strengthening activities involving all major muscle groups on two or more days per week, in addition to aerobic activity. Older adults (65+) should add multicomponent activity that emphasises balance and functional strength on three or more days per week to reduce fall risk. Plans for endurance athletes should still include this minimum strength dose because it supports injury resilience without meaningfully competing with aerobic adaptation when volume is modest."
+    },
+    {
+      "key": "sedentary-and-progression",
+      "heading": "Sedentary behaviour and starting out",
+      "audience": "shared",
+      "sport_tags": ["general"],
+      "topic_tags": ["public-health", "beginner", "progression"],
+      "body": "Adults should limit sedentary time and replace it with activity of any intensity. People who are currently inactive should start with small amounts and increase frequency, intensity, and duration gradually over time. The guidance explicitly states that the benefits of being active outweigh the risks for most people, and that doing some activity is preferable to meeting no target at all — useful framing when an athlete's realistic time budget is well below ideal training volume."
+    },
+    {
+      "key": "special-populations-referral",
+      "heading": "Populations needing individual guidance",
+      "audience": "shared",
+      "sport_tags": ["general"],
+      "topic_tags": ["safety", "referral", "special-populations"],
+      "body": "The guidelines cover pregnancy and postpartum, adults living with chronic conditions, and adults with disability, and in each case emphasise individualised advice from a qualified professional. Treat these as referral-only topics: an AI coach may restate general public-health minimums but must not tailor rehabilitation, pregnancy programming, or disease management. Recommend a clinician or accredited exercise professional whenever an athlete's context falls into these categories."
+    }
+  ]
+}

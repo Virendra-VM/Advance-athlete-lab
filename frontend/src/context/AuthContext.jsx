@@ -1,10 +1,12 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react'
 import {
   clearStoredToken,
+  confirmEmailVerification,
   fetchMe,
   getStoredToken,
   login as apiLogin,
   register as apiRegister,
+  requestEmailVerification,
   setStoredToken,
   submitOnboarding as apiSubmitOnboarding,
   updateProfile as apiUpdateProfile,
@@ -96,6 +98,17 @@ export function AuthProvider({ children }) {
     return updated
   }, [token])
 
+  const resendVerificationEmail = useCallback(
+    async () => requestEmailVerification(token),
+    [token],
+  )
+
+  const confirmEmail = useCallback(async (verifyToken) => {
+    const updated = await confirmEmailVerification(verifyToken)
+    setUser((current) => (current ? { ...current, ...updated } : updated))
+    return updated
+  }, [])
+
   const value = useMemo(
     () => ({
       user,
@@ -109,7 +122,10 @@ export function AuthProvider({ children }) {
       submitOnboarding,
       markStravaOnboardingDone,
       markCorosOnboardingDone,
+      resendVerificationEmail,
+      confirmEmail,
       profile: user?.profile ?? null,
+      emailVerified: Boolean(user?.email_verified),
       isAuthenticated: Boolean(token && user),
       needsOnboarding: Boolean(user?.profile && !user.profile.onboarding_completed),
       needsStravaStep: Boolean(
@@ -121,7 +137,16 @@ export function AuthProvider({ children }) {
           !user.profile.coros_onboarding_done,
       ),
     }),
-    [user, token, loading, refreshUser, markStravaOnboardingDone, markCorosOnboardingDone],
+    [
+      user,
+      token,
+      loading,
+      refreshUser,
+      markStravaOnboardingDone,
+      markCorosOnboardingDone,
+      resendVerificationEmail,
+      confirmEmail,
+    ],
   )
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>

@@ -92,6 +92,23 @@ export async function submitOnboarding(data, token = getStoredToken()) {
   return handleResponse(response)
 }
 
+export async function requestEmailVerification(token = getStoredToken()) {
+  const response = await fetch(`${API_BASE_URL}/api/auth/verify-email/request`, {
+    method: 'POST',
+    headers: authHeaders(token),
+  })
+  return handleResponse(response)
+}
+
+export async function confirmEmailVerification(verifyToken) {
+  const response = await fetch(`${API_BASE_URL}/api/auth/verify-email/confirm`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ token: verifyToken }),
+  })
+  return handleResponse(response)
+}
+
 export async function completeStravaOnboarding(token = getStoredToken()) {
   const response = await fetch(`${API_BASE_URL}/api/profile/strava-onboarding-complete`, {
     method: 'POST',

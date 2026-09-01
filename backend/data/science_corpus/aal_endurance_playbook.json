@@ -1,0 +1,60 @@
+{
+  "slug": "aal-endurance-playbook",
+  "title": "Advance Athlete Lab Endurance Coaching Playbook",
+  "authors": "Advance Athlete Lab coaching team",
+  "year": 2026,
+  "publisher": "Advance Athlete Lab",
+  "license": "Owned content — cleared for AI retrieval",
+  "url": null,
+  "source_type": "playbook",
+  "chunks": [
+    {
+      "key": "periodization-blocks",
+      "heading": "Periodization: base, build, peak, taper",
+      "audience": "endurance",
+      "sport_tags": ["run", "ride", "swim", "triathlon"],
+      "topic_tags": ["periodization", "planning", "weekly-structure"],
+      "body": "Structure endurance training in blocks. Base builds aerobic volume with mostly low intensity and short neuromuscular touches, typically 4-8 weeks. Build adds sport-specific intensity (threshold, race pace, hills) while volume plateaus, typically 3-6 weeks. Peak trims volume and sharpens race-specific work for 1-3 weeks. Taper cuts volume 30-50% over 7-14 days while keeping some intensity so freshness rises without losing fitness. Insert a recovery week every third or fourth week: keep session frequency, cut duration and intensity roughly 30%. For athletes training fewer than four days per week, blocks can be longer and recovery weeks less frequent because weekly stress is already low."
+    },
+    {
+      "key": "intensity-distribution",
+      "heading": "Polarized vs pyramidal intensity distribution",
+      "audience": "endurance",
+      "sport_tags": ["run", "ride", "swim"],
+      "topic_tags": ["intensity", "zones", "weekly-structure"],
+      "body": "Most endurance training should feel genuinely easy — conversational, roughly 65-80% of max heart rate. A polarized week puts about 75-85% of sessions easy and the remainder at hard intensity with little in between; a pyramidal week keeps most volume easy, adds a moderate threshold block, and a smaller amount of high intensity. Both outperform training that spends every session in the moderate 'grey zone'. Practical rule: with three sessions a week, one quality session; with four to five, two quality sessions; with six or more, two to three, never on consecutive days. Beginners should earn intensity with 4-6 weeks of consistent easy volume first."
+    },
+    {
+      "key": "volume-progression",
+      "heading": "Volume progression and the 10% rule caveats",
+      "audience": "endurance",
+      "sport_tags": ["run", "ride", "swim"],
+      "topic_tags": ["load-management", "progression", "injury-prevention"],
+      "body": "The familiar '10% per week' guideline is a ceiling heuristic, not a law. It is unreliable at very low volumes (10% of 8 km is meaningless) and too aggressive when weeks are already long. Better practice: progress the single largest session and the weekly total separately, cap weekly increases at roughly 5-10% for running and 10-15% for cycling or swimming where impact load is lower, and hold volume flat any week that adds a new intensity type. After a break of two weeks or more, restart at 60-70% of previous volume and rebuild over two to three weeks."
+    },
+    {
+      "key": "session-templates",
+      "heading": "Endurance session templates by purpose",
+      "audience": "endurance",
+      "sport_tags": ["run", "ride", "swim"],
+      "topic_tags": ["sessions", "workouts", "weekly-structure"],
+      "body": "Easy aerobic: 30-90 min conversational, optional 4-6 x 15 s relaxed strides at the end. Long session: build toward 25-30% of weekly volume, mostly easy, occasionally finishing at moderate effort. Threshold: 2-4 x 8-12 min at a controlled hard effort you could hold for about an hour, 2-3 min easy between. VO2 intervals: 5-6 x 3 min hard with equal recovery, only for athletes with an aerobic base. Hills: 8-10 x 45-60 s strong uphill, walk or jog down. Swim technique: broken sets of 8-12 x 50-100 m with generous rest and a drill focus. Every session gets 10 min easy warm-up and 5-10 min cool-down."
+    },
+    {
+      "key": "specificity",
+      "heading": "Sport specificity across run, bike, swim",
+      "audience": "endurance",
+      "sport_tags": ["run", "ride", "swim", "triathlon"],
+      "topic_tags": ["specificity", "cross-training", "planning"],
+      "body": "Aerobic fitness transfers between sports but the musculoskeletal and technical demands do not. Cycling and swimming are excellent low-impact ways to add aerobic volume for runners under injury risk, but running economy only improves by running. Swimming is technique-limited: for developing swimmers, frequency and drills beat long continuous distance. Cycling responds well to sustained power work and tolerates higher weekly hours than running. In multi-sport weeks, place the highest-priority sport's key session first in the week when the athlete is freshest."
+    },
+    {
+      "key": "heat-altitude",
+      "heading": "Heat, altitude, and environment adjustments",
+      "audience": "endurance",
+      "sport_tags": ["run", "ride", "swim"],
+      "topic_tags": ["environment", "heat", "altitude", "safety"],
+      "body": "In heat, pace at a given heart rate slows: coach by effort and heart rate rather than pace, expect 10-20 s/km slower running for every notable rise in heat stress, and allow 10-14 days of gradual exposure to acclimatise. Move hard sessions to cooler hours, add fluids and electrolytes, and treat dizziness, chills, or stopped sweating as a stop-now signal. At altitude above roughly 1500 m, cut intensity targets for the first 5-7 days and keep easy sessions genuinely easy; absolute paces and powers stay lower even after adaptation."
+    }
+  ]
+}

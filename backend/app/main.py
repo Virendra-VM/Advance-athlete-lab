@@ -1,17 +1,39 @@
+import logging
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from app.database import Base, engine
+from app.database import Base, SessionLocal, engine
 from app.migrate import run_migrations
-from app.routes import activities, athlete, athletes, auth, coach, coros, import_history, strava, strava_webhook
+from app.routes import (
+    activities,
+    athlete,
+    athletes,
+    auth,
+    coach,
+    coros,
+    import_history,
+    science,
+    strava,
+    strava_webhook,
+)
+from app.services.science_kb import ensure_corpus_loaded
+
+logger = logging.getLogger(__name__)
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     Base.metadata.create_all(bind=engine)
     run_migrations()
+    db = SessionLocal()
+    try:
+        ensure_corpus_loaded(db)
+    except Exception as exc:  # noqa: BLE001 - never block boot on KB seeding
+        logger.warning("Science corpus seeding skipped: %s", exc)
+    finally:
+        db.close()
     yield
 
 
@@ -37,6 +59,7 @@ app.include_router(athlete.router, prefix="/api")
 app.include_router(strava.router, prefix="/api")
 app.include_router(coros.router, prefix="/api")
 app.include_router(coach.router, prefix="/api")
+app.include_router(science.router, prefix="/api")
 app.include_router(import_history.router, prefix="/api")
 app.include_router(activities.router, prefix="/api")
 app.include_router(strava_webhook.router)
