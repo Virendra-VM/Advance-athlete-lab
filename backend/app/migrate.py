@@ -27,6 +27,19 @@ def run_migrations() -> None:
             conn.execute(text("CREATE INDEX IF NOT EXISTS ix_users_email ON users (email)"))
             tables.add("users")
 
+        if "users" in tables:
+            user_columns = {col["name"] for col in inspector.get_columns("users")}
+            user_additions = [
+                ("email_verified_at", "TIMESTAMP"),
+                ("email_verify_token_hash", "VARCHAR(255)"),
+                ("email_verify_sent_at", "TIMESTAMP"),
+            ]
+            for column_name, column_type in user_additions:
+                if column_name not in user_columns:
+                    conn.execute(
+                        text(f"ALTER TABLE users ADD COLUMN {column_name} {column_type}")
+                    )
+
         if "athlete_profiles" in tables:
             profile_columns = {
                 col["name"] for col in inspector.get_columns("athlete_profiles")
@@ -46,6 +59,23 @@ def run_migrations() -> None:
                 ("fitness_level", "VARCHAR(64)"),
                 ("exercises_hate", "TEXT"),
                 ("exercises_love", "TEXT"),
+                # Profile v2
+                ("height_cm", "DOUBLE PRECISION"),
+                ("sex", "VARCHAR(32)"),
+                ("date_of_birth", "DATE"),
+                ("blood_type", "VARCHAR(8)"),
+                ("training_history_months", "INTEGER"),
+                ("current_weekly_volume", "TEXT"),
+                ("longest_recent_session", "VARCHAR(255)"),
+                ("race_prs", "TEXT"),
+                ("weekly_minutes_budget", "INTEGER"),
+                ("primary_sports", "TEXT"),
+                ("secondary_sports", "TEXT"),
+                ("goal_event_name", "VARCHAR(255)"),
+                ("goal_event_date", "DATE"),
+                ("goal_metric", "VARCHAR(255)"),
+                ("units", "VARCHAR(16) NOT NULL DEFAULT 'metric'"),
+                ("baseline_confirmed_at", "TIMESTAMP"),
             ]
             for column_name, column_type in additions:
                 if column_name not in profile_columns:
@@ -389,3 +419,10 @@ def run_migrations() -> None:
                     """
                 )
             )
+
+        inspector = inspect(conn)
+        tables = set(inspector.get_table_names())
+        if "training_plans" in tables:
+            plan_columns = {col["name"] for col in inspector.get_columns("training_plans")}
+            if "published_at" not in plan_columns:
+                conn.execute(text("ALTER TABLE training_plans ADD COLUMN published_at TIMESTAMP"))

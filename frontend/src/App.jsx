@@ -1,4 +1,4 @@
-import { Navigate, Route, Routes } from 'react-router-dom'
+import { createBrowserRouter, Navigate, Outlet, RouterProvider } from 'react-router-dom'
 import { AuthProvider, useAuth } from './context/AuthContext'
 import ActivityDetailPage from './components/ActivityDetailPage'
 import ConnectCoros from './components/ConnectCoros'
@@ -13,6 +13,7 @@ import StravaCallback from './components/StravaCallback'
 import ActivitiesPage from './pages/ActivitiesPage'
 import CoachPage from './pages/CoachPage'
 import SchedulePage from './pages/SchedulePage'
+import VerifyEmailPage from './pages/VerifyEmailPage'
 import VolumePage from './pages/VolumePage'
 import {
   DailyHealthPage,
@@ -44,44 +45,159 @@ function ProtectedRoute({ children }) {
   return children
 }
 
-function AppRoutes() {
+function AppLayout() {
   return (
-    <Routes>
-      <Route path="/" element={<HomeRedirect />} />
-      <Route path="/signin" element={<SignIn />} />
-      <Route path="/onboarding" element={<OnboardingWizard />} />
-      <Route path="/connect-strava" element={<ConnectStrava />} />
-      <Route path="/connect-coros" element={<ConnectCoros />} />
-      <Route path="/dashboard" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
-      <Route path="/health/recovery" element={<ProtectedRoute><RecoveryPage /></ProtectedRoute>} />
-      <Route path="/health/sleep" element={<ProtectedRoute><SleepPage /></ProtectedRoute>} />
-      <Route path="/health/hrv" element={<ProtectedRoute><HrvPage /></ProtectedRoute>} />
-      <Route path="/health/stress" element={<ProtectedRoute><StressPage /></ProtectedRoute>} />
-      <Route path="/health/rhr" element={<ProtectedRoute><RhrPage /></ProtectedRoute>} />
-      <Route path="/health/daily" element={<ProtectedRoute><DailyHealthPage /></ProtectedRoute>} />
-      <Route path="/training/load" element={<ProtectedRoute><TrainingLoadPage /></ProtectedRoute>} />
-      <Route path="/training/volume" element={<ProtectedRoute><VolumePage /></ProtectedRoute>} />
-      <Route path="/training/fitness" element={<ProtectedRoute><FitnessPage /></ProtectedRoute>} />
-      <Route path="/training/schedule" element={<ProtectedRoute><SchedulePage /></ProtectedRoute>} />
-      <Route path="/activities" element={<ProtectedRoute><ActivitiesPage /></ProtectedRoute>} />
-      <Route path="/coach" element={<ProtectedRoute><CoachPage /></ProtectedRoute>} />
-      <Route path="/profile" element={<ProtectedRoute><ProfilePage /></ProtectedRoute>} />
-      <Route path="/settings" element={<ProtectedRoute><SettingsPage /></ProtectedRoute>} />
-      <Route
-        path="/activities/:activityId"
-        element={<ProtectedRoute><ActivityDetailPage /></ProtectedRoute>}
-      />
-      <Route path="/oauth/strava/callback" element={<StravaCallback />} />
-      <Route path="/oauth/coros/callback" element={<CorosCallback />} />
-      <Route path="*" element={<Navigate to="/" replace />} />
-    </Routes>
+    <AuthProvider>
+      <Outlet />
+    </AuthProvider>
   )
 }
 
+const router = createBrowserRouter([
+  {
+    element: <AppLayout />,
+    children: [
+      { path: '/', element: <HomeRedirect /> },
+      { path: '/signin', element: <SignIn /> },
+      { path: '/onboarding', element: <OnboardingWizard /> },
+      { path: '/verify-email', element: <VerifyEmailPage /> },
+      { path: '/connect-strava', element: <ConnectStrava /> },
+      { path: '/connect-coros', element: <ConnectCoros /> },
+      {
+        path: '/dashboard',
+        element: (
+          <ProtectedRoute>
+            <Dashboard />
+          </ProtectedRoute>
+        ),
+      },
+      {
+        path: '/health/recovery',
+        element: (
+          <ProtectedRoute>
+            <RecoveryPage />
+          </ProtectedRoute>
+        ),
+      },
+      {
+        path: '/health/sleep',
+        element: (
+          <ProtectedRoute>
+            <SleepPage />
+          </ProtectedRoute>
+        ),
+      },
+      {
+        path: '/health/hrv',
+        element: (
+          <ProtectedRoute>
+            <HrvPage />
+          </ProtectedRoute>
+        ),
+      },
+      {
+        path: '/health/stress',
+        element: (
+          <ProtectedRoute>
+            <StressPage />
+          </ProtectedRoute>
+        ),
+      },
+      {
+        path: '/health/rhr',
+        element: (
+          <ProtectedRoute>
+            <RhrPage />
+          </ProtectedRoute>
+        ),
+      },
+      {
+        path: '/health/daily',
+        element: (
+          <ProtectedRoute>
+            <DailyHealthPage />
+          </ProtectedRoute>
+        ),
+      },
+      {
+        path: '/training/load',
+        element: (
+          <ProtectedRoute>
+            <TrainingLoadPage />
+          </ProtectedRoute>
+        ),
+      },
+      {
+        path: '/training/volume',
+        element: (
+          <ProtectedRoute>
+            <VolumePage />
+          </ProtectedRoute>
+        ),
+      },
+      {
+        path: '/training/fitness',
+        element: (
+          <ProtectedRoute>
+            <FitnessPage />
+          </ProtectedRoute>
+        ),
+      },
+      {
+        path: '/training/schedule',
+        element: (
+          <ProtectedRoute>
+            <SchedulePage />
+          </ProtectedRoute>
+        ),
+      },
+      {
+        path: '/activities',
+        element: (
+          <ProtectedRoute>
+            <ActivitiesPage />
+          </ProtectedRoute>
+        ),
+      },
+      {
+        path: '/coach',
+        element: (
+          <ProtectedRoute>
+            <CoachPage />
+          </ProtectedRoute>
+        ),
+      },
+      {
+        path: '/profile',
+        element: (
+          <ProtectedRoute>
+            <ProfilePage />
+          </ProtectedRoute>
+        ),
+      },
+      {
+        path: '/settings',
+        element: (
+          <ProtectedRoute>
+            <SettingsPage />
+          </ProtectedRoute>
+        ),
+      },
+      {
+        path: '/activities/:activityId',
+        element: (
+          <ProtectedRoute>
+            <ActivityDetailPage />
+          </ProtectedRoute>
+        ),
+      },
+      { path: '/oauth/strava/callback', element: <StravaCallback /> },
+      { path: '/oauth/coros/callback', element: <CorosCallback /> },
+      { path: '*', element: <Navigate to="/" replace /> },
+    ],
+  },
+])
+
 export default function App() {
-  return (
-    <AuthProvider>
-      <AppRoutes />
-    </AuthProvider>
-  )
+  return <RouterProvider router={router} />
 }

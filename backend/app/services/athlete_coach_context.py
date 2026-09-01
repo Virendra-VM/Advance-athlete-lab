@@ -15,6 +15,13 @@ from app.models import (
     FitnessAssessment,
     TrainingLoadSnapshot,
 )
+from app.services.athlete_profile import (
+    age_from_dob,
+    get_profile_consent,
+    get_profile_sports,
+    load_json_column,
+)
+from app.services.coach_safety import build_safety_profile, readiness_flags_from_signals
 from app.services.coros_sync import get_coros_connection
 
 
@@ -75,27 +82,15 @@ def build_athlete_coach_context(db: Session, athlete_profile_id: int) -> dict:
     )
     connection = get_coros_connection(db, athlete_profile_id)
 
-    readiness_flags: list[str] = []
-    if fitness and fitness.recovery_pct is not None:
-        if fitness.recovery_pct < 40:
-            readiness_flags.append("low_recovery")
-        elif fitness.recovery_pct < 70:
-            readiness_flags.append("moderate_recovery")
-        else:
-            readiness_flags.append("good_recovery")
-    if health_rows:
-        latest = health_rows[0]
-        if latest.sleep_score is not None and latest.sleep_score < 60:
-            readiness_flags.append("poor_sleep")
-        if latest.stress is not None and latest.stress >= 70:
-            readiness_flags.append("elevated_stress")
-        if latest.hrv is not None and latest.hrv_assessment:
-            readiness_flags.append(f"hrv_{str(latest.hrv_assessment).lower()}")
-    if load and load.load_ratio is not None:
-        if load.load_ratio >= 1.5:
-            readiness_flags.append("high_training_load_ratio")
-        elif load.load_ratio <= 0.8:
-            readiness_flags.append("low_training_load_ratio")
+    latest_health_row = health_rows[0] if health_rows else None
+    readiness_flags = readiness_flags_from_signals(
+        recovery_pct=fitness.recovery_pct if fitness else None,
+        sleep_score=latest_health_row.sleep_score if latest_health_row else None,
+        stress=latest_health_row.stress if latest_health_row else None,
+        hrv=latest_health_row.hrv if latest_health_row else None,
+        hrv_assessment=latest_health_row.hrv_assessment if latest_health_row else None,
+        load_ratio=load.load_ratio if load else None,
+    )
 
     race_preds = {}
     if fitness and fitness.race_preds_json:
@@ -111,25 +106,57 @@ def build_athlete_coach_context(db: Session, athlete_profile_id: int) -> dict:
         except json.JSONDecodeError:
             comments = []
 
+    sports = get_profile_sports(db, athlete_profile_id)
+    consent = get_profile_consent(db, athlete_profile_id)
+    safety = build_safety_profile(db, profile, readiness_flags)
+
     return {
         "athlete_profile_id": athlete_profile_id,
         "generated_at": datetime.utcnow(),
         "profile": {
             "name": profile.name,
-            "age": profile.age,
+            "age": profile.age or age_from_dob(profile.date_of_birth),
+            "sex": profile.sex,
+            "height_cm": profile.height_cm,
             "weight": profile.weight,
+            "units": profile.units,
             "primary_goal": profile.primary_goal,
             "secondary_goal": profile.secondary_goal,
+            "goal_event_name": profile.goal_event_name,
+            "goal_event_date": profile.goal_event_date.isoformat()
+            if profile.goal_event_date
+            else None,
+            "goal_metric": profile.goal_metric,
             "equipment": profile.equipment,
             "days_per_week": profile.days_per_week,
             "workout_duration_minutes": profile.workout_duration_minutes,
+            "weekly_minutes_budget": profile.weekly_minutes_budget,
             "preferred_workout_time": profile.preferred_workout_time,
             "injuries_limitations": profile.injuries_limitations,
             "fitness_level": profile.fitness_level,
+            "training_history_months": profile.training_history_months,
+            "current_weekly_volume": load_json_column(profile.current_weekly_volume),
+            "longest_recent_session": profile.longest_recent_session,
+            "race_prs": profile.race_prs,
             "exercises_hate": profile.exercises_hate,
             "exercises_love": profile.exercises_love,
+            "sports": [
+                {
+                    "sport": row.sport,
+                    "priority": row.priority,
+                    "experience_level": row.experience_level,
+                    "weekly_preference_days": row.weekly_preference_days,
+                }
+                for row in sports
+            ],
+            "consents": {
+                "ai_coaching": bool(consent.ai_coaching) if consent else False,
+                "health_data": bool(consent.health_data) if consent else False,
+                "research": bool(consent.research) if consent else False,
+            },
         },
         "readiness_flags": readiness_flags,
+        "safety": safety,
         "recent_activities": [
             {
                 "id": activity.id,

@@ -309,3 +309,194 @@ class CoachContextResponse(BaseModel):
     readiness_flags: list[str]
     recent_activities: list[dict]
     coros: dict
+    safety: dict = {}
+
+
+class ScienceCitation(BaseModel):
+    slug: str | None = None
+    title: str | None = None
+    authors: str | None = None
+    year: int | None = None
+    publisher: str | None = None
+    license: str | None = None
+    url: str | None = None
+
+
+class ScienceHit(BaseModel):
+    chunk_id: int
+    score: float
+    heading: str | None = None
+    body: str
+    audience: str | None = None
+    sport_tags: list[str] = []
+    topic_tags: list[str] = []
+    citation: ScienceCitation
+
+
+class ScienceSearchResponse(BaseModel):
+    query: str
+    hits: list[ScienceHit] = []
+
+
+class ScienceSourceRead(BaseModel):
+    slug: str
+    title: str
+    authors: str | None = None
+    year: int | None = None
+    publisher: str | None = None
+    license: str | None = None
+    url: str | None = None
+    source_type: str
+    chunk_count: int = 0
+
+
+class ScienceSourceListResponse(BaseModel):
+    items: list[ScienceSourceRead]
+
+
+# ---------------------------------------------------------------- AI coach
+
+
+class SafetyIssue(BaseModel):
+    level: str
+    code: str
+    message: str
+
+
+class PlanWorkoutRead(BaseModel):
+    id: int | None = None
+    date: date
+    sport: str | None = None
+    title: str | None = None
+    session_type: str | None = None
+    duration_min: float | None = None
+    distance_m: float | None = None
+    intensity: str | None = None
+    description: str | None = None
+    structure: list[dict] = []
+    completed_activity_id: int | None = None
+
+
+class WeekPlanRead(BaseModel):
+    title: str | None = None
+    summary: str | None = None
+    focus: str | None = None
+    week_start: date | None = None
+    workouts: list[PlanWorkoutRead] = []
+    coach_notes: str | None = None
+    citations: list[str] = []
+
+
+class CoachPlanResponse(BaseModel):
+    plan_id: int | None = None
+    provider: str
+    model: str
+    week_start: date
+    plan: WeekPlanRead
+    safety_issues: list[SafetyIssue] = []
+    generation_notes: list[str] = []
+    citations: list[ScienceCitation] = []
+    disclaimer: str | None = None
+    created_at: datetime | None = None
+    on_schedule: bool = False
+
+
+class PlanGenerateRequest(BaseModel):
+    week_start: date | None = None
+    timezone: str | None = Field(default=None, max_length=64)
+
+
+class ReadinessDirective(BaseModel):
+    action: str
+    max_hard_sessions_today: int
+    reason: str
+
+
+class DailyAdviceRead(BaseModel):
+    headline: str
+    recommendation: str
+    session_adjustment: str | None = None
+    rationale: str | None = None
+    citations: list[str] = []
+    escalate: bool = False
+    escalation_reason: str | None = None
+
+
+class CoachAdviceResponse(BaseModel):
+    provider: str
+    model: str
+    date: date
+    readiness: ReadinessDirective
+    advice: DailyAdviceRead
+    citations: list[ScienceCitation] = []
+    disclaimer: str | None = None
+
+
+class CoachChatRequest(BaseModel):
+    message: str = Field(min_length=1, max_length=2000)
+    timezone: str | None = Field(default=None, max_length=64)
+
+
+class ChatReplyRead(BaseModel):
+    reply: str
+    citations: list[str] = []
+    escalate: bool = False
+    escalation_reason: str | None = None
+
+
+class CoachMessageRead(BaseModel):
+    id: int
+    role: str
+    content: str
+    created_at: datetime | None = None
+
+
+class CoachChatResponse(BaseModel):
+    provider: str
+    model: str
+    reply: ChatReplyRead
+    citations: list[ScienceCitation] = []
+    history: list[CoachMessageRead] = []
+    disclaimer: str | None = None
+
+
+class CoachChatHistoryResponse(BaseModel):
+    messages: list[CoachMessageRead] = []
+
+
+class CoachPlannedWorkoutRead(BaseModel):
+    """Schedule-compatible view of an AI-planned workout.
+
+    Field names deliberately mirror :class:`CorosScheduleItemRead` so the Schedule
+    page can render device plans and coach plans through one code path.
+    """
+
+    external_id: str
+    schedule_date: date
+    title: str | None = None
+    sport_type: str | None = None
+    duration_min: float | None = None
+    distance_m: float | None = None
+    day_no: int | None = None
+    completed_activity_id: int | None = None
+    status: str = "planned"
+    completed_activity_name: str | None = None
+    completed_activity_provider: str | None = None
+    completed_distance_m: float | None = None
+    completed_moving_time_s: int | None = None
+    source: str = "coach"
+    workout_id: int
+    plan_id: int | None = None
+    session_type: str | None = None
+    intensity: str | None = None
+    description: str | None = None
+
+
+class CoachStatusResponse(BaseModel):
+    providers_configured: list[str] = []
+    active_provider: str | None = None
+    fallback_provider: str | None = None
+    mode: str
+    ai_consent: bool = False
+    science_chunks: int = 0
+    has_active_plan: bool = False

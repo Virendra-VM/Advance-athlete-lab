@@ -26,6 +26,10 @@ class User(Base):
     athlete_profile_id = Column(
         Integer, ForeignKey("athlete_profiles.id"), unique=True, nullable=True
     )
+    # Soft email verification: never blocks onboarding or app access.
+    email_verified_at = Column(DateTime, nullable=True)
+    email_verify_token_hash = Column(String(255), nullable=True)
+    email_verify_sent_at = Column(DateTime, nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
 
 
@@ -52,6 +56,87 @@ class AthleteProfile(Base):
     fitness_level = Column(String(64), nullable=True)
     exercises_hate = Column(Text, nullable=True)
     exercises_love = Column(Text, nullable=True)
+
+    # --- Profile v2: body + demographics ---
+    height_cm = Column(Float, nullable=True)
+    sex = Column(String(32), nullable=True)
+    date_of_birth = Column(Date, nullable=True)
+    # Optional and sensitive; never required to finish onboarding.
+    blood_type = Column(String(8), nullable=True)
+
+    # --- Profile v2: fitness snapshot ---
+    training_history_months = Column(Integer, nullable=True)
+    current_weekly_volume = Column(Text, nullable=True)  # JSON keyed by sport
+    longest_recent_session = Column(String(255), nullable=True)
+    race_prs = Column(Text, nullable=True)
+
+    # --- Profile v2: time budget + sports + goal event ---
+    weekly_minutes_budget = Column(Integer, nullable=True)
+    primary_sports = Column(Text, nullable=True)  # JSON list
+    secondary_sports = Column(Text, nullable=True)  # JSON list
+    goal_event_name = Column(String(255), nullable=True)
+    goal_event_date = Column(Date, nullable=True)
+    goal_metric = Column(String(255), nullable=True)
+
+    # --- Profile v2: presentation ---
+    units = Column(String(16), nullable=False, default="metric")
+    baseline_confirmed_at = Column(DateTime, nullable=True)
+
+
+class AthleteInjury(Base):
+    """Structured injury history so plan generation can filter contraindications."""
+
+    __tablename__ = "athlete_injuries"
+
+    id = Column(Integer, primary_key=True, index=True, autoincrement=True)
+    athlete_profile_id = Column(
+        Integer, ForeignKey("athlete_profiles.id"), nullable=False, index=True
+    )
+    body_region = Column(String(64), nullable=False)
+    condition = Column(String(255), nullable=True)
+    status = Column(String(32), nullable=False, default="past")  # active | past
+    severity = Column(String(32), nullable=True)  # mild | moderate | severe
+    onset_date = Column(Date, nullable=True)
+    notes = Column(Text, nullable=True)
+    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+
+class AthleteSport(Base):
+    __tablename__ = "athlete_sports"
+    __table_args__ = (
+        UniqueConstraint("athlete_profile_id", "sport", name="uq_athlete_sport"),
+    )
+
+    id = Column(Integer, primary_key=True, index=True, autoincrement=True)
+    athlete_profile_id = Column(
+        Integer, ForeignKey("athlete_profiles.id"), nullable=False, index=True
+    )
+    sport = Column(String(64), nullable=False)
+    priority = Column(String(16), nullable=False, default="primary")  # primary | secondary
+    experience_level = Column(String(64), nullable=True)
+    weekly_preference_days = Column(Integer, nullable=True)
+    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+
+class AthleteConsent(Base):
+    __tablename__ = "athlete_consents"
+
+    id = Column(Integer, primary_key=True, index=True, autoincrement=True)
+    athlete_profile_id = Column(
+        Integer,
+        ForeignKey("athlete_profiles.id"),
+        nullable=False,
+        unique=True,
+        index=True,
+    )
+    ai_coaching = Column(Boolean, nullable=False, default=False)
+    health_data = Column(Boolean, nullable=False, default=False)
+    research = Column(Boolean, nullable=False, default=False)
+    accepted_at = Column(DateTime, nullable=True)
+    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
 
 class StravaConnection(Base):
@@ -308,4 +393,108 @@ class CorosCycleSnapshot(Base):
     )
     snapshot_at = Column(DateTime, nullable=False, index=True)
     raw_json = Column(Text, nullable=True)
+    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+
+
+class ScienceSource(Base):
+    """Citable provenance for every knowledge chunk fed to the AI coach."""
+
+    __tablename__ = "science_sources"
+
+    id = Column(Integer, primary_key=True, index=True, autoincrement=True)
+    slug = Column(String(128), nullable=False, unique=True, index=True)
+    title = Column(String(512), nullable=False)
+    authors = Column(String(512), nullable=True)
+    year = Column(Integer, nullable=True)
+    publisher = Column(String(255), nullable=True)
+    license = Column(String(128), nullable=True)
+    url = Column(String(1024), nullable=True)
+    source_type = Column(String(64), nullable=False, default="guideline")
+    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+
+class ScienceChunk(Base):
+    __tablename__ = "science_chunks"
+    __table_args__ = (
+        UniqueConstraint("source_id", "chunk_key", name="uq_science_source_chunk"),
+    )
+
+    id = Column(Integer, primary_key=True, index=True, autoincrement=True)
+    source_id = Column(Integer, ForeignKey("science_sources.id"), nullable=False, index=True)
+    chunk_key = Column(String(128), nullable=False)
+    heading = Column(String(512), nullable=True)
+    body = Column(Text, nullable=False)
+    sport_tags = Column(String(512), nullable=True)  # comma separated
+    topic_tags = Column(String(512), nullable=True)  # comma separated
+    audience = Column(String(64), nullable=True)  # endurance | strength | shared
+    # Reserved for pgvector migration; lexical retrieval works without it.
+    embedding_json = Column(Text, nullable=True)
+    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+
+class TrainingPlan(Base):
+    """AI-generated training week persisted so Schedule can render it."""
+
+    __tablename__ = "training_plans"
+
+    id = Column(Integer, primary_key=True, index=True, autoincrement=True)
+    athlete_profile_id = Column(
+        Integer, ForeignKey("athlete_profiles.id"), nullable=False, index=True
+    )
+    week_start = Column(Date, nullable=False, index=True)
+    title = Column(String(512), nullable=True)
+    summary = Column(Text, nullable=True)
+    focus = Column(String(255), nullable=True)
+    provider = Column(String(32), nullable=True)
+    model = Column(String(128), nullable=True)
+    status = Column(String(32), nullable=False, default="active")  # active | superseded
+    published_at = Column(DateTime, nullable=True)  # set when the athlete adds the week to Schedule
+    safety_notes = Column(Text, nullable=True)  # JSON list from validator
+    citations = Column(Text, nullable=True)  # JSON list of science source slugs
+    raw_json = Column(Text, nullable=True)
+    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+
+class PlannedWorkout(Base):
+    __tablename__ = "planned_workouts"
+
+    id = Column(Integer, primary_key=True, index=True, autoincrement=True)
+    training_plan_id = Column(
+        Integer, ForeignKey("training_plans.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    athlete_profile_id = Column(
+        Integer, ForeignKey("athlete_profiles.id"), nullable=False, index=True
+    )
+    workout_date = Column(Date, nullable=False, index=True)
+    sport = Column(String(64), nullable=True)
+    title = Column(String(512), nullable=True)
+    session_type = Column(String(64), nullable=True)  # easy | tempo | intervals | strength | rest
+    duration_min = Column(Float, nullable=True)
+    distance_m = Column(Float, nullable=True)
+    intensity = Column(String(255), nullable=True)
+    description = Column(Text, nullable=True)
+    structure_json = Column(Text, nullable=True)
+    completed_activity_id = Column(
+        Integer, ForeignKey("activities.id"), nullable=True, index=True
+    )
+    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+
+class CoachMessage(Base):
+    """Persistent coach chat so the AI keeps cross-session memory."""
+
+    __tablename__ = "coach_messages"
+
+    id = Column(Integer, primary_key=True, index=True, autoincrement=True)
+    athlete_profile_id = Column(
+        Integer, ForeignKey("athlete_profiles.id"), nullable=False, index=True
+    )
+    role = Column(String(16), nullable=False)  # user | assistant
+    content = Column(Text, nullable=False)
+    citations = Column(Text, nullable=True)
+    provider = Column(String(32), nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False)

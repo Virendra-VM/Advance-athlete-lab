@@ -1,9 +1,10 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { Navigate } from 'react-router-dom'
+import { Navigate, useLocation } from 'react-router-dom'
 import {
   CheckCircle2,
   HardDrive,
   Link2,
+  LogOut,
   RefreshCw,
   Upload,
   Watch,
@@ -28,6 +29,8 @@ import ThemeToggle from './ThemeToggle'
 import PageHeader from './ui/PageHeader'
 import SyncResultModal, { buildSyncResult } from './ui/SyncResultModal'
 import { useTheme } from '../context/ThemeProvider'
+import OnboardingField, { ConsentsField } from './onboarding/OnboardingFields'
+import { BLOOD_TYPES } from '../utils/onboardingSteps'
 
 function StatusPill({ connected, loading, label }) {
   if (loading) {
@@ -74,8 +77,12 @@ function ActionButton({ children, onClick, disabled, variant = 'secondary', clas
 }
 
 export default function SettingsPage() {
-  const { isAuthenticated, profile } = useAuth()
+  const { isAuthenticated, profile, user, emailVerified, resendVerificationEmail, updateProfile, logout } =
+    useAuth()
   const { theme } = useTheme()
+  const location = useLocation()
+  const [verifySending, setVerifySending] = useState(false)
+  const [verifyMessage, setVerifyMessage] = useState('')
   const [stravaConnected, setStravaConnected] = useState(false)
   const [stravaAthleteId, setStravaAthleteId] = useState(null)
   const [stravaLoading, setStravaLoading] = useState(true)
@@ -104,6 +111,16 @@ export default function SettingsPage() {
   const [uploading, setUploading] = useState(false)
   const wasImportRunning = useRef(false)
   const uploadInputRef = useRef(null)
+  const [consentOverride, setConsentOverride] = useState(undefined)
+  const [bloodOverride, setBloodOverride] = useState(undefined)
+  const [privacySaving, setPrivacySaving] = useState(false)
+  const [privacyMessage, setPrivacyMessage] = useState('')
+  const [privacyError, setPrivacyError] = useState('')
+  const [privacyTarget, setPrivacyTarget] = useState(null)
+
+  const consents =
+    consentOverride ?? profile?.consents ?? { ai_coaching: false, health_data: false, research: false }
+  const bloodType = bloodOverride !== undefined ? bloodOverride : (profile?.blood_type ?? null)
 
   const loadStravaStatus = useCallback(async () => {
     if (!profile?.id) return
@@ -174,7 +191,32 @@ export default function SettingsPage() {
     return () => window.clearInterval(intervalId)
   }, [pollImportStatus])
 
+  useEffect(() => {
+    const id = (location.hash || '').replace(/^#/, '')
+    if (!id) return
+    window.setTimeout(() => {
+      document.getElementById(id)?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+    }, 80)
+  }, [location.hash])
+
   if (!isAuthenticated) return <Navigate to="/signin" replace />
+
+  async function handleResendVerification() {
+    setVerifySending(true)
+    setVerifyMessage('')
+    try {
+      const result = await resendVerificationEmail()
+      setVerifyMessage(
+        result?.dev_verify_token
+          ? `No mail transport configured. Dev link: /verify-email?token=${result.dev_verify_token}`
+          : 'Verification email sent. Check your inbox.',
+      )
+    } catch (err) {
+      setVerifyMessage(err.message || 'Could not send the verification email.')
+    } finally {
+      setVerifySending(false)
+    }
+  }
 
   async function handleConnectStrava() {
     setStravaConnecting(true)
@@ -342,6 +384,36 @@ export default function SettingsPage() {
     }
   }
 
+  async function savePrivacy(payload, target) {
+    setPrivacyTarget(target)
+    setPrivacySaving(true)
+    setPrivacyError('')
+    setPrivacyMessage('')
+    try {
+      await updateProfile(payload)
+      setPrivacyMessage('Saved.')
+    } catch (err) {
+      setPrivacyError(err.message || 'Could not save.')
+    } finally {
+      setPrivacySaving(false)
+    }
+  }
+
+  async function handleConsentsChange(value) {
+    const next = {
+      ai_coaching: Boolean(value?.ai_coaching),
+      health_data: Boolean(value?.health_data),
+      research: Boolean(value?.research),
+    }
+    setConsentOverride(next)
+    await savePrivacy({ consents: next }, 'consents')
+  }
+
+  async function handleBloodTypeChange(value) {
+    setBloodOverride(value)
+    await savePrivacy({ blood_type: value || null }, 'blood')
+  }
+
   const importPct =
     importRunning && importStatus?.total > 0
       ? Math.min(100, Math.round((importStatus.processed / importStatus.total) * 100))
@@ -361,7 +433,7 @@ export default function SettingsPage() {
         <PageHeader
           eyebrow="Account"
           title="Settings"
-          subtitle="Manage integrations, devices, appearance, and historical imports."
+          subtitle="Integrations, privacy, appearance, and the rest of your account."
         />
 
         {/* Appearance */}
@@ -387,6 +459,95 @@ export default function SettingsPage() {
                 <ThemeToggle />
               </div>
             </div>
+          </div>
+        </section>
+
+        {/* Email verification */}
+        <section className="space-y-4">
+          <div>
+            <h2 className="text-lg font-semibold">Email</h2>
+            <p className="mt-0.5 text-sm text-[var(--aal-muted)]">
+              Verification is optional — the app works either way.
+            </p>
+          </div>
+          <div className="rounded-2xl border border-[var(--aal-line)] bg-[var(--aal-card)] p-5 sm:p-6">
+            <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+              <div className="min-w-0">
+                <div className="flex flex-wrap items-center gap-2">
+                  <h3 className="text-base font-semibold">{user?.email || '—'}</h3>
+                  <StatusPill
+                    connected={emailVerified}
+                    label={emailVerified ? 'Verified' : 'Unverified'}
+                  />
+                </div>
+                <p className="mt-1 text-sm text-[var(--aal-muted)]">
+                  {verifyMessage ||
+                    (emailVerified
+                      ? 'Account alerts and training summaries are enabled.'
+                      : 'Verify to receive account alerts and weekly training summaries.')}
+                </p>
+              </div>
+              {!emailVerified && (
+                <ActionButton
+                  onClick={handleResendVerification}
+                  disabled={verifySending}
+                  variant="secondary"
+                >
+                  {verifySending ? 'Sending…' : 'Send verification link'}
+                </ActionButton>
+              )}
+            </div>
+          </div>
+        </section>
+
+        {/* Privacy */}
+        <section id="privacy" className="scroll-mt-24 space-y-4">
+          <div>
+            <h2 className="text-lg font-semibold">Privacy</h2>
+            <p className="mt-0.5 text-sm text-[var(--aal-muted)]">
+              Coaching guidance only — not medical advice. Changes save as you toggle them.
+            </p>
+          </div>
+          <div className="rounded-2xl border border-[var(--aal-line)] bg-[var(--aal-card)] p-5 sm:p-6">
+            <ConsentsField value={consents} onChange={handleConsentsChange} />
+            {privacyTarget === 'consents' && privacySaving ? (
+              <p className="mt-3 text-sm text-[var(--aal-muted)]">Saving…</p>
+            ) : privacyTarget === 'consents' && privacyError ? (
+              <p className="mt-3 text-sm text-danger-muted">{privacyError}</p>
+            ) : privacyTarget === 'consents' && privacyMessage ? (
+              <p className="mt-3 text-sm text-sage">{privacyMessage}</p>
+            ) : null}
+          </div>
+        </section>
+
+        {/* Health record */}
+        <section id="health-record" className="scroll-mt-24 space-y-4">
+          <div>
+            <h2 className="text-lg font-semibold">Health record</h2>
+            <p className="mt-0.5 text-sm text-[var(--aal-muted)]">
+              Optional and never used in coaching prompts.
+            </p>
+          </div>
+          <div className="rounded-2xl border border-[var(--aal-line)] bg-[var(--aal-card)] p-5 sm:p-6">
+            <OnboardingField
+              field={{
+                key: 'blood_type',
+                label: 'Blood type',
+                type: 'chips-single',
+                options: BLOOD_TYPES,
+                help: 'Stored for emergencies only.',
+              }}
+              answers={{ blood_type: bloodType }}
+              value={bloodType}
+              onChange={handleBloodTypeChange}
+            />
+            {privacyTarget === 'blood' && privacySaving ? (
+              <p className="mt-3 text-sm text-[var(--aal-muted)]">Saving…</p>
+            ) : privacyTarget === 'blood' && privacyError ? (
+              <p className="mt-3 text-sm text-danger-muted">{privacyError}</p>
+            ) : privacyTarget === 'blood' && privacyMessage ? (
+              <p className="mt-3 text-sm text-sage">{privacyMessage}</p>
+            ) : null}
           </div>
         </section>
 
@@ -752,6 +913,30 @@ export default function SettingsPage() {
             {importError && (
               <p className="mt-4 text-sm text-danger-muted">{importError}</p>
             )}
+          </div>
+        </section>
+
+        {/* Session */}
+        <section id="session" className="scroll-mt-24 space-y-4">
+          <div>
+            <h2 className="text-lg font-semibold">Session</h2>
+            <p className="mt-0.5 text-sm text-[var(--aal-muted)]">
+              Sign out of this browser. Your training data stays on the account.
+            </p>
+          </div>
+          <div className="rounded-2xl border border-[var(--aal-line)] bg-[var(--aal-card)] p-5 sm:p-6">
+            <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+              <div>
+                <h3 className="text-base font-semibold">Log out</h3>
+                <p className="mt-1 text-sm text-[var(--aal-muted)]">
+                  Signed in as {user?.email || 'this account'}.
+                </p>
+              </div>
+              <ActionButton onClick={logout} variant="danger">
+                <LogOut className="h-4 w-4" />
+                Log out
+              </ActionButton>
+            </div>
           </div>
         </section>
       </div>

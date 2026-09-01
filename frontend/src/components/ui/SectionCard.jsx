@@ -1,7 +1,15 @@
-export default function SectionCard({ title, subtitle, actions = null, children, className = '' }) {
+export default function SectionCard({
+  id,
+  title,
+  subtitle,
+  actions = null,
+  children,
+  className = '',
+}) {
   return (
     <section
-      className={`rounded-2xl border border-[var(--aal-line)] bg-[var(--aal-card)] p-5 shadow-sm sm:p-6 ${className}`}
+      id={id}
+      className={`scroll-mt-24 rounded-2xl border border-[var(--aal-line)] bg-[var(--aal-card)] p-5 shadow-sm sm:p-6 ${className}`}
     >
       {(title || actions) && (
         <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">

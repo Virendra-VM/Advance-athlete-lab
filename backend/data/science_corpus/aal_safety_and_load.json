@@ -1,0 +1,60 @@
+{
+  "slug": "aal-safety-and-load",
+  "title": "Advance Athlete Lab Safety, Readiness, and Load Management Policy",
+  "authors": "Advance Athlete Lab coaching team",
+  "year": 2026,
+  "publisher": "Advance Athlete Lab",
+  "license": "Owned content — cleared for AI retrieval",
+  "url": null,
+  "source_type": "policy",
+  "chunks": [
+    {
+      "key": "red-flags",
+      "heading": "Red flags that stop training and trigger referral",
+      "audience": "shared",
+      "sport_tags": ["general", "run", "ride", "swim", "strength"],
+      "topic_tags": ["safety", "red-flags", "referral"],
+      "body": "Stop the session and advise professional assessment for: chest pain, pressure, or tightness; fainting, blackouts, or unexplained severe shortness of breath; new neurological symptoms such as numbness, weakness, slurred speech, or one-sided symptoms; sudden severe joint pain, an audible pop with instability, or inability to bear weight; suspected stress fracture (sharp localized bone pain that worsens with impact and is tender to touch); fever or systemic illness; and any pain that wakes the athlete at night or steadily worsens over two weeks. In these cases the coach must not prescribe rehabilitation or a workaround plan — it defers to a clinician."
+    },
+    {
+      "key": "acwr-guidance",
+      "heading": "Acute:chronic workload ratio in practice",
+      "audience": "shared",
+      "sport_tags": ["run", "ride", "swim", "general"],
+      "topic_tags": ["load-management", "acwr", "injury-prevention"],
+      "body": "Comparing the last 7 days of load against a rolling 28-day average gives a rough spike detector. Ratios near 0.8-1.3 usually reflect steady progression; sustained values above roughly 1.5 mean the recent week is far heavier than the athlete is conditioned for and warrant flattening or cutting the next week; values below 0.8 for several weeks indicate detraining or a return-to-training situation that should be rebuilt gradually. ACWR is a coarse signal, not a diagnosis: interpret it alongside sleep, soreness, HRV trend, and whether the change was planned. Never increase load on the basis of a low ratio alone if the athlete reports pain."
+    },
+    {
+      "key": "readiness-adjustments",
+      "heading": "Adjusting sessions for poor readiness",
+      "audience": "shared",
+      "sport_tags": ["general", "run", "ride", "swim", "strength"],
+      "topic_tags": ["readiness", "recovery", "hrv", "sleep"],
+      "body": "When recovery markers are poor — sleep score well below the athlete's norm, HRV flagged as unbalanced or suppressed, resting heart rate elevated several beats above baseline, or high subjective stress — downgrade rather than delete. First step: convert a hard session to easy aerobic at the same duration. Second step: cut duration by roughly a third. Third step, if two or more markers are poor or symptoms include heavy legs and low motivation for multiple days, prescribe rest or mobility only. Do not schedule two consecutive hard days when the previous 48 hours show poor recovery."
+    },
+    {
+      "key": "injury-contraindications",
+      "heading": "Training around common injuries",
+      "audience": "shared",
+      "sport_tags": ["run", "ride", "strength", "general"],
+      "topic_tags": ["injury", "contraindications", "modifications"],
+      "body": "General conservative substitutions for athletes with a currently active issue: knee pain — avoid deep loaded knee flexion, plyometrics, and downhill running; favour cycling, swimming, and hip-dominant strength. Lower back pain — avoid loaded spinal flexion and heavy axial loading; favour walking, swimming, anti-extension core work. Achilles or calf issues — avoid speed work, hills, and jumping; favour cycling and controlled isometric calf loading. Shoulder pain — avoid overhead pressing and freestyle swim volume; favour lower-body and scapular strength work. These are risk-reduction defaults for planning, not treatment: an athlete with a painful active injury should be advised to seek assessment."
+    },
+    {
+      "key": "return-to-training",
+      "heading": "Conservative return to training",
+      "audience": "shared",
+      "sport_tags": ["run", "ride", "swim", "strength", "general"],
+      "topic_tags": ["return-to-play", "progression", "safety"],
+      "body": "After illness or injury, restart at roughly half the previous volume with all sessions easy, then progress about 10-20% per week only while the athlete stays pain-free during, immediately after, and the morning after each session. Reintroduce intensity last, after two to three consistent easy weeks. Any return of pain moves the athlete back one week of progression. Following a viral illness with fever, wait until symptom-free for at least 24-48 hours, then add several easy days before any intensity. Never compress this timeline to protect a goal event date; move the goal instead."
+    },
+    {
+      "key": "scope-and-tone",
+      "heading": "Scope of an AI coach",
+      "audience": "shared",
+      "sport_tags": ["general"],
+      "topic_tags": ["safety", "policy", "communication"],
+      "body": "The coach provides training guidance, not medical, physiotherapy, or nutrition-therapy advice, and must say so when a question approaches those boundaries. It does not diagnose conditions, name a suspected pathology as fact, prescribe medication or supplements for clinical purposes, or design rehabilitation protocols. It does not set aggressive weight-loss targets or restrictive intake plans, and it treats signs of disordered eating or relative energy deficiency as referral topics. When evidence is unclear it says so plainly rather than inventing a citation, and it always leaves the athlete a safe fallback option for the day."
+    }
+  ]
+}

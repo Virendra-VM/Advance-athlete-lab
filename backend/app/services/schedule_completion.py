@@ -8,7 +8,7 @@ from typing import Any
 
 from sqlalchemy.orm import Session
 
-from app.models import Activity, CorosScheduleItem
+from app.models import Activity, CorosScheduleItem, PlannedWorkout, TrainingPlan
 
 DURATION_TOLERANCE = 0.25  # planned estimates can be rough
 DISTANCE_TOLERANCE = 0.25
@@ -57,18 +57,32 @@ def _rel_close(a: float | None, b: float | None, tol: float) -> bool | None:
     return abs(float(a) - float(b)) / max(float(a), float(b), 1.0) <= tol
 
 
-def plan_activity_score(plan: CorosScheduleItem, activity: Activity) -> float:
-    """Higher is better. <=0 means not a match."""
-    plan_day = plan.schedule_date
-    act_day = activity.activity_date.date() if isinstance(activity.activity_date, datetime) else activity.activity_date
+def score_plan_against_activity(
+    *,
+    plan_day: date,
+    sport_type: str | None,
+    duration_min: float | None,
+    distance_m: float | None,
+    plan_title: str | None,
+    activity: Activity,
+) -> float:
+    """Higher is better. <=0 means not a match.
+
+    Field-based so both COROS schedule items and AI-planned workouts can use it.
+    """
+    act_day = (
+        activity.activity_date.date()
+        if isinstance(activity.activity_date, datetime)
+        else activity.activity_date
+    )
     if plan_day != act_day:
         # Allow ±1 day for late-night / timezone bleed.
         if abs((plan_day - act_day).days) > 1:
             return -1.0
 
-    if not sports_compatible(plan.sport_type, activity.sport_type):
+    if not sports_compatible(sport_type, activity.sport_type):
         # Title/name fallback for sports that don't map cleanly.
-        title = (plan.title or "").lower()
+        title = (plan_title or "").lower()
         name = (activity.name or "").lower()
         sport = (activity.sport_type or "").lower()
         if title and title not in name and title not in sport:
@@ -81,21 +95,23 @@ def plan_activity_score(plan: CorosScheduleItem, activity: Activity) -> float:
         score += 0.5
 
     # Duration: plan minutes vs activity seconds
-    plan_duration_s = (plan.duration_min * 60.0) if plan.duration_min else None
-    duration_ok = _rel_close(plan_duration_s, float(activity.moving_time_s or 0) or None, DURATION_TOLERANCE)
+    plan_duration_s = (duration_min * 60.0) if duration_min else None
+    duration_ok = _rel_close(
+        plan_duration_s, float(activity.moving_time_s or 0) or None, DURATION_TOLERANCE
+    )
     if duration_ok is True:
         score += 2.0
     elif duration_ok is False:
         score -= 1.5
 
-    distance_ok = _rel_close(plan.distance_m, float(activity.distance_m or 0) or None, DISTANCE_TOLERANCE)
+    distance_ok = _rel_close(distance_m, float(activity.distance_m or 0) or None, DISTANCE_TOLERANCE)
     if distance_ok is True:
         score += 2.0
     elif distance_ok is False:
         score -= 1.5
 
     # Title overlap bonus
-    title = (plan.title or "").strip().lower()
+    title = (plan_title or "").strip().lower()
     name = (activity.name or "").strip().lower()
     if title and name and (title in name or name in title):
         score += 1.5
@@ -104,6 +120,28 @@ def plan_activity_score(plan: CorosScheduleItem, activity: Activity) -> float:
     if score < 1.5:
         return -1.0
     return score
+
+
+def plan_activity_score(plan: CorosScheduleItem, activity: Activity) -> float:
+    return score_plan_against_activity(
+        plan_day=plan.schedule_date,
+        sport_type=plan.sport_type,
+        duration_min=plan.duration_min,
+        distance_m=plan.distance_m,
+        plan_title=plan.title,
+        activity=activity,
+    )
+
+
+def planned_workout_score(workout: PlannedWorkout, activity: Activity) -> float:
+    return score_plan_against_activity(
+        plan_day=workout.workout_date,
+        sport_type=workout.sport,
+        duration_min=workout.duration_min,
+        distance_m=workout.distance_m,
+        plan_title=workout.title,
+        activity=activity,
+    )
 
 
 def match_schedule_completions(
@@ -203,3 +241,102 @@ def match_schedule_completions(
         "linked": linked,
         "cleared": cleared,
     }
+
+
+REST_SESSION_TYPES = {"rest", "mobility", "off"}
+
+
+def match_planned_workout_completions(
+    db: Session,
+    athlete_profile_id: int,
+    *,
+    from_date: date | None = None,
+    to_date: date | None = None,
+) -> dict[str, Any]:
+    """Link AI-planned workouts to completed activities, same rules as COROS plans."""
+    start = from_date or (date.today() - timedelta(days=60))
+    end = to_date or (date.today() + timedelta(days=14))
+
+    workouts = [
+        workout
+        for workout in (
+            db.query(PlannedWorkout)
+            .join(TrainingPlan, PlannedWorkout.training_plan_id == TrainingPlan.id)
+            .filter(
+                PlannedWorkout.athlete_profile_id == athlete_profile_id,
+                PlannedWorkout.workout_date >= start,
+                PlannedWorkout.workout_date <= end,
+                TrainingPlan.published_at.is_not(None),
+            )
+            .order_by(PlannedWorkout.workout_date.asc())
+            .all()
+        )
+        if (workout.session_type or "").lower() not in REST_SESSION_TYPES
+    ]
+    if not workouts:
+        return {"scanned_plans": 0, "linked": 0, "cleared": 0}
+
+    activities = (
+        db.query(Activity)
+        .filter(
+            Activity.athlete_profile_id == athlete_profile_id,
+            Activity.canonical_activity_id.is_(None),
+            Activity.activity_date
+            >= datetime.combine(start - timedelta(days=1), datetime.min.time()),
+            Activity.activity_date
+            <= datetime.combine(
+                end + timedelta(days=1), datetime.max.time().replace(microsecond=0)
+            ),
+        )
+        .order_by(Activity.activity_date.asc())
+        .all()
+    )
+
+    activity_by_id = {activity.id: activity for activity in activities}
+    cleared = 0
+    for workout in workouts:
+        if workout.completed_activity_id is None:
+            continue
+        if workout.completed_activity_id not in activity_by_id:
+            still_valid = (
+                db.query(Activity.id)
+                .filter(
+                    Activity.id == workout.completed_activity_id,
+                    Activity.athlete_profile_id == athlete_profile_id,
+                    Activity.canonical_activity_id.is_(None),
+                )
+                .first()
+            )
+            if still_valid is None:
+                workout.completed_activity_id = None
+                cleared += 1
+
+    taken = {
+        workout.completed_activity_id
+        for workout in workouts
+        if workout.completed_activity_id is not None
+    }
+    pairs = [
+        (planned_workout_score(workout, activity), workout, activity)
+        for workout in workouts
+        if workout.completed_activity_id is None
+        for activity in activities
+        if activity.id not in taken
+    ]
+    pairs = [pair for pair in pairs if pair[0] > 0]
+    pairs.sort(key=lambda item: item[0], reverse=True)
+
+    claimed_workouts: set[int] = set()
+    linked = 0
+    for _score, workout, activity in pairs:
+        if workout.id in claimed_workouts or activity.id in taken:
+            continue
+        workout.completed_activity_id = activity.id
+        claimed_workouts.add(workout.id)
+        taken.add(activity.id)
+        linked += 1
+
+    if linked or cleared:
+        db.commit()
+
+    return {"scanned_plans": len(workouts), "linked": linked, "cleared": cleared}

@@ -2,9 +2,10 @@ from fastapi import Depends, HTTPException, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from sqlalchemy.orm import Session
 
-from app.auth_schemas import AthleteProfileResponse, UserResponse
+from app.auth_schemas import UserResponse
 from app.database import get_db
 from app.models import AthleteProfile, User
+from app.services.athlete_profile import serialize_profile
 from app.services.auth import decode_access_token
 
 security = HTTPBearer(auto_error=False)
@@ -45,6 +46,11 @@ def build_user_response(user: User, db: Session) -> UserResponse:
             .first()
         )
         if db_profile:
-            profile = AthleteProfileResponse.model_validate(db_profile)
+            profile = serialize_profile(db, db_profile)
 
-    return UserResponse(id=user.id, email=user.email, profile=profile)
+    return UserResponse(
+        id=user.id,
+        email=user.email,
+        email_verified=user.email_verified_at is not None,
+        profile=profile,
+    )

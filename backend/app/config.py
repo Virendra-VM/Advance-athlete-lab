@@ -52,3 +52,30 @@ COROS_FIT_RECENT_LIMIT = int(os.getenv("COROS_FIT_RECENT_LIMIT", "10"))
 JWT_SECRET = os.getenv("JWT_SECRET", "change-me-in-production-use-long-random-string")
 JWT_ALGORITHM = "HS256"
 JWT_EXPIRE_HOURS = int(os.getenv("JWT_EXPIRE_HOURS", "168"))
+
+# Where the SPA lives, used to build verification links.
+APP_BASE_URL = os.getenv("APP_BASE_URL", "http://localhost:5173").rstrip("/")
+
+# Email (soft verification). "console" just logs the link — fine for local dev.
+EMAIL_PROVIDER = os.getenv("EMAIL_PROVIDER", "console").strip().lower()
+EMAIL_FROM = os.getenv("EMAIL_FROM", "Advance Athlete Lab <no-reply@advanceathletelab.local>")
+RESEND_API_KEY = os.getenv("RESEND_API_KEY", "")
+SMTP_HOST = os.getenv("SMTP_HOST", "")
+SMTP_PORT = int(os.getenv("SMTP_PORT", "587"))
+SMTP_USER = os.getenv("SMTP_USER", "")
+SMTP_PASSWORD = os.getenv("SMTP_PASSWORD", "")
+SMTP_STARTTLS = os.getenv("SMTP_STARTTLS", "true").strip().lower() != "false"
+EMAIL_VERIFY_TTL_HOURS = int(os.getenv("EMAIL_VERIFY_TTL_HOURS", "48"))
+EMAIL_VERIFY_RESEND_COOLDOWN_S = int(os.getenv("EMAIL_VERIFY_RESEND_COOLDOWN_S", "60"))
+
+# AI coach
+AI_PROVIDER = os.getenv("AI_PROVIDER", "claude").strip().lower()
+AI_FALLBACK_PROVIDER = os.getenv("AI_FALLBACK_PROVIDER", "gemini").strip().lower()
+AI_REQUEST_TIMEOUT_S = float(os.getenv("AI_REQUEST_TIMEOUT_S", "90"))
+ANTHROPIC_API_KEY = os.getenv("ANTHROPIC_API_KEY", "")
+ANTHROPIC_MODEL = os.getenv("ANTHROPIC_MODEL", "claude-sonnet-4-5")
+OPENAI_API_KEY = os.getenv("OPENAI_API_KEY", "")
+OPENAI_MODEL = os.getenv("OPENAI_MODEL", "gpt-4o")
+GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "")
+GEMINI_MODEL = os.getenv("GEMINI_MODEL", "gemini-3.5-flash")
+AI_LOG_PROMPTS = os.getenv("AI_LOG_PROMPTS", "false").strip().lower() == "true"

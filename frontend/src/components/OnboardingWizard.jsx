@@ -1,137 +1,98 @@
 import { useMemo, useState } from 'react'
 import { AnimatePresence, motion } from 'framer-motion'
-import { ArrowLeft, ArrowRight, Sparkles } from 'lucide-react'
+import { ArrowLeft, ArrowRight, Check, Sparkles } from 'lucide-react'
 import { Navigate, useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import { pagePaddingClass, pageShellClass } from '../utils/statusColors'
-import { buildConfirmationMessage, ONBOARDING_STEPS } from '../utils/onboardingSteps'
+import {
+  buildConfirmationMessage,
+  buildOnboardingPayload,
+  defaultAnswers,
+  isStepComplete,
+  ONBOARDING_STEPS,
+  primarySports,
+} from '../utils/onboardingSteps'
 import Navigation from './Navigation'
 import Card from './ui/Card'
+import OnboardingField from './onboarding/OnboardingFields'
 
-function Chip({ label, selected, onClick }) {
+function ReviewSummary({ answers }) {
+  const sports = primarySports(answers)
+    .map((entry) => `${entry.sport} (${entry.experience_level || 'beginner'})`)
+    .join(', ')
+
+  const rows = [
+    ['Sports', sports || 'Not set'],
+    ['Goal', answers.primary_goal || 'Not set'],
+    [
+      'Event',
+      answers.goal_event_name
+        ? `${answers.goal_event_name}${answers.goal_event_date ? ` · ${answers.goal_event_date}` : ''}`
+        : 'None',
+    ],
+    ['Fitness level', answers.fitness_level || 'Not set'],
+    [
+      'Weekly time',
+      answers.days_per_week
+        ? `${answers.days_per_week} days · ${answers.workout_duration_minutes || '?'} min sessions`
+        : 'Not set',
+    ],
+    ['Equipment', answers.equipment || 'Not set'],
+    [
+      'Injuries',
+      (answers.injuries || []).length
+        ? answers.injuries
+            .map((entry) => `${entry.body_region}${entry.status === 'active' ? ' (ongoing)' : ''}`)
+            .join(', ')
+        : 'None reported',
+    ],
+  ]
+
   return (
-    <button
-      type="button"
-      onClick={onClick}
-      className={`rounded-full border px-4 py-2 text-sm font-medium transition-colors ${
-        selected
-          ? 'border-sage bg-sage text-white'
-          : 'border-slate-200 bg-white text-slate-700 dark:border-white/10 dark:bg-gray-800 dark:text-slate-200'
-      }`}
-    >
-      {label}
-    </button>
-  )
-}
-
-function StepInput({ step, value, onChange }) {
-  if (step.type === 'textarea') {
-    return (
-      <textarea
-        value={value}
-        onChange={(e) => onChange(e.target.value)}
-        rows={4}
-        placeholder={step.hint || 'Type your answer...'}
-        className="mt-6 w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-slate-900 outline-none ring-sage focus:ring-2 dark:border-white/10 dark:bg-gray-900 dark:text-white"
-      />
-    )
-  }
-
-  if (step.type === 'chips-single') {
-    return (
-      <div className="mt-6 flex flex-wrap gap-3">
-        {step.options.map((option) => {
-          const label = step.optionLabels?.[option] || option
-          return (
-            <Chip
-              key={option}
-              label={label}
-              selected={String(value) === String(option)}
-              onClick={() => onChange(option)}
-            />
-          )
-        })}
-      </div>
-    )
-  }
-
-  if (step.type === 'chips-multi') {
-    const selected = value ? value.split(', ').filter(Boolean) : []
-    function toggle(option) {
-      const next = selected.includes(option)
-        ? selected.filter((item) => item !== option)
-        : [...selected, option]
-      onChange(next.join(', '))
-    }
-    return (
-      <div className="mt-6 flex flex-wrap gap-3">
-        {step.options.map((option) => (
-          <Chip
-            key={option}
-            label={option}
-            selected={selected.includes(option)}
-            onClick={() => toggle(option)}
-          />
+    <div className="mb-8 overflow-hidden rounded-xl border border-[var(--aal-line)]">
+      <dl className="divide-y divide-[var(--aal-line)] text-sm">
+        {rows.map(([label, value]) => (
+          <div key={label} className="flex flex-col gap-1 px-4 py-3 sm:flex-row sm:items-baseline sm:gap-4">
+            <dt className="w-40 shrink-0 text-xs font-semibold uppercase tracking-wide text-[var(--aal-muted)]">
+              {label}
+            </dt>
+            <dd className="min-w-0 flex-1">{value}</dd>
+          </div>
         ))}
-      </div>
-    )
-  }
-
-  return null
+      </dl>
+    </div>
+  )
 }
 
 export default function OnboardingWizard() {
   const navigate = useNavigate()
   const { isAuthenticated, needsOnboarding, submitOnboarding, profile } = useAuth()
   const [stepIndex, setStepIndex] = useState(0)
-  const [answers, setAnswers] = useState({})
+  const [answers, setAnswers] = useState(() => defaultAnswers(profile))
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState('')
-  const [showConfirm, setShowConfirm] = useState(false)
 
   const totalSteps = ONBOARDING_STEPS.length
   const step = ONBOARDING_STEPS[stepIndex]
-  const progress = showConfirm ? 100 : ((stepIndex + 1) / totalSteps) * 100
+  const isLastStep = stepIndex === totalSteps - 1
+  const progress = ((stepIndex + 1) / totalSteps) * 100
 
-  const currentValue = answers[step?.field] ?? ''
-
-  const canContinue = useMemo(() => {
-    if (showConfirm) return true
-    if (!step?.required) return true
-    return Boolean(String(currentValue).trim())
-  }, [showConfirm, step, currentValue])
+  const canContinue = useMemo(() => isStepComplete(step, answers), [step, answers])
 
   if (!isAuthenticated) return <Navigate to="/signin" replace />
   if (!needsOnboarding && profile?.onboarding_completed) {
     return <Navigate to="/connect-strava" replace />
   }
 
-  function updateAnswer(value) {
-    setAnswers((prev) => ({ ...prev, [step.field]: value }))
-  }
-
-  function appendSuggestion(text) {
-    const existing = answers[step.field] || ''
-    const next = existing ? `${existing}, ${text}` : text
-    updateAnswer(next)
+  function updateField(key, value) {
+    setAnswers((prev) => ({ ...prev, [key]: value }))
   }
 
   async function handleFinish() {
     setSubmitting(true)
     setError('')
     try {
-      await submitOnboarding({
-        primary_goal: answers.primary_goal,
-        secondary_goal: answers.secondary_goal || null,
-        equipment: answers.equipment,
-        days_per_week: Number(answers.days_per_week),
-        workout_duration_minutes: Number(answers.workout_duration_minutes),
-        preferred_workout_time: answers.preferred_workout_time,
-        injuries_limitations: answers.injuries_limitations || null,
-        fitness_level: answers.fitness_level,
-        exercises_hate: answers.exercises_hate || null,
-        exercises_love: answers.exercises_love || null,
-      })
+      await submitOnboarding(buildOnboardingPayload(answers))
       navigate('/connect-strava')
     } catch (err) {
       setError(err.message || 'Failed to save your answers.')
@@ -141,19 +102,15 @@ export default function OnboardingWizard() {
   }
 
   function handleNext() {
-    if (stepIndex < totalSteps - 1) {
-      setStepIndex((i) => i + 1)
+    if (isLastStep) {
+      handleFinish()
       return
     }
-    setShowConfirm(true)
+    setStepIndex((index) => index + 1)
   }
 
   function handleBack() {
-    if (showConfirm) {
-      setShowConfirm(false)
-      return
-    }
-    if (stepIndex > 0) setStepIndex((i) => i - 1)
+    if (stepIndex > 0) setStepIndex((index) => index - 1)
   }
 
   return (
@@ -162,8 +119,11 @@ export default function OnboardingWizard() {
 
       <main className={`${pagePaddingClass} mx-auto max-w-3xl`}>
         <div className="mb-8">
-          <div className="mb-2 flex items-center justify-between text-sm text-slate-500">
-            <span>{showConfirm ? 'All done!' : `Question ${stepIndex + 1} of ${totalSteps}`}</span>
+          <div className="mb-2 flex items-center justify-between text-sm text-[var(--aal-muted)]">
+            <span>
+              Step {stepIndex + 1} of {totalSteps}
+              {step.optional ? ' · optional' : ''}
+            </span>
             <span>{Math.round(progress)}%</span>
           </div>
           <div className="h-2 overflow-hidden rounded-full bg-slate-200 dark:bg-gray-700">
@@ -175,91 +135,109 @@ export default function OnboardingWizard() {
           </div>
         </div>
 
-        <Card className="overflow-hidden p-8">
+        <Card className="overflow-hidden p-6 sm:p-8">
           <AnimatePresence mode="wait">
-            {!showConfirm ? (
-              <motion.div
-                key={step.id}
-                initial={{ opacity: 0, x: 40 }}
-                animate={{ opacity: 1, x: 0 }}
-                exit={{ opacity: 0, x: -40 }}
-                transition={{ duration: 0.3 }}
-              >
-                <p className="text-sm font-medium text-sage">Your coach is listening...</p>
-                <h2 className="mt-2 text-2xl font-bold text-slate-900 dark:text-white">{step.title}</h2>
-                <p className="mt-2 text-slate-500 dark:text-slate-400">{step.subtitle}</p>
+            <motion.div
+              key={step.id}
+              initial={{ opacity: 0, x: 32 }}
+              animate={{ opacity: 1, x: 0 }}
+              exit={{ opacity: 0, x: -32 }}
+              transition={{ duration: 0.28 }}
+            >
+              <p className="text-sm font-medium text-sage">{step.eyebrow}</p>
+              <h2 className="mt-2 text-2xl font-bold">{step.title}</h2>
+              <p className="mt-2 text-[var(--aal-muted)]">{step.subtitle}</p>
 
-                <StepInput step={step} value={currentValue} onChange={updateAnswer} />
-
-                {step.options && step.type === 'textarea' && (
-                  <div className="mt-4 flex flex-wrap gap-2">
-                    {step.options.map((option) => (
-                      <button
-                        key={option}
-                        type="button"
-                        onClick={() => appendSuggestion(option)}
-                        className="rounded-full border border-slate-200 px-3 py-1 text-xs text-slate-600 dark:border-white/10 dark:text-slate-300"
-                      >
-                        + {option}
-                      </button>
-                    ))}
-                  </div>
-                )}
-              </motion.div>
-            ) : (
-              <motion.div
-                key="confirm"
-                initial={{ opacity: 0, scale: 0.98 }}
-                animate={{ opacity: 1, scale: 1 }}
-                className="text-center"
-              >
-                <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-sage/10 text-sage">
-                  <Sparkles className="h-8 w-8" />
+              {step.type === 'intro' && (
+                <div className="mt-8 space-y-3">
+                  {step.bullets.map((bullet) => (
+                    <div key={bullet} className="flex items-start gap-3 text-sm">
+                      <Check className="mt-0.5 h-4 w-4 shrink-0 text-sage" />
+                      <span>{bullet}</span>
+                    </div>
+                  ))}
                 </div>
-                <h2 className="mt-6 text-2xl font-bold text-slate-900 dark:text-white">You're all set!</h2>
-                <p className="mt-4 text-lg leading-relaxed text-slate-600 dark:text-slate-300">
-                  {buildConfirmationMessage(answers)}
-                </p>
-                <p className="mt-4 text-sm text-slate-500">
-                  Saved permanently. Update anytime from your profile or settings.
-                </p>
-              </motion.div>
-            )}
+              )}
+
+              {step.type === 'review' && (
+                <div className="mt-8">
+                  <div className="mb-6 flex items-start gap-3 rounded-xl bg-sage/10 p-4 text-sm">
+                    <Sparkles className="mt-0.5 h-4 w-4 shrink-0 text-sage" />
+                    <span>{buildConfirmationMessage(answers)}</span>
+                  </div>
+                  <ReviewSummary answers={answers} />
+                </div>
+              )}
+
+              {step.fields.length > 0 && (
+                <div className={`mt-8 grid gap-6 ${step.id === 'body' ? 'sm:grid-cols-2' : ''}`}>
+                  {step.fields.map((field) => (
+                    <div
+                      key={field.key}
+                      className={
+                        step.id === 'body' && (field.type === 'chips-single' || field.key === 'name')
+                          ? 'sm:col-span-2'
+                          : ''
+                      }
+                    >
+                      <OnboardingField
+                        field={field}
+                        answers={answers}
+                        value={answers[field.key]}
+                        onChange={(value) => updateField(field.key, value)}
+                      />
+                    </div>
+                  ))}
+                </div>
+              )}
+            </motion.div>
           </AnimatePresence>
 
-          {error && <p className="mt-4 text-sm text-danger-muted">{error}</p>}
+          {error && <p className="mt-6 text-sm text-danger-muted">{error}</p>}
 
-          <div className="mt-8 flex items-center justify-between border-t border-slate-100 pt-6 dark:border-white/10">
+          <div className="mt-8 flex items-center justify-between gap-3 border-t border-[var(--aal-line)] pt-6">
             <button
               type="button"
               onClick={handleBack}
-              disabled={stepIndex === 0 && !showConfirm}
-              className="flex items-center gap-2 rounded-xl px-4 py-2 text-sm text-slate-600 disabled:opacity-40 dark:text-slate-300"
+              disabled={stepIndex === 0}
+              className="flex items-center gap-2 rounded-xl px-4 py-2 text-sm text-[var(--aal-muted)] disabled:opacity-40"
             >
               <ArrowLeft className="h-4 w-4" /> Back
             </button>
 
-            {!showConfirm ? (
+            <div className="flex items-center gap-3">
+              {step.optional && !isLastStep && (
+                <button
+                  type="button"
+                  onClick={() => setStepIndex((index) => index + 1)}
+                  className="rounded-xl px-4 py-2 text-sm text-[var(--aal-muted)] underline-offset-4 hover:underline"
+                >
+                  Skip
+                </button>
+              )}
               <button
                 type="button"
                 onClick={handleNext}
-                disabled={!canContinue}
+                disabled={!canContinue || submitting}
                 className="flex items-center gap-2 rounded-xl bg-sage px-6 py-3 font-semibold text-white disabled:opacity-40"
               >
-                Continue <ArrowRight className="h-4 w-4" />
+                {isLastStep
+                  ? submitting
+                    ? 'Saving…'
+                    : "Let's go"
+                  : step.type === 'intro'
+                    ? 'Start'
+                    : 'Continue'}
+                <ArrowRight className="h-4 w-4" />
               </button>
-            ) : (
-              <button
-                type="button"
-                onClick={handleFinish}
-                disabled={submitting}
-                className="flex items-center gap-2 rounded-xl bg-sage px-6 py-3 font-semibold text-white disabled:opacity-40"
-              >
-                {submitting ? 'Saving...' : "Let's go"} <ArrowRight className="h-4 w-4" />
-              </button>
-            )}
+            </div>
           </div>
         </Card>
+
+        <p className="mt-4 text-center text-xs text-[var(--aal-muted)]">
+          Coaching guidance only — not medical advice. Everything saves to your profile and stays
+          editable.
+        </p>
       </main>
     </div>
   )

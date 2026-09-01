@@ -1,0 +1,60 @@
+{
+  "slug": "aal-general-fitness-playbook",
+  "title": "Advance Athlete Lab General Fitness and Strength Playbook",
+  "authors": "Advance Athlete Lab coaching team",
+  "year": 2026,
+  "publisher": "Advance Athlete Lab",
+  "license": "Owned content — cleared for AI retrieval",
+  "url": null,
+  "source_type": "playbook",
+  "chunks": [
+    {
+      "key": "fitt-vp",
+      "heading": "FITT-VP as the prescription skeleton",
+      "audience": "strength",
+      "sport_tags": ["strength", "general"],
+      "topic_tags": ["prescription", "fitt-vp", "planning"],
+      "body": "Every session should specify Frequency, Intensity, Time, Type, Volume, and Progression. A complete strength prescription therefore reads: 3 days per week, 6-8 reps at roughly RPE 7, 45 min, full-body compound lifts, 3 sets per main lift, adding one set or a small load increase every one to two weeks. Missing any element makes the plan unauditable — the athlete cannot tell whether they did the session as intended, and progression becomes guesswork."
+    },
+    {
+      "key": "progressive-overload",
+      "heading": "Progressive overload without spikes",
+      "audience": "strength",
+      "sport_tags": ["strength", "general"],
+      "topic_tags": ["progression", "overload", "injury-prevention"],
+      "body": "Progress one variable at a time: load, sets, reps, range of motion, or tempo. For beginners, add reps within a range before adding load, then reset reps at the higher load. Typical safe progression is 2.5-5% load on upper-body lifts and 5-10% on lower-body lifts, at most once a week per lift. Deload every fourth to sixth week by cutting volume roughly a third while keeping intensity. Never progress load and volume in the same week for the same lift."
+    },
+    {
+      "key": "rpe-autoregulation",
+      "heading": "RPE and autoregulation",
+      "audience": "shared",
+      "sport_tags": ["strength", "run", "ride", "general"],
+      "topic_tags": ["rpe", "intensity", "readiness"],
+      "body": "Rate of perceived exertion on a 1-10 scale lets a plan survive real life. RPE 5-6 is comfortable, 7-8 is challenging with 2-3 reps or a few minutes left in reserve, 9-10 is near maximal. On days when sleep, stress, or HRV is poor, hold the prescribed RPE and let load or pace drop rather than forcing the number on paper. Autoregulated sessions produce similar adaptations with fewer missed weeks than rigid percentage-based plans, especially for athletes training under 6 hours a week."
+    },
+    {
+      "key": "strength-frequency",
+      "heading": "Strength frequency and weekly set volume",
+      "audience": "strength",
+      "sport_tags": ["strength", "general"],
+      "topic_tags": ["frequency", "volume", "weekly-structure"],
+      "body": "Aim for each major muscle group to be trained at least twice a week. Roughly 10-20 hard sets per muscle group per week is a productive range for hypertrophy; strength-focused athletes can progress on fewer sets at higher intensity. With only two sessions a week, use full-body compound sessions. With three or four, either full-body or an upper/lower split works. Keep at least 48 hours between heavy sessions for the same muscle group, and place lower-body strength away from key running sessions."
+    },
+    {
+      "key": "beginner-templates",
+      "heading": "Beginner and intermediate weekly templates",
+      "audience": "strength",
+      "sport_tags": ["strength", "general"],
+      "topic_tags": ["templates", "beginner", "weekly-structure"],
+      "body": "Beginner, 3 days: full-body A/B alternating — squat pattern, hinge pattern, push, pull, carry or core, 2-3 sets of 8-12 at RPE 6-7, plus 10 min easy cardio. Intermediate, 4 days: upper/lower split with one heavier day (4-6 reps) and one moderate day (8-12 reps) per half, accessory work for weak points. Hybrid endurance plus strength, 4-5 days: two strength sessions on the same days as easy or short runs, quality endurance sessions on separate days, one full rest day. Always include mobility work for the athlete's restricted areas rather than a generic list."
+    },
+    {
+      "key": "mobility-recovery",
+      "heading": "Mobility, warm-up, and recovery practices",
+      "audience": "shared",
+      "sport_tags": ["strength", "run", "ride", "swim", "general"],
+      "topic_tags": ["mobility", "warm-up", "recovery"],
+      "body": "Warm up with 5-10 min of easy general movement, then dynamic mobility for the joints the session loads, then two ramp-up sets or a few strides. Static stretching before heavy or explosive work can blunt output briefly; keep it for after sessions or standalone mobility days. Recovery levers in order of evidence strength: sleep duration and regularity, total energy and protein intake, easy-day discipline, and only then modalities like massage or compression. Two to three short mobility sessions a week beat one long occasional session."
+    }
+  ]
+}

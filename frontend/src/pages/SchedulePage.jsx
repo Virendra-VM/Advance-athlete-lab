@@ -10,6 +10,7 @@ import {
   X,
 } from 'lucide-react'
 import { listActivities, dedupeActivities } from '../api/activities'
+import { getCoachPlannedWorkouts } from '../api/coach'
 import {
   getCorosOverview,
   getCorosSchedule,
@@ -73,7 +74,11 @@ function PlanDetailModal({ plan, onClose, navigate }) {
                 completed ? 'text-sage' : 'text-amber-status'
               }`}
             >
-              {completed ? 'Completed plan' : 'Planned workout'}
+              {completed
+                ? 'Completed plan'
+                : plan.source === 'coach'
+                  ? 'Coach plan'
+                  : 'Planned workout'}
             </p>
             <h2 className="mt-1 text-xl font-bold">{plan.title || 'Workout'}</h2>
           </div>
@@ -106,6 +111,18 @@ function PlanDetailModal({ plan, onClose, navigate }) {
               {plan.distance_m != null ? formatDistanceKm(plan.distance_m) : '—'}
             </dd>
           </div>
+          {plan.intensity ? (
+            <div className="flex justify-between gap-4">
+              <dt className="text-[var(--aal-muted)]">Intensity</dt>
+              <dd className="font-medium">{plan.intensity}</dd>
+            </div>
+          ) : null}
+          {plan.description ? (
+            <div>
+              <dt className="text-[var(--aal-muted)]">Session</dt>
+              <dd className="mt-1 text-sm">{plan.description}</dd>
+            </div>
+          ) : null}
           {completed ? (
             <>
               <div className="flex justify-between gap-4">
@@ -200,7 +217,7 @@ function DaySection({ isoDate, plans, activities, today, onPlanClick, navigate }
               >
                 <div>
                   <p className="text-xs font-semibold uppercase tracking-wide text-amber-status">
-                    Planned
+                    {plan.source === 'coach' ? 'Coach plan' : 'Planned'}
                   </p>
                   <p className="font-medium">{plan.title || 'Planned workout'}</p>
                   <p className="text-sm text-[var(--aal-muted)]">
@@ -311,10 +328,11 @@ export default function SchedulePage() {
       }
       const overview = await getCorosOverview()
       setConnected(!!overview.connected)
-      const [scheduleRows, activityPage] = await Promise.all([
+      const [scheduleRows, coachRows, activityPage] = await Promise.all([
         overview.connected
           ? getCorosSchedule(fromISO, toISO)
           : Promise.resolve([]),
+        getCoachPlannedWorkouts(fromISO, toISO).catch(() => []),
         listActivities(profile.id, {
           from: fromISO,
           to: toISO,
@@ -323,7 +341,16 @@ export default function SchedulePage() {
           sort: 'date_asc',
         }),
       ])
-      setPlans(scheduleRows || [])
+      const merged = [...(scheduleRows || []), ...(coachRows || [])]
+      const seen = new Set()
+      setPlans(
+        merged.filter((row) => {
+          const key = row.external_id || `${row.source || 'plan'}-${row.workout_id}-${row.schedule_date}`
+          if (seen.has(key)) return false
+          seen.add(key)
+          return true
+        }),
+      )
       setActivities(activityPage.items || [])
     } catch (err) {
       setError(err.message || 'Failed to load schedule.')
@@ -500,7 +527,7 @@ export default function SchedulePage() {
           <PageHeader
             eyebrow="Training"
             title="Schedule"
-            subtitle="COROS plans and completed sessions — scroll the timeline or switch to calendar."
+            subtitle="Coach plans, COROS workouts, and completed sessions — scroll the timeline or switch to calendar."
             actions={
               <div className="flex flex-wrap items-center gap-2">
                 <div className="inline-flex rounded-xl border border-[var(--aal-line)] p-1">
