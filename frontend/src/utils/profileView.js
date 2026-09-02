@@ -290,6 +290,9 @@ export function normalizeProfileForm(form) {
     days_per_week: toNumberOrNull(form.days_per_week),
     workout_duration_minutes: toNumberOrNull(form.workout_duration_minutes),
     weekly_minutes_budget: toNumberOrNull(form.weekly_minutes_budget),
+    ftp_watts: toNumberOrNull(form.ftp_watts),
+    lthr_bpm: toNumberOrNull(form.lthr_bpm),
+    max_hr_bpm: toNumberOrNull(form.max_hr_bpm),
     preferred_workout_time: toTextOrNull(form.preferred_workout_time),
     injuries: (form.injuries || []).map((entry) => ({
       body_region: entry.body_region,

@@ -65,7 +65,26 @@ TOPIC_SYNONYMS = {
     "week": ["weekly-structure", "planning"],
     "heat": ["heat", "environment"],
     "altitude": ["altitude", "environment"],
+    "swolf": ["specificity", "sessions"],
+    "stroke": ["specificity", "sessions"],
+    "cadence": ["sessions"],
+    "spm": ["sessions"],
+    "eccentric": ["injury-prevention", "load-management"],
+    "impact": ["injury-prevention", "load-management"],
+    "vagal": ["recovery", "hrv", "readiness"],
+    "parasympathetic": ["recovery", "hrv"],
+    "cns": ["recovery", "readiness", "strength"],
     "rpe": ["rpe", "intensity"],
+    "ftp": ["intensity", "zones", "power"],
+    "watts": ["intensity", "power", "sessions"],
+    "power": ["intensity", "power", "sessions"],
+    "sweet": ["intensity", "sessions"],
+    "over": ["intensity", "sessions"],
+    "under": ["intensity", "sessions"],
+    "decoupling": ["heart-rate", "readiness"],
+    "drift": ["heart-rate", "readiness"],
+    "fever": ["return-to-play", "safety"],
+    "illness": ["return-to-play", "safety"],
     "swim": ["specificity"],
     "return": ["return-to-play", "progression"],
     "comeback": ["return-to-play"],
@@ -87,6 +106,9 @@ SPORT_ALIASES = {
     "strength": "strength",
     "gym": "strength",
     "yoga / mobility": "general",
+    "yoga": "general",
+    "mobility": "general",
+    "pilates": "general",
     "walking / hiking": "general",
     "rowing": "general",
     "team sport": "general",
@@ -194,9 +216,7 @@ def corpus_is_empty(db: Session) -> bool:
 
 
 def ensure_corpus_loaded(db: Session) -> list[dict]:
-    """Seed the KB on first boot; a no-op once chunks exist."""
-    if not corpus_is_empty(db):
-        return []
+    """Upsert owned playbook chunks so new sport templates can retrieve them."""
     return ingest_corpus(db)
 
 

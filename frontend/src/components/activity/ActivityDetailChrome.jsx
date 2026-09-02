@@ -1,5 +1,5 @@
 import { Link } from 'react-router-dom'
-import { ArrowLeft, ChevronLeft, ChevronRight } from 'lucide-react'
+import { ArrowLeft, ChevronLeft, ChevronRight, Sparkles } from 'lucide-react'
 import {
   formatClockTime,
   formatDateLong,
@@ -30,6 +30,14 @@ export default function ActivityDetailChrome({
           <ArrowLeft className="h-4 w-4" /> All activities
         </Link>
         <div className="flex items-center gap-2">
+          <Link
+            to="/coach"
+            state={{ activityId: activity.id, activityName: getActivityTitle(activity) }}
+            className="inline-flex items-center gap-2 rounded-lg border border-[var(--aal-line)] px-3 py-2 text-sm text-[var(--aal-muted)] transition hover:border-sage/50 hover:text-sage"
+          >
+            <Sparkles className="h-4 w-4" />
+            Ask coach
+          </Link>
           <button
             type="button"
             disabled={siblingIndex < 0 || siblingIndex >= siblings.length - 1}

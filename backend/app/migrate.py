@@ -76,6 +76,12 @@ def run_migrations() -> None:
                 ("goal_metric", "VARCHAR(255)"),
                 ("units", "VARCHAR(16) NOT NULL DEFAULT 'metric'"),
                 ("baseline_confirmed_at", "TIMESTAMP"),
+                ("ftp_watts", "DOUBLE PRECISION"),
+                ("lthr_bpm", "DOUBLE PRECISION"),
+                ("max_hr_bpm", "DOUBLE PRECISION"),
+                ("ftp_source", "VARCHAR(32)"),
+                ("ftp_estimated_watts", "DOUBLE PRECISION"),
+                ("ftp_estimated_at", "TIMESTAMP"),
             ]
             for column_name, column_type in additions:
                 if column_name not in profile_columns:

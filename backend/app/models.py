@@ -82,6 +82,14 @@ class AthleteProfile(Base):
     units = Column(String(16), nullable=False, default="metric")
     baseline_confirmed_at = Column(DateTime, nullable=True)
 
+    # --- Physiology anchors (cycling/run intensity) ---
+    ftp_watts = Column(Float, nullable=True)
+    lthr_bpm = Column(Float, nullable=True)
+    max_hr_bpm = Column(Float, nullable=True)
+    ftp_source = Column(String(32), nullable=True)  # manual | estimated
+    ftp_estimated_watts = Column(Float, nullable=True)
+    ftp_estimated_at = Column(DateTime, nullable=True)
+
 
 class AthleteInjury(Base):
     """Structured injury history so plan generation can filter contraindications."""

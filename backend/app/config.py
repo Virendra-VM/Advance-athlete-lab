@@ -78,4 +78,7 @@ OPENAI_API_KEY = os.getenv("OPENAI_API_KEY", "")
 OPENAI_MODEL = os.getenv("OPENAI_MODEL", "gpt-4o")
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "")
 GEMINI_MODEL = os.getenv("GEMINI_MODEL", "gemini-3.5-flash")
+CURSOR_API_KEY = os.getenv("CURSOR_API_KEY", "")
+CURSOR_MODEL = os.getenv("CURSOR_MODEL", "composer-2.5")
 AI_LOG_PROMPTS = os.getenv("AI_LOG_PROMPTS", "false").strip().lower() == "true"
+AI_DEBUG = os.getenv("AI_DEBUG", "false").strip().lower() == "true"

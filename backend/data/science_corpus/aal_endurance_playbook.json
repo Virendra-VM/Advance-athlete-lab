@@ -55,6 +55,54 @@
       "sport_tags": ["run", "ride", "swim"],
       "topic_tags": ["environment", "heat", "altitude", "safety"],
       "body": "In heat, pace at a given heart rate slows: coach by effort and heart rate rather than pace, expect 10-20 s/km slower running for every notable rise in heat stress, and allow 10-14 days of gradual exposure to acclimatise. Move hard sessions to cooler hours, add fluids and electrolytes, and treat dizziness, chills, or stopped sweating as a stop-now signal. At altitude above roughly 1500 m, cut intensity targets for the first 5-7 days and keep easy sessions genuinely easy; absolute paces and powers stay lower even after adaptation."
+    },
+    {
+      "key": "power-zones-sweet-spot",
+      "heading": "Cycling power zones and sweet-spot work",
+      "audience": "endurance",
+      "sport_tags": ["ride"],
+      "topic_tags": ["intensity", "zones", "sessions", "power"],
+      "body": "Coach cycling intensity from functional threshold power (FTP), not from average heart rate. Common zone bounds as a percent of FTP: recovery below 55%, endurance 56-75%, tempo 76-90%, threshold 91-105%, VO2max 106-120%, anaerobic above 121%. Sweet spot sits at roughly 84-97% of FTP: hard enough to stress aerobic capacity, sustainable enough to accumulate time. A session whose normalized power is near 85-95% of FTP with laps in that band is quality work, even if average heart rate looks only moderately elevated because of rest intervals. Never label a ride easy solely because duration matched an easy-day target."
+    },
+    {
+      "key": "over-unders",
+      "heading": "Over-under intervals",
+      "audience": "endurance",
+      "sport_tags": ["ride"],
+      "topic_tags": ["intensity", "sessions", "threshold", "power"],
+      "body": "Over-unders are threshold sessions built from repeating short blocks just below FTP (unders, typically 2-3 min at about 85-95% FTP) and just above it (overs, typically 30-90 s at about 105-120% FTP). The unders keep the athlete metabolically busy while the overs briefly flood the effort. Judge execution from lap power versus FTP, not from session-average heart rate. Heart rate that fails to come down on the unders, or that climbs across repeats toward max HR, is a fatigue or decoupling signal — cap remaining overs or end the set rather than chasing the last surge. Cadence in the 80-95 rpm range is a useful default on the trainer to avoid grinding."
+    },
+    {
+      "key": "cardiac-drift",
+      "heading": "Heart-rate decoupling and indoor heat",
+      "audience": "endurance",
+      "sport_tags": ["ride", "run"],
+      "topic_tags": ["intensity", "heart-rate", "readiness"],
+      "body": "Cardiac drift is a rise in heart rate at the same power or pace as a session goes on, often from heat, dehydration, or accumulated fatigue. A useful field check is the change in the heart-rate-to-power ratio from the first half to the second half of steady work; rises above about 5% are notable, and large climbs toward max HR on later repeats mean the set is overreaching. Indoor trainer sessions run hotter than outdoor rides at the same watts, so expect higher heart rate indoors. Average heart rate across an interval workout is pulled down by recovery; always read peaks and per-lap HR against power."
+    },
+    {
+      "key": "hr-after-feeling-unwell",
+      "heading": "Heart rate after feeling unwell",
+      "audience": "endurance",
+      "sport_tags": ["ride", "run", "swim"],
+      "topic_tags": ["readiness", "return-to-play", "heart-rate", "safety"],
+      "body": "After a day of feeling unwell, heart rate at a given power or pace is often higher than usual. That is a reason to interpret the session as more costly, not as a fitness breakthrough, and to keep the next day genuinely easy. The coach does not diagnose infection, fever, or plasma-volume changes. If the athlete still has fever, chest symptoms, or unusual breathlessness, stop training and refer. Once they feel recovered, use power or RPE as the intensity anchor for a few days because heart-rate zones may sit high until they restabilise."
+    },
+    {
+      "key": "run-impact-cadence",
+      "heading": "Running impact, cadence, and eccentric load",
+      "audience": "endurance",
+      "sport_tags": ["run"],
+      "topic_tags": ["sessions", "injury-prevention", "load-management", "cadence"],
+      "body": "Running is an impact sport. Each stride applies ground reaction forces several times bodyweight through the foot, Achilles, calf, and quadriceps. Faster or downhill running increases eccentric muscle damage; that is why a hard run costs more tissue than a bike session of the same heart rate. Cadence (steps per minute) around 170-180 SPM is a useful adult default because a slightly quicker, shorter stride often reduces overstride and braking forces, but cadence is a coaching tool not a law — do not force it on every athlete. Cardiac drift against pace (heart rate rising while pace holds) is a fatigue or heat signal. Acute:chronic workload spikes above about 1.3, especially with added downhill or interval impact, raise injury risk. Cross-training can add aerobic load without the same ground reaction tax."
+    },
+    {
+      "key": "swim-efficiency-swolf",
+      "heading": "Swim efficiency, SWOLF, and critical swim speed",
+      "audience": "endurance",
+      "sport_tags": ["swim"],
+      "topic_tags": ["sessions", "specificity", "technique"],
+      "body": "Swimming is technique-limited. SWOLF (stroke count plus time for a length) is a simple efficiency score: lower is usually better if the stroke still looks long, not spun. Distance per stroke and a stable stroke rate matter more than thrashing a higher heart rate. Critical swim speed is a sustainable threshold-like pace for broken sets; work near it is quality, long easy swimming is aerobic volume. Upper-body local fatigue (shoulders, lats) often arrives before the cardiovascular system is truly taxed, so a moderate average heart rate can still be a hard swim. Frequency and drill-focused broken sets beat one long continuous slog for developing swimmers. Shoulder or back limitations should cut volume and aggressive rotation rather than be ignored because the sport is 'low impact'."
     }
   ]
 }

@@ -15,7 +15,12 @@ from app.services.ai.base import (
     parse_json_payload,
     redact,
 )
-from app.services.ai.providers import AnthropicProvider, GeminiProvider, OpenAIProvider
+from app.services.ai.providers import (
+    AnthropicProvider,
+    CursorProvider,
+    GeminiProvider,
+    OpenAIProvider,
+)
 
 PROVIDER_CLASSES = {
     "claude": AnthropicProvider,
@@ -24,6 +29,7 @@ PROVIDER_CLASSES = {
     "gpt": OpenAIProvider,
     "gemini": GeminiProvider,
     "google": GeminiProvider,
+    "cursor": CursorProvider,
 }
 
 __all__ = [
@@ -32,6 +38,7 @@ __all__ = [
     "ProviderResponse",
     "build_provider",
     "configured_providers",
+    "describe_ai_runtime",
     "parse_json_payload",
     "provider_chain",
     "redact",
@@ -65,3 +72,30 @@ def configured_providers() -> list[str]:
         if provider.is_configured() and provider.name not in seen:
             seen.append(provider.name)
     return seen
+
+
+def describe_ai_runtime() -> dict:
+    """Resolved primary/fallback provider + model for status UI and debug logs."""
+    from app.config import AI_DEBUG, AI_FALLBACK_PROVIDER, AI_PROVIDER
+
+    chain = provider_chain()
+    payload = {
+        "configured_primary": AI_PROVIDER or None,
+        "configured_fallback": AI_FALLBACK_PROVIDER or None,
+        "active_provider": chain[0].name if chain else None,
+        "active_model": chain[0].model if chain else None,
+        "mode": "ai" if chain else "rules",
+    }
+    if AI_DEBUG:
+        payload["debug"] = {
+            "chain": [
+                {
+                    "provider": provider.name,
+                    "model": provider.model,
+                    "role": "primary" if index == 0 else "fallback",
+                }
+                for index, provider in enumerate(chain)
+            ],
+            "providers_with_keys": configured_providers(),
+        }
+    return payload

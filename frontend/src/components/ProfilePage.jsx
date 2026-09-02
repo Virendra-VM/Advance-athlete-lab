@@ -74,6 +74,33 @@ const FITNESS_FIELDS = [
   { key: 'race_prs', label: 'Recent results / PRs', type: 'textarea' },
 ]
 
+const PHYSIOLOGY_FIELDS = [
+  {
+    key: 'ftp_watts',
+    label: 'Cycling FTP (watts)',
+    type: 'number',
+    min: 50,
+    max: 500,
+    help: 'Functional threshold power. Leave blank to use an estimate from recent rides.',
+  },
+  {
+    key: 'lthr_bpm',
+    label: 'Lactate threshold HR (bpm)',
+    type: 'number',
+    min: 90,
+    max: 230,
+    help: 'LT2 / LTHR if you have it from a test or device.',
+  },
+  {
+    key: 'max_hr_bpm',
+    label: 'Max heart rate (bpm)',
+    type: 'number',
+    min: 120,
+    max: 230,
+    help: 'Leave blank to use the highest recent peak, or 220 minus age as a last resort.',
+  },
+]
+
 const TIME_FIELDS = [
   {
     key: 'days_per_week',
@@ -83,7 +110,8 @@ const TIME_FIELDS = [
   },
   {
     key: 'workout_duration_minutes',
-    label: 'Session length',
+    label: 'Typical session length',
+    help: 'Usual weekday length. Long rides and key sessions can be much longer.',
     type: 'chips-single',
     options: [
       { value: 20, label: '20 min' },
@@ -94,7 +122,14 @@ const TIME_FIELDS = [
       { value: 120, label: '2 hr' },
     ],
   },
-  { key: 'weekly_minutes_budget', label: 'Weekly minutes budget', type: 'number', min: 0, max: 3000 },
+  {
+    key: 'weekly_minutes_budget',
+    label: 'Weekly minutes budget',
+    type: 'number',
+    min: 0,
+    max: 3000,
+    help: 'A soft weekly target, not days × typical session. Leave blank if unsure.',
+  },
   {
     key: 'preferred_workout_time',
     label: 'Preferred time of day',
@@ -287,6 +322,9 @@ export default function ProfilePage() {
         goal_event_name: toTextOrNull(form.goal_event_name),
         goal_event_date: toTextOrNull(form.goal_event_date),
         goal_metric: toTextOrNull(form.goal_metric),
+        ftp_watts: toNumberOrNull(form.ftp_watts),
+        lthr_bpm: toNumberOrNull(form.lthr_bpm),
+        max_hr_bpm: toNumberOrNull(form.max_hr_bpm),
         sports: form.sports || [],
         injuries: form.injuries || [],
       })
@@ -432,6 +470,12 @@ export default function ProfilePage() {
                     Fitness
                   </h3>
                   {renderFields(FITNESS_FIELDS)}
+                </div>
+                <div>
+                  <h3 className="mb-4 text-sm font-semibold uppercase tracking-[0.14em] text-[var(--aal-muted)]">
+                    Physiology
+                  </h3>
+                  {renderFields(PHYSIOLOGY_FIELDS)}
                 </div>
                 <div>
                   <h3 className="mb-4 text-sm font-semibold uppercase tracking-[0.14em] text-[var(--aal-muted)]">

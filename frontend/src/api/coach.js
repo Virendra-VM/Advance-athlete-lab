@@ -61,6 +61,23 @@ export async function addWeekPlanToSchedule(planId, token = getStoredToken()) {
   return handleResponse(response)
 }
 
+export async function applyChatWeek(
+  { messageId, markdown, publish = true } = {},
+  token = getStoredToken(),
+) {
+  const response = await fetch(`${API_BASE_URL}/api/coach/plan/from-chat`, {
+    method: 'POST',
+    headers: authHeaders(token),
+    body: JSON.stringify({
+      message_id: messageId ?? null,
+      markdown: markdown ?? null,
+      publish,
+      timezone: athleteTimezone(),
+    }),
+  })
+  return handleResponse(response)
+}
+
 export async function getDailyAdvice(token = getStoredToken()) {
   const params = new URLSearchParams({ timezone: athleteTimezone() })
   const response = await fetch(`${API_BASE_URL}/api/coach/advice?${params}`, {
@@ -76,11 +93,18 @@ export async function getChatHistory(token = getStoredToken()) {
   return handleResponse(response)
 }
 
-export async function sendChatMessage(message, token = getStoredToken()) {
+export async function sendChatMessage(message, tokenOrOptions = getStoredToken(), options = {}) {
+  let token = tokenOrOptions
+  if (tokenOrOptions && typeof tokenOrOptions === 'object') {
+    options = tokenOrOptions
+    token = options.token || getStoredToken()
+  }
+  const body = { message, timezone: athleteTimezone() }
+  if (options.activityId) body.activity_id = options.activityId
   const response = await fetch(`${API_BASE_URL}/api/coach/chat`, {
     method: 'POST',
     headers: authHeaders(token),
-    body: JSON.stringify({ message, timezone: athleteTimezone() }),
+    body: JSON.stringify(body),
   })
   return handleResponse(response)
 }

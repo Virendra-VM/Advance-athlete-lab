@@ -522,6 +522,28 @@ export function TrainingView({ form }) {
           ],
         },
         {
+          key: 'physiology',
+          title: 'Physiology',
+          subtitle: 'Used to judge watts and heart rate against your own thresholds.',
+          factors: [
+            <FactorItem key="ftp" label="FTP">
+              <DisplayValue>
+                {form.ftp_watts != null
+                  ? `${form.ftp_watts} W`
+                  : form.ftp_estimated_watts != null
+                    ? `Estimated ${form.ftp_estimated_watts} W`
+                    : null}
+              </DisplayValue>
+            </FactorItem>,
+            <FactorItem key="lthr" label="LT2 / LTHR">
+              <DisplayValue>{form.lthr_bpm != null ? `${form.lthr_bpm} bpm` : null}</DisplayValue>
+            </FactorItem>,
+            <FactorItem key="maxhr" label="Max HR">
+              <DisplayValue>{form.max_hr_bpm != null ? `${form.max_hr_bpm} bpm` : null}</DisplayValue>
+            </FactorItem>,
+          ],
+        },
+        {
           key: 'schedule',
           title: 'Weekly schedule',
           factors: [
@@ -530,7 +552,7 @@ export function TrainingView({ form }) {
                 {form.days_per_week != null ? String(form.days_per_week) : null}
               </DisplayValue>
             </FactorItem>,
-            <FactorItem key="session" label="Session length">
+            <FactorItem key="session" label="Typical session">
               <DisplayValue>{durationLabel(form.workout_duration_minutes)}</DisplayValue>
             </FactorItem>,
             <FactorItem key="minutes" label="Weekly minutes">
