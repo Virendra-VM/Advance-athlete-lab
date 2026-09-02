@@ -8,10 +8,14 @@ from __future__ import annotations
 
 import httpx
 
+from pathlib import Path
+
 from app.config import (
     AI_REQUEST_TIMEOUT_S,
     ANTHROPIC_API_KEY,
     ANTHROPIC_MODEL,
+    CURSOR_API_KEY,
+    CURSOR_MODEL,
     GEMINI_API_KEY,
     GEMINI_MODEL,
     OPENAI_API_KEY,
@@ -174,4 +178,61 @@ class GeminiProvider:
             model=self.model,
             raw_text=text,
             usage=payload.get("usageMetadata") or {},
+        )
+
+
+_BACKEND_ROOT = Path(__file__).resolve().parents[3]
+
+
+class CursorProvider:
+    """Cursor Pro via the official cursor-sdk (Agent.prompt one-shot)."""
+
+    name = "cursor"
+
+    def __init__(self, model: str | None = None, api_key: str | None = None):
+        self.model = model or CURSOR_MODEL
+        self.api_key = api_key if api_key is not None else CURSOR_API_KEY
+
+    def is_configured(self) -> bool:
+        return bool(self.api_key)
+
+    def generate_json(self, system: str, user: str) -> ProviderResponse:
+        if not self.is_configured():
+            raise ProviderError("CURSOR_API_KEY is not set.")
+
+        try:
+            from cursor_sdk import Agent, AgentOptions, CursorAgentError, LocalAgentOptions
+        except ImportError as exc:
+            raise ProviderError("cursor-sdk is not installed (pip install cursor-sdk).") from exc
+
+        prompt = f"{system}\n\n---\n\n{user}"
+        try:
+            result = Agent.prompt(
+                prompt,
+                AgentOptions(
+                    model=self.model,
+                    api_key=self.api_key,
+                    local=LocalAgentOptions(cwd=str(_BACKEND_ROOT)),
+                ),
+            )
+        except CursorAgentError as exc:
+            raise ProviderError(f"Cursor request failed: {exc}") from exc
+
+        if result.status == "error":
+            raise ProviderError(f"Cursor run failed: {result.id or 'unknown run'}")
+
+        text = (result.result or "").strip()
+        log_exchange(self.name, system, user, text)
+        usage = {}
+        if result.usage is not None:
+            usage = {
+                "input_tokens": getattr(result.usage, "input_tokens", None),
+                "output_tokens": getattr(result.usage, "output_tokens", None),
+            }
+        return ProviderResponse(
+            data=parse_json_payload(text),
+            provider=self.name,
+            model=self.model,
+            raw_text=text,
+            usage=usage,
         )

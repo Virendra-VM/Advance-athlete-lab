@@ -4,10 +4,10 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 
 from app.auth_deps import get_current_user
-from app.config import AI_FALLBACK_PROVIDER, AI_PROVIDER
 from app.database import get_db
 from app.models import Activity, AthleteProfile, PlannedWorkout, ScienceChunk, TrainingPlan, User
 from app.schemas import (
+    ApplyChatWeekRequest,
     CoachAdviceResponse,
     CoachChatHistoryResponse,
     CoachChatRequest,
@@ -18,11 +18,12 @@ from app.schemas import (
     CoachStatusResponse,
     PlanGenerateRequest,
 )
-from app.services.ai import configured_providers
+from app.services.ai import configured_providers, describe_ai_runtime
 from app.services.athlete_coach_context import build_athlete_coach_context
 from app.services.athlete_profile import get_profile_consent
 from app.services.coach_ai import (
     PlanWeekNotCurrentError,
+    apply_week_from_chat,
     chat_history,
     coach_chat,
     confirm_baseline,
@@ -31,6 +32,7 @@ from app.services.coach_ai import (
     get_active_plan,
     publish_plan_to_schedule,
 )
+from app.services.coach_intent import classify_chat_intent
 from app.services.schedule_completion import match_planned_workout_completions
 
 router = APIRouter(prefix="/coach", tags=["coach"])
@@ -76,16 +78,17 @@ def get_coach_status(
     """Lets the UI explain up front whether answers come from a model or the rules."""
     profile = _require_profile(current_user, db)
     consent = get_profile_consent(db, profile.id)
-    providers = configured_providers()
-    active = AI_PROVIDER if AI_PROVIDER in providers else (providers[0] if providers else None)
+    runtime = describe_ai_runtime()
     return CoachStatusResponse(
-        providers_configured=providers,
-        active_provider=active,
-        fallback_provider=AI_FALLBACK_PROVIDER or None,
-        mode="ai" if active else "rules",
+        providers_configured=configured_providers(),
+        active_provider=runtime["active_provider"],
+        active_model=runtime["active_model"],
+        fallback_provider=runtime["configured_fallback"],
+        mode=runtime["mode"],
         ai_consent=bool(consent and consent.ai_coaching),
         science_chunks=db.query(ScienceChunk.id).count(),
         has_active_plan=get_active_plan(db, profile.id) is not None,
+        ai_debug=runtime.get("debug"),
     )
 
 
@@ -171,7 +174,42 @@ def post_chat(
     message = payload.message.strip()
     if not message:
         raise HTTPException(status_code=422, detail="Message cannot be empty.")
-    return CoachChatResponse(**coach_chat(db, profile, message, timezone_name=payload.timezone))
+    intent = classify_chat_intent(message, activity_id=payload.activity_id)
+    return CoachChatResponse(
+        **coach_chat(
+            db,
+            profile,
+            message,
+            timezone_name=payload.timezone,
+            activity_id=payload.activity_id,
+            intent=intent,
+        )
+    )
+
+
+@router.post("/plan/from-chat", response_model=CoachPlanResponse)
+def apply_chat_week(
+    payload: ApplyChatWeekRequest,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Save a chat-revised week as the current plan and optionally publish it to Schedule."""
+    profile = _require_profile(current_user, db)
+    _require_ai_consent(db, profile)
+    try:
+        result = apply_week_from_chat(
+            db,
+            profile,
+            message_id=payload.message_id,
+            markdown=payload.markdown,
+            publish=payload.publish,
+            timezone_name=payload.timezone,
+        )
+    except LookupError:
+        raise HTTPException(status_code=404, detail="Coach message or plan not found.")
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    return CoachPlanResponse(**result)
 
 
 @router.post("/baseline/confirm", response_model=CoachContextResponse)

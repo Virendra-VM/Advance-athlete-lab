@@ -252,7 +252,7 @@ function PlanActions({
         type="button"
         onClick={onGenerate}
         disabled={generating || publishing || !canGenerate}
-        className="inline-flex items-center gap-2 rounded-xl bg-sage px-4 py-2.5 text-sm font-semibold text-white disabled:opacity-60"
+        className="inline-flex items-center gap-2 rounded-xl bg-sage px-3 py-2 text-sm font-semibold text-white disabled:opacity-60"
       >
         <Sparkles className={`h-4 w-4 ${generating ? 'sync-spin' : ''}`} />
         {generating ? 'Building…' : workouts.length ? 'Rebuild week' : 'Generate week'}
@@ -263,7 +263,7 @@ function PlanActions({
         disabled={
           generating || publishing || !plan?.plan_id || !workouts.length || Boolean(plan?.on_schedule)
         }
-        className="inline-flex items-center gap-2 rounded-xl border border-[var(--aal-line)] bg-[var(--aal-card)] px-4 py-2.5 text-sm font-semibold disabled:opacity-60"
+        className="inline-flex items-center gap-2 rounded-xl border border-[var(--aal-line)] bg-[var(--aal-card)] px-3 py-2 text-sm font-semibold disabled:opacity-60"
       >
         <CalendarPlus className={`h-4 w-4 ${publishing ? 'sync-spin' : ''}`} />
         {publishing ? 'Adding…' : plan?.on_schedule ? 'On schedule' : 'Add to Schedule'}
@@ -301,22 +301,39 @@ export default function WeekPlan({
             <h3 className="mt-1 text-base font-semibold text-[var(--aal-ink)]">{title}</h3>
             <p className="mt-0.5 text-sm text-[var(--aal-muted)]">{subtitle}</p>
           </div>
-          {onPin ? (
-            <button
-              type="button"
-              onClick={onPin}
-              className={`inline-flex shrink-0 items-center gap-1.5 rounded-lg border px-2.5 py-1.5 text-xs font-medium transition ${
-                pinned
-                  ? 'border-sage/40 bg-sage/10 text-sage'
-                  : 'border-[var(--aal-line)] text-[var(--aal-muted)] hover:text-[var(--aal-ink)]'
-              }`}
-              aria-pressed={pinned}
-              aria-label={pinned ? 'Unpin this week' : 'Pin this week'}
-            >
-              <Pin className={`h-3.5 w-3.5 ${pinned ? 'fill-current' : ''}`} />
-              {pinned ? 'Pinned' : 'Pin'}
-            </button>
-          ) : null}
+          <div className="flex shrink-0 items-center gap-2">
+            {onAddToSchedule && (plan?.plan?.workouts || []).length ? (
+              <button
+                type="button"
+                onClick={onAddToSchedule}
+                disabled={generating || publishing || !plan?.plan_id || Boolean(plan?.on_schedule)}
+                className="inline-flex items-center gap-2 rounded-xl bg-sage px-3 py-2 text-sm font-semibold text-white disabled:opacity-60"
+              >
+                <CalendarPlus className={`h-4 w-4 ${publishing ? 'sync-spin' : ''}`} />
+                {publishing
+                  ? 'Saving…'
+                  : plan?.on_schedule
+                    ? 'On schedule'
+                    : 'Add to Schedule'}
+              </button>
+            ) : null}
+            {onPin ? (
+              <button
+                type="button"
+                onClick={onPin}
+                className={`inline-flex shrink-0 items-center gap-1.5 rounded-lg border px-2.5 py-1.5 text-xs font-medium transition ${
+                  pinned
+                    ? 'border-sage/40 bg-sage/10 text-sage'
+                    : 'border-[var(--aal-line)] text-[var(--aal-muted)] hover:text-[var(--aal-ink)]'
+                }`}
+                aria-pressed={pinned}
+                aria-label={pinned ? 'Unpin this week' : 'Pin this week'}
+              >
+                <Pin className={`h-3.5 w-3.5 ${pinned ? 'fill-current' : ''}`} />
+                {pinned ? 'Pinned' : 'Pin'}
+              </button>
+            ) : null}
+          </div>
         </div>
         {generating ? (
           <LoadingDots label="Building this week…" />

@@ -186,6 +186,9 @@ SCALAR_V2_FIELDS = (
     "goal_event_name",
     "goal_event_date",
     "goal_metric",
+    "ftp_watts",
+    "lthr_bpm",
+    "max_hr_bpm",
 )
 
 GOAL_MIRROR_FIELDS = (
@@ -207,6 +210,9 @@ def _apply_profile_v2_fields(db: Session, profile: AthleteProfile, updates: dict
     for field in SCALAR_V2_FIELDS:
         if field in updates:
             setattr(profile, field, updates[field])
+
+    if "ftp_watts" in updates:
+        profile.ftp_source = "manual" if updates.get("ftp_watts") else None
 
     if "current_weekly_volume" in updates:
         profile.current_weekly_volume = dump_json_column(updates["current_weekly_volume"])

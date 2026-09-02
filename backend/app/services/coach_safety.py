@@ -289,20 +289,42 @@ def compose_safety_profile(
     readiness_flags: list[str],
     load: dict,
     latest_health_date: str | None = None,
+    longest_recent_session: str | int | None = None,
 ) -> dict:
     """Pure constraint builder shared by the live path and the eval harness."""
+    from app.services.session_telemetry import parse_duration_minutes
+
     directive = readiness_directive(readiness_flags)
 
     days = days_per_week or 3
-    session_minutes = session_minutes or 45
-    budget = weekly_minutes_budget or days * session_minutes
+    typical = session_minutes or 45
+    session_minutes = typical
+    if isinstance(longest_recent_session, (int, float)):
+        longest = int(longest_recent_session)
+    else:
+        longest = parse_duration_minutes(longest_recent_session) or 0
+
+    # Typical weekday length is a mode, not a cap. Allow a long endurance day.
+    max_session_minutes = min(420, max(round(typical * 4), longest, round(typical * 1.5), 90))
+
+    auto_budget = days * typical
+    explicit = weekly_minutes_budget
+    looks_like_days_times_typical = explicit is None or abs(explicit - auto_budget) <= max(
+        15, round(typical * 0.1)
+    )
+    # Onboarding stores days × typical as a default. That must not freeze every
+    # session at typical length or block a single 2–4 hour ride.
+    if looks_like_days_times_typical:
+        budget = auto_budget + max(typical, longest, 90)
+    else:
+        budget = explicit
 
     # Clamp growth against recorded history, but only when there is enough of it to
     # trust — otherwise an athlete who just connected a device would get a 0-minute week.
     baseline = max(load["acute_minutes"], load["chronic_minutes"])
     if baseline >= 60:
-        growth_cap = round(baseline * 1.10)
-        max_weekly_minutes = max(min(budget, growth_cap), min(budget, 120))
+        growth_cap = round(baseline * 1.15)
+        max_weekly_minutes = max(min(budget, growth_cap), min(budget, 180))
     else:
         max_weekly_minutes = budget
 
@@ -323,7 +345,8 @@ def compose_safety_profile(
 
     return {
         "max_days_per_week": days,
-        "max_session_minutes": round(session_minutes * 1.5),
+        "typical_session_minutes": typical,
+        "max_session_minutes": max_session_minutes,
         "weekly_minutes_budget": budget,
         "max_weekly_minutes": max_weekly_minutes,
         "max_hard_sessions": max_hard,
@@ -361,6 +384,7 @@ def build_safety_profile(
         readiness_flags=readiness_flags,
         load=_recent_weekly_minutes(db, profile.id),
         latest_health_date=latest_health.metric_date.isoformat() if latest_health else None,
+        longest_recent_session=profile.longest_recent_session,
     )
 
 
@@ -567,10 +591,14 @@ def strip_intensity(plan: dict) -> dict:
 def safety_prompt_rules(safety: dict, weekday_index: int | None = None) -> str:
     """Human-readable constraints injected into the model prompt."""
     injuries = safety["injuries"]
+    typical = safety.get("typical_session_minutes") or 45
     lines = [
         f"- Maximum {safety['max_days_per_week']} training days this week.",
-        f"- Maximum {safety['max_session_minutes']} minutes in any single session.",
-        f"- Maximum {safety['max_weekly_minutes']} total training minutes for the week.",
+        f"- Typical session length is {typical} minutes. That is a usual weekday length, "
+        "NOT a target for every session and NOT a cap. Long endurance sessions may be 90-240 minutes.",
+        f"- Hard ceiling for any single session: {safety['max_session_minutes']} minutes.",
+        f"- Weekly minutes target is about {safety['max_weekly_minutes']}. Do not build the week as "
+        f"{safety['max_days_per_week']} × {typical} equal sessions.",
         f"- Maximum {safety['max_hard_sessions']} hard/quality session(s); never on consecutive days.",
     ]
     if safety["require_rest_day"]:

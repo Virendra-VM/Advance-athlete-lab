@@ -9,6 +9,7 @@ from sqlalchemy.orm import Session
 
 from app.models import (
     Activity,
+    ActivityNote,
     AthleteProfile,
     CorosScheduleItem,
     DailyHealthMetric,
@@ -23,6 +24,14 @@ from app.services.athlete_profile import (
 )
 from app.services.coach_safety import build_safety_profile, readiness_flags_from_signals
 from app.services.coros_sync import get_coros_connection
+from app.services.activity_detail import parse_activity_detail
+from app.services.session_telemetry import (
+    compact_activity_metrics,
+    notes_by_activity_id,
+    persist_physiology_estimate,
+    resolve_physiology,
+    _enrich_laps,
+)
 
 
 def build_athlete_coach_context(db: Session, athlete_profile_id: int) -> dict:
@@ -110,6 +119,48 @@ def build_athlete_coach_context(db: Session, athlete_profile_id: int) -> dict:
     consent = get_profile_consent(db, athlete_profile_id)
     safety = build_safety_profile(db, profile, readiness_flags)
 
+    resting_hr = health_rows[0].resting_heart_rate if health_rows else None
+    physiology = resolve_physiology(profile, activities, resting_hr=resting_hr)
+    persist_physiology_estimate(profile, physiology)
+
+    note_rows = []
+    if activities:
+        note_rows = (
+            db.query(ActivityNote)
+            .filter(ActivityNote.activity_id.in_([row.id for row in activities]))
+            .all()
+        )
+    notes = notes_by_activity_id(note_rows)
+
+    compact_rows = []
+    focal_sessions = []
+    for activity in activities:
+        compact = compact_activity_metrics(
+            activity,
+            physiology=physiology,
+            note=notes.get(activity.id),
+            local_date=activity.activity_date.isoformat() if activity.activity_date else None,
+        )
+        compact["provider"] = activity.provider
+        compact["activity_date"] = compact["date"]
+        compact["distance_m"] = activity.distance_m
+        compact["moving_time_s"] = activity.moving_time_s
+        compact["average_heartrate"] = activity.average_heartrate
+        compact["max_heartrate"] = activity.max_heartrate
+        compact["sport_type"] = activity.sport_type
+        compact_rows.append(compact)
+        if len(focal_sessions) < 4:
+            detail = parse_activity_detail(activity) or {}
+            raw_laps = detail.get("laps") if isinstance(detail.get("laps"), list) else []
+            exercises = detail.get("exercises") if isinstance(detail.get("exercises"), list) else []
+            focal_sessions.append(
+                {
+                    **compact,
+                    "laps": _enrich_laps(raw_laps, physiology)[:24],
+                    "exercises": exercises[:12],
+                }
+            )
+
     return {
         "athlete_profile_id": athlete_profile_id,
         "generated_at": datetime.utcnow(),
@@ -140,6 +191,9 @@ def build_athlete_coach_context(db: Session, athlete_profile_id: int) -> dict:
             "race_prs": profile.race_prs,
             "exercises_hate": profile.exercises_hate,
             "exercises_love": profile.exercises_love,
+            "ftp_watts": physiology.get("ftp_watts"),
+            "lthr_bpm": physiology.get("lthr_bpm"),
+            "max_hr_bpm": physiology.get("max_hr_bpm"),
             "sports": [
                 {
                     "sport": row.sport,
@@ -155,22 +209,11 @@ def build_athlete_coach_context(db: Session, athlete_profile_id: int) -> dict:
                 "research": bool(consent.research) if consent else False,
             },
         },
+        "physiology": physiology,
         "readiness_flags": readiness_flags,
         "safety": safety,
-        "recent_activities": [
-            {
-                "id": activity.id,
-                "provider": activity.provider,
-                "external_activity_id": activity.external_activity_id,
-                "name": activity.name,
-                "activity_date": activity.activity_date.isoformat(),
-                "distance_m": activity.distance_m,
-                "moving_time_s": activity.moving_time_s,
-                "average_heartrate": activity.average_heartrate,
-                "sport_type": activity.sport_type,
-            }
-            for activity in activities
-        ],
+        "recent_activities": compact_rows,
+        "focal_sessions": focal_sessions,
         "coros": {
             "connected": connection is not None,
             "last_synced_at": connection.last_synced_at.isoformat()

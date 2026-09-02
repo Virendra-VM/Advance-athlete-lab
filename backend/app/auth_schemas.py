@@ -132,6 +132,10 @@ class OnboardingSubmitRequest(BaseModel):
     goal_event_date: date | None = None
     goal_metric: str | None = Field(default=None, max_length=255)
 
+    ftp_watts: float | None = Field(default=None, ge=50, le=500)
+    lthr_bpm: float | None = Field(default=None, ge=90, le=230)
+    max_hr_bpm: float | None = Field(default=None, ge=120, le=230)
+
     sports: list[SportPayload] | None = None
     injuries: list[InjuryPayload] | None = None
     consents: ConsentPayload | None = None
@@ -185,6 +189,10 @@ class ProfileUpdateRequest(BaseModel):
     sports: list[SportPayload] | None = None
     injuries: list[InjuryPayload] | None = None
     consents: ConsentPayload | None = None
+
+    ftp_watts: float | None = Field(default=None, ge=50, le=500)
+    lthr_bpm: float | None = Field(default=None, ge=90, le=230)
+    max_hr_bpm: float | None = Field(default=None, ge=120, le=230)
 
     @field_validator("sex")
     @classmethod
@@ -243,6 +251,11 @@ class AthleteProfileResponse(BaseModel):
     goal_metric: str | None = None
     units: str = "metric"
     baseline_confirmed_at: datetime | None = None
+    ftp_watts: float | None = None
+    lthr_bpm: float | None = None
+    max_hr_bpm: float | None = None
+    ftp_source: str | None = None
+    ftp_estimated_watts: float | None = None
 
     sports: list[SportRead] = []
     injuries: list[InjuryRead] = []

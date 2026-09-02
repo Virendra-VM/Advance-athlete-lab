@@ -10,7 +10,7 @@ export default function AppShell({ title: _title, children, flush = false, fill 
   const mainClass = flush
     ? 'flex min-h-0 flex-1 flex-col overflow-hidden'
       : fill
-        ? 'flex min-h-0 flex-1 flex-col overflow-hidden px-3 py-3 pt-14 sm:px-5 lg:px-6 lg:pt-3'
+        ? 'flex min-h-0 flex-1 flex-col overflow-hidden pt-14 lg:pt-0'
       : 'min-h-0 flex-1 overflow-y-auto px-4 py-6 pt-14 sm:px-6 lg:px-8 lg:pt-6'
 
   return (
@@ -34,7 +34,7 @@ export default function AppShell({ title: _title, children, flush = false, fill 
 
         <main className={mainClass}>
           {flush ? null : (
-            <div className="shrink-0">
+            <div className="shrink-0 px-4 empty:hidden">
               <EmailVerifyBanner />
             </div>
           )}

@@ -1,3 +1,4 @@
+import { useEffect, useRef, useState } from 'react'
 import { AlertTriangle, MoonStar, RefreshCw, Zap } from 'lucide-react'
 import LoadingDots from '../ui/LoadingDots'
 
@@ -7,18 +8,21 @@ const READINESS = {
     icon: Zap,
     accent: 'text-sage',
     ring: 'border-sage/35 bg-sage/5',
+    panel: 'border-sage/30 bg-[var(--aal-card)]',
   },
   downgrade_to_easy: {
     label: 'Keep it easy',
     icon: MoonStar,
     accent: 'text-amber-status',
     ring: 'border-amber-status/35 bg-amber-50/60 dark:bg-amber-950/20',
+    panel: 'border-amber-status/35 bg-[var(--aal-card)]',
   },
   rest_or_mobility: {
     label: 'Rest or mobility',
     icon: MoonStar,
     accent: 'text-danger-muted',
     ring: 'border-red-300/40 bg-red-50/60 dark:bg-red-950/20',
+    panel: 'border-red-300/40 bg-[var(--aal-card)]',
   },
 }
 
@@ -85,7 +89,7 @@ export default function TodayAdvice({
   if (compact) {
     const sleep = formatSleep(health?.sleep_duration_min)
     return (
-      <section className={`rounded-2xl border px-4 py-3.5 sm:px-5 ${readiness.ring}`}>
+      <section className={`rounded-2xl border px-4 py-3.5 sm:px-5 ${readiness.panel}`}>
         <div className="flex flex-wrap items-start justify-between gap-2">
           <div className="flex items-center gap-2">
             <Icon className={`h-4 w-4 shrink-0 ${readiness.accent}`} />
@@ -222,5 +226,82 @@ export default function TodayAdvice({
         </div>
       ) : null}
     </section>
+  )
+}
+
+export function TodayAlertButton({
+  advice,
+  loading,
+  error,
+  onRefresh,
+  refreshing,
+  health,
+  fitness,
+}) {
+  const [open, setOpen] = useState(false)
+  const rootRef = useRef(null)
+  const readiness = READINESS[advice?.readiness?.action] || READINESS.proceed
+  const Icon = readiness.icon
+  const escalate = Boolean(advice?.advice?.escalate)
+
+  useEffect(() => {
+    if (!open) return undefined
+    function onPointer(event) {
+      if (!rootRef.current?.contains(event.target)) setOpen(false)
+    }
+    function onKey(event) {
+      if (event.key === 'Escape') setOpen(false)
+    }
+    document.addEventListener('mousedown', onPointer)
+    document.addEventListener('keydown', onKey)
+    return () => {
+      document.removeEventListener('mousedown', onPointer)
+      document.removeEventListener('keydown', onKey)
+    }
+  }, [open])
+
+  const tone = escalate
+    ? 'border-red-300/50 bg-red-50 text-danger-muted dark:bg-red-950/40'
+    : advice?.readiness?.action === 'downgrade_to_easy'
+      ? 'border-amber-status/40 bg-amber-50/80 text-amber-status dark:bg-amber-950/30'
+      : advice?.readiness?.action === 'rest_or_mobility'
+        ? 'border-red-300/40 bg-red-50/70 text-danger-muted dark:bg-red-950/30'
+        : 'border-sage/35 bg-sage/10 text-sage'
+
+  return (
+    <div ref={rootRef} className="relative">
+      <button
+        type="button"
+        onClick={() => setOpen((value) => !value)}
+        aria-expanded={open}
+        className={`inline-flex items-center gap-2 rounded-xl border px-3 py-2 text-sm font-semibold transition ${tone}`}
+      >
+        {loading && !advice ? (
+          <RefreshCw className="h-4 w-4 sync-spin" />
+        ) : (
+          <Icon className="h-4 w-4" />
+        )}
+        <span className="hidden sm:inline">Today · {readiness.label}</span>
+        <span className="sm:hidden">Today</span>
+        {escalate ? <span className="h-1.5 w-1.5 rounded-full bg-danger-muted" /> : null}
+      </button>
+
+      {open ? (
+        <div className="absolute right-0 z-40 mt-2 w-[min(28rem,calc(100vw-1.5rem))] overflow-hidden rounded-2xl border border-[var(--aal-line)] bg-[var(--aal-card)] shadow-xl">
+          <div className="max-h-[min(70vh,32rem)] overflow-y-auto bg-[var(--aal-card)]">
+            <TodayAdvice
+              advice={advice}
+              loading={loading}
+              error={error}
+              onRefresh={onRefresh}
+              refreshing={refreshing}
+              compact
+              health={health}
+              fitness={fitness}
+            />
+          </div>
+        </div>
+      ) : null}
+    </div>
   )
 }

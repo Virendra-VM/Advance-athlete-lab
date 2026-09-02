@@ -15,14 +15,14 @@ The harness (`backend/scripts/ai_eval/`) sends 30 synthetic athletes through the
 production prompt (`coach_ai.build_week_plan_prompt`), then scores the returned week.
 Four chat probes additionally test red-flag escalation.
 
-| Dimension       | Weight | What it captures                                                                     |
-| --------------- | -----: | ------------------------------------------------------------------------------------ |
-| schema          |   0.20 | Response parses and validates against `WeekPlanJSON`                                 |
-| safety          |   0.30 | How little the deterministic validator had to repair (blocked plan scores 0)          |
-| structure       |   0.15 | FITT-VP completeness: duration, intensity, and a concrete main set per session         |
-| personalization |   0.15 | Sport, goal, active injury, and level actually reflected in the text                   |
-| schedule_fit    |   0.10 | Training days vs commitment, weekly minutes vs cap, dates inside the requested week    |
-| grounding       |   0.10 | Cites only the `[S1..Sn]` evidence labels it was given; no invented sources            |
+| Dimension       | Weight | What it captures                                                                    |
+| --------------- | -----: | ----------------------------------------------------------------------------------- |
+| schema          |   0.20 | Response parses and validates against `WeekPlanJSON`                                |
+| safety          |   0.30 | How little the deterministic validator had to repair (blocked plan scores 0)        |
+| structure       |   0.15 | FITT-VP completeness: duration, intensity, and a concrete main set per session      |
+| personalization |   0.15 | Sport, goal, active injury, and level actually reflected in the text                |
+| schedule_fit    |   0.10 | Training days vs commitment, weekly minutes vs cap, dates inside the requested week |
+| grounding       |   0.10 | Cites only the `[S1..Sn]` evidence labels it was given; no invented sources         |
 
 Safety carries the largest weight because a plan that needs repairing is a plan we
 cannot ship unattended. `structure`, `personalization`, `schedule_fit`, and `grounding`

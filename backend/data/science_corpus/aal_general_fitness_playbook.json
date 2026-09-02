@@ -55,6 +55,22 @@
       "sport_tags": ["strength", "run", "ride", "swim", "general"],
       "topic_tags": ["mobility", "warm-up", "recovery"],
       "body": "Warm up with 5-10 min of easy general movement, then dynamic mobility for the joints the session loads, then two ramp-up sets or a few strides. Static stretching before heavy or explosive work can blunt output briefly; keep it for after sessions or standalone mobility days. Recovery levers in order of evidence strength: sleep duration and regularity, total energy and protein intake, easy-day discipline, and only then modalities like massage or compression. Two to three short mobility sessions a week beat one long occasional session."
+    },
+    {
+      "key": "volume-load-cns",
+      "heading": "Volume load, mechanical tension, and CNS fatigue",
+      "audience": "strength",
+      "sport_tags": ["strength"],
+      "topic_tags": ["volume", "strength", "readiness", "rpe"],
+      "body": "Strength sessions are judged by volume load (sets x reps x load), mechanical tension on the target lifts, and how close the athlete worked to failure (RPE). Motor unit recruitment rises as loads get heavy and as sets approach failure; that is neuromuscular strain, not just 'getting a pump'. Central nervous system fatigue shows up as poor bar speed, missed reps, and lingering heaviness the next day, especially after poor sleep or low HRV. On those days, keep the prescribed RPE and let load drop rather than chasing last week's numbers. Active back limitations mean avoiding loaded spinal flexion and high-fatigue hinge volume. Acute:chronic spikes in lifting volume raise tissue risk the same way endurance spikes do."
+    },
+    {
+      "key": "yoga-vagal-downregulation",
+      "heading": "Yoga and mobility as down-regulation",
+      "audience": "shared",
+      "sport_tags": ["general", "strength", "run", "ride"],
+      "topic_tags": ["mobility", "recovery", "hrv", "sleep"],
+      "body": "Yoga and mobility sessions are recovery tools, not missed intervals. The coaching goal is parasympathetic up-regulation: slower breathing, lower heart rate, and a nervous system that can stand down after hard training. Improved vagal tone is inferred from resting HR, HRV, and how settled the athlete feels — it is coaching language, not a diagnosis. Myofascial work and long-range stretching help restricted areas when placed after training or on easy days. Do not pile impact or heavy spinal loading the next morning if the athlete has an active back limitation. A mobility session sitting on top of a high acute:chronic load is still the right medicine if it replaces intensity rather than adding to it."
     }
   ]
 }

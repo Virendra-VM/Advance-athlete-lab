@@ -234,26 +234,20 @@ def build_template_advice(context: dict, safety: dict) -> dict:
     }
 
 
-def template_chat_reply(question: str, safety: dict, science_hits: list[dict]) -> dict:
-    readiness = safety["readiness"]
-    lines = [
-        "No AI provider is configured, so here is what your data and the coaching rules say.",
-        f"Readiness: {readiness['reason']}",
-        f"This week's limits: up to {safety['max_days_per_week']} training days, "
-        f"{safety['max_weekly_minutes']} total minutes, "
-        f"{safety['max_hard_sessions']} hard session(s).",
-    ]
-    if safety["injuries"]["active"]:
-        lines.append(
-            f"Active injuries ({', '.join(safety['injuries']['active'])}) mean avoiding "
-            f"{', '.join(safety['injuries']['avoid_keywords']) or 'high-impact loading'}."
-        )
-    if science_hits:
-        top = science_hits[0]
-        lines.append(f"Relevant guidance — {top['heading']}: {top['body']}")
-    return {
-        "reply": "\n\n".join(lines),
-        "citations": [hit["citation"]["slug"] for hit in science_hits[:2] if hit["citation"]["slug"]],
-        "escalate": False,
-        "escalation_reason": None,
-    }
+from app.services.ai_coach import template_autopsy
+
+
+def template_chat_reply(
+    question: str,
+    safety: dict,
+    science_hits: list[dict],
+    session_packet: dict | None = None,
+    context: dict | None = None,
+) -> dict:
+    return template_autopsy(
+        question,
+        safety,
+        science_hits,
+        session_packet=session_packet,
+        context=context,
+    )

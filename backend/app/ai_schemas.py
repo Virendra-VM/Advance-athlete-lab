@@ -9,6 +9,8 @@ from __future__ import annotations
 
 from datetime import date
 
+from typing import Any
+
 from pydantic import BaseModel, Field, field_validator
 
 SESSION_TYPES = {
@@ -62,6 +64,11 @@ class PlannedWorkoutJSON(BaseModel):
             "off": "rest",
             "cross training": "cross-training",
             "crosstraining": "cross-training",
+            "quality": "threshold",
+            "hard": "threshold",
+            "football": "cross-training",
+            "soccer": "cross-training",
+            "match": "cross-training",
         }
         return aliases.get(normalized, "easy")
 
@@ -91,3 +98,5 @@ class ChatReplyJSON(BaseModel):
     citations: list[str] = []
     escalate: bool = False
     escalation_reason: str | None = None
+    intent: str | None = None
+    week_plan: Any | None = None

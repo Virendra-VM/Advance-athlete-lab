@@ -10,6 +10,7 @@ key is configured.
 
 from __future__ import annotations
 
+import json
 import os
 import sys
 import tempfile
@@ -58,9 +59,12 @@ def seed(db) -> AthleteProfile:
         workout_duration_minutes=50,
         weekly_minutes_budget=200,
         primary_goal="Half marathon under 1:50",
-        primary_sports='["Running", "Strength training"]',
+        primary_sports='["Running", "Cycling"]',
         equipment="Full gym",
         units="metric",
+        ftp_watts=231,
+        lthr_bpm=174,
+        max_hr_bpm=190,
         onboarding_completed=True,
     )
     db.add(profile)
@@ -121,6 +125,41 @@ def seed(db) -> AthleteProfile:
                 source_fit_file="smoke",
             )
         )
+    db.add(
+        Activity(
+            athlete_profile_id=profile.id,
+            provider="strava",
+            external_activity_id="smoke-overunder",
+            name="MyWhoosh Colombia",
+            sport_type="VirtualRide",
+            activity_date=datetime.utcnow(),
+            distance_m=28000,
+            moving_time_s=3660,
+            average_heartrate=146.6,
+            max_heartrate=183,
+            source_fit_file="smoke",
+            detail_json=json.dumps(
+                {
+                    "summary": {
+                        "avg_power": 214,
+                        "max_power": 284,
+                        "normalized_power": 228,
+                        "avg_cadence": 88,
+                        "avg_hr": 146.6,
+                        "max_hr": 183,
+                    },
+                    "laps": [
+                        {"index": 1, "label": "Under 1", "duration_s": 120, "avg_power": 202, "avg_hr": 158, "max_hr": 165, "avg_cadence": 88},
+                        {"index": 2, "label": "Over 1", "duration_s": 60, "avg_power": 261, "avg_hr": 168, "max_hr": 171, "avg_cadence": 90},
+                        {"index": 3, "label": "Under 2", "duration_s": 120, "avg_power": 203, "avg_hr": 166, "max_hr": 170, "avg_cadence": 87},
+                        {"index": 4, "label": "Over 2", "duration_s": 60, "avg_power": 264, "avg_hr": 174, "max_hr": 178, "avg_cadence": 91},
+                        {"index": 5, "label": "Under 3", "duration_s": 120, "avg_power": 201, "avg_hr": 173, "max_hr": 174, "avg_cadence": 86},
+                        {"index": 6, "label": "Over 3", "duration_s": 60, "avg_power": 282, "avg_hr": 180, "max_hr": 183, "avg_cadence": 93},
+                    ],
+                }
+            ),
+        )
+    )
     db.commit()
     return profile
 
@@ -169,13 +208,23 @@ def main() -> None:
         print(f"chat provider={normal['provider']} escalate={normal['reply']['escalate']}")
         assert normal["reply"]["escalate"] is False
 
+        analysis = coach_chat(
+            db, profile, "How was today's session?", timezone_name="Asia/Kolkata"
+        )
+        print(
+            f"analysis intent={analysis['reply'].get('intent')} "
+            f"words={len(analysis['reply']['reply'].split())}"
+        )
+        assert analysis["reply"].get("intent") == "WORKOUT_AUDIT"
+        assert "over-under" in analysis["reply"]["reply"].lower() or "ftp" in analysis["reply"]["reply"].lower()
+
         flagged = coach_chat(db, profile, "I had chest pain and felt dizzy on today's run.")
         print(f"red flag: provider={flagged['provider']} escalate={flagged['reply']['escalate']}")
         assert flagged["provider"] == "safety-gate"
         assert flagged["reply"]["escalate"] is True
 
         history = chat_history(db, profile.id)
-        assert len(history) == 4, f"expected 4 messages, got {len(history)}"
+        assert len(history) == 6, f"expected 6 messages, got {len(history)}"
 
         matched = match_planned_workout_completions(db, profile.id)
         print(f"schedule linking: {matched}")

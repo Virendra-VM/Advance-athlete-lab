@@ -310,6 +310,8 @@ class CoachContextResponse(BaseModel):
     recent_activities: list[dict]
     coros: dict
     safety: dict = {}
+    physiology: dict = {}
+    focal_sessions: list[dict] = []
 
 
 class ScienceCitation(BaseModel):
@@ -433,8 +435,9 @@ class CoachAdviceResponse(BaseModel):
 
 
 class CoachChatRequest(BaseModel):
-    message: str = Field(min_length=1, max_length=2000)
+    message: str = Field(min_length=1, max_length=16000)
     timezone: str | None = Field(default=None, max_length=64)
+    activity_id: int | None = None
 
 
 class ChatReplyRead(BaseModel):
@@ -442,6 +445,8 @@ class ChatReplyRead(BaseModel):
     citations: list[str] = []
     escalate: bool = False
     escalation_reason: str | None = None
+    intent: str | None = None
+    plan_id: int | None = None
 
 
 class CoachMessageRead(BaseModel):
@@ -449,6 +454,8 @@ class CoachMessageRead(BaseModel):
     role: str
     content: str
     created_at: datetime | None = None
+    intent: str | None = None
+    plan_id: int | None = None
 
 
 class CoachChatResponse(BaseModel):
@@ -458,6 +465,14 @@ class CoachChatResponse(BaseModel):
     citations: list[ScienceCitation] = []
     history: list[CoachMessageRead] = []
     disclaimer: str | None = None
+    plan: CoachPlanResponse | None = None
+
+
+class ApplyChatWeekRequest(BaseModel):
+    message_id: int | None = None
+    markdown: str | None = Field(default=None, max_length=20000)
+    publish: bool = True
+    timezone: str | None = Field(default=None, max_length=64)
 
 
 class CoachChatHistoryResponse(BaseModel):
@@ -495,8 +510,10 @@ class CoachPlannedWorkoutRead(BaseModel):
 class CoachStatusResponse(BaseModel):
     providers_configured: list[str] = []
     active_provider: str | None = None
+    active_model: str | None = None
     fallback_provider: str | None = None
     mode: str
     ai_consent: bool = False
     science_chunks: int = 0
     has_active_plan: bool = False
+    ai_debug: dict | None = None
