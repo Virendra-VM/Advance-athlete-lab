@@ -193,22 +193,28 @@ def build_template_advice(context: dict, safety: dict) -> dict:
     if readiness["action"] == "rest_or_mobility":
         headline = "Take today easy or off"
         recommendation = (
-            "Rest, walk, or do 20-30 minutes of mobility. Two or more recovery markers are "
-            "down, so training hard today buys fatigue rather than fitness."
+            "Recovery markers are down.\n"
+            "1. Rest or mobility — 20-30 min\n"
+            "- Focus: walk, breathe, restore\n"
+            "- Avoid: quality work, heavy loading"
         )
         adjustment = "Replace today's session with rest or mobility."
     elif readiness["action"] == "downgrade_to_easy":
         headline = "Keep today conversational"
         recommendation = (
-            "Do the planned duration at an easy, conversational effort and skip any intervals. "
-            "Reassess tomorrow before adding intensity."
+            "Keep today conversational and skip intervals.\n"
+            "1. Easy aerobic — planned duration\n"
+            "- Intensity: talk test, no surges\n"
+            "- Reassess: add quality only after tomorrow's check-in"
         )
         adjustment = "Convert any quality work to easy aerobic work at the same duration."
     else:
         headline = "Cleared to train as planned"
         recommendation = (
-            "Recovery markers look normal, so train as scheduled. Warm up for 10 minutes and "
-            "stop the session if anything sharp shows up."
+            "Recovery markers look normal — train as scheduled.\n"
+            "1. Planned session — as written\n"
+            "- Warm-up: 10 minutes\n"
+            "- Stop: if anything sharp shows up"
         )
         adjustment = None
 
@@ -228,6 +234,186 @@ def build_template_advice(context: dict, safety: dict) -> dict:
         "recommendation": recommendation,
         "session_adjustment": adjustment,
         "rationale": " ".join(rationale_parts),
+        "citations": [],
+        "escalate": False,
+        "escalation_reason": None,
+    }
+
+
+def build_template_week_brief(context: dict, safety: dict, distance: dict) -> dict:
+    readiness = safety["readiness"]
+    acwr = distance.get("acwr")
+    acute = distance.get("acute_load_km")
+    chronic = distance.get("chronic_load_km")
+    load_line = (
+        f"Last 7 days {acute} km vs usual week {chronic} km"
+        + (f" (ACWR {acwr})." if acwr is not None else ".")
+    )
+
+    if readiness["action"] == "rest_or_mobility":
+        headline = "Protect the rest of this week"
+        recommendation = (
+            "Recovery is down — remaining days stay easy or off.\n"
+            "1. Easy movement only — 20-40 min\n"
+            "- Focus: walk, spin, mobility\n"
+            "- Avoid: intervals, long days, chasing weekly km"
+        )
+        adjustment = "Do not add volume to make the week look complete."
+    elif acwr is None:
+        headline = "Build a usual week first"
+        recommendation = (
+            "The load ratio needs a 28-day average before it can warn you about spikes.\n"
+            "1. Keep days consistent — planned duration\n"
+            "- Focus: repeatable easy-moderate work\n"
+            "- Avoid: one catch-up weekend that dumps a month of km"
+        )
+        adjustment = "Hold weekly distance steady until a usual week exists."
+    elif acwr >= 1.5:
+        headline = "This week jumped too far"
+        recommendation = (
+            f"{load_line}\n"
+            "1. Cut intensity — remaining sessions easy\n"
+            "- Volume: trim the longest day 10-20%\n"
+            "- Avoid: new workout types, stacking quality"
+        )
+        adjustment = "Back off hard work and let the 28-day average catch up."
+    elif acwr >= 1.3:
+        headline = "Hold the line this week"
+        recommendation = (
+            f"{load_line}\n"
+            "1. Keep planned easy days — as written\n"
+            "- Intensity: no new quality\n"
+            "- Long session: same or slightly shorter"
+        )
+        adjustment = "Repeat a similar week rather than adding more kilometres."
+    elif acwr < 0.8:
+        headline = "A lighter week than your usual"
+        recommendation = (
+            f"{load_line}\n"
+            "1. Easy aerobic — rebuild gradually\n"
+            "- Focus: add a little to easy days over 2-3 weeks\n"
+            "- Avoid: making up missed km in one weekend"
+        )
+        adjustment = "Rebuild volume slowly so next week's ratio stays near 1.0."
+    else:
+        headline = "Building at a useful pace"
+        recommendation = (
+            f"{load_line}\n"
+            "1. Train as planned — quality stays\n"
+            "- Progress: distance or intensity, not both\n"
+            "- Guardrail: skip stacking a new interval set with a longer long run"
+        )
+        adjustment = "Keep this week's shape; nudge only one variable next week."
+
+    if readiness["action"] == "downgrade_to_easy" and acwr is not None and acwr < 1.3:
+        headline = "Easy week — recovery is the limiter"
+        recommendation = (
+            "Recovery markers say keep remaining sessions conversational.\n"
+            "1. Easy aerobic — planned duration\n"
+            "- Intensity: talk test only\n"
+            "- Volume: hold kilometres, do not add"
+        )
+        adjustment = "Convert remaining quality to easy work at the same duration."
+
+    rationale = [readiness["reason"], load_line]
+    injuries = (safety.get("injuries") or {}).get("active") or []
+    if injuries:
+        rationale.append(f"Active injuries on file: {', '.join(injuries)}.")
+    return {
+        "headline": headline,
+        "recommendation": recommendation,
+        "session_adjustment": adjustment,
+        "rationale": " ".join(rationale),
+        "citations": [],
+        "escalate": False,
+        "escalation_reason": None,
+    }
+
+
+def build_template_load_brief(context: dict, safety: dict, effort: dict) -> dict:
+    readiness = safety["readiness"]
+    ratio = effort.get("load_ratio")
+    short = effort.get("short_load")
+    long = effort.get("long_load")
+    load_line = (
+        f"Short-term load {short} vs long-term {long}"
+        + (f" (ratio {ratio})." if ratio is not None else ".")
+    )
+
+    if readiness["action"] == "rest_or_mobility":
+        headline = "Protect the rest of this week"
+        recommendation = (
+            "Recovery is down — remaining days stay easy or off, even if the load ratio looks productive.\n"
+            "1. Easy movement only — 20-40 min\n"
+            "- Focus: walk, spin, mobility\n"
+            "- Avoid: intervals, stacking load points"
+        )
+        adjustment = "Do not add hard sessions to make the week’s effort look complete."
+    elif ratio is None:
+        headline = "Sync COROS to read effort load"
+        recommendation = (
+            "Short-term and long-term load come from a COROS sync. Until then this brief cannot say whether recent effort is ramping or spiking.\n"
+            "1. Connect and sync COROS — latest week of comments\n"
+            "- Focus: heart-rate effort, not kilometres\n"
+            "- Avoid: guessing from distance alone"
+        )
+        adjustment = "Open Training Load after the next COROS sync."
+    elif ratio >= 1.5:
+        headline = "Recent effort jumped too far"
+        recommendation = (
+            f"{load_line}\n"
+            "1. Cut intensity — remaining sessions easy\n"
+            "- Duration: shorten the hardest session\n"
+            "- Avoid: new workout types, stacking quality"
+        )
+        adjustment = "Back off hard work and let long-term load absorb the spike."
+    elif ratio >= 1.3:
+        headline = "Hold effort here this week"
+        recommendation = (
+            f"{load_line}\n"
+            "1. Keep planned easy days — as written\n"
+            "- Intensity: no new quality\n"
+            "- Longest session: same or slightly shorter"
+        )
+        adjustment = "Repeat a similar effort week rather than adding more load."
+    elif ratio < 0.8:
+        headline = "Quieter than your fitness base"
+        recommendation = (
+            f"{load_line}\n"
+            "1. Easy aerobic — rebuild gradually\n"
+            "- Focus: add a little duration to easy days over 2-3 weeks\n"
+            "- Avoid: one monster interval day to ‘catch up’"
+        )
+        adjustment = "Rebuild effort slowly so next week’s ratio stays near 1.0."
+    else:
+        headline = "Effort is in a useful range"
+        recommendation = (
+            f"{load_line}\n"
+            "1. Train as planned — quality stays\n"
+            "- Progress: duration or intensity, not both\n"
+            "- Guardrail: skip stacking a new hard session with extra duration"
+        )
+        adjustment = "Keep this week’s effort shape; nudge only one variable next week."
+
+    if readiness["action"] == "downgrade_to_easy" and ratio is not None and ratio < 1.3:
+        headline = "Easy week — recovery is the limiter"
+        recommendation = (
+            "Recovery markers say keep remaining sessions conversational, even with a calm load ratio.\n"
+            "1. Easy aerobic — planned duration\n"
+            "- Intensity: talk test only\n"
+            "- Load: hold effort, do not add"
+        )
+        adjustment = "Convert remaining quality to easy work at the same duration."
+
+    rationale = [readiness["reason"], load_line]
+    injuries = (safety.get("injuries") or {}).get("active") or []
+    if injuries:
+        rationale.append(f"Active injuries on file: {', '.join(injuries)}.")
+    return {
+        "headline": headline,
+        "recommendation": recommendation,
+        "session_adjustment": adjustment,
+        "rationale": " ".join(rationale),
         "citations": [],
         "escalate": False,
         "escalation_reason": None,

@@ -78,9 +78,28 @@ export async function applyChatWeek(
   return handleResponse(response)
 }
 
-export async function getDailyAdvice(token = getStoredToken()) {
+export async function getDailyAdvice(options = {}, token = getStoredToken()) {
+  if (typeof options === 'string') {
+    token = options
+    options = {}
+  }
   const params = new URLSearchParams({ timezone: athleteTimezone() })
+  if (options.refresh) params.set('refresh', 'true')
   const response = await fetch(`${API_BASE_URL}/api/coach/advice?${params}`, {
+    headers: authHeaders(token),
+  })
+  return handleResponse(response)
+}
+
+export async function getWeekBrief(options = {}, token = getStoredToken()) {
+  if (typeof options === 'string') {
+    token = options
+    options = {}
+  }
+  const params = new URLSearchParams({ timezone: athleteTimezone() })
+  if (options.refresh) params.set('refresh', 'true')
+  if (options.topic) params.set('topic', options.topic)
+  const response = await fetch(`${API_BASE_URL}/api/coach/week-brief?${params}`, {
     headers: authHeaders(token),
   })
   return handleResponse(response)

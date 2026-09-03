@@ -14,6 +14,7 @@ export function RecoveryPage() {
 }
 
 export { default as SleepPage } from './SleepPage'
+export { default as TrainingLoadPage } from './TrainingLoadPage'
 
 export function HrvPage() {
   return (
@@ -70,19 +71,6 @@ export function DailyHealthPage() {
         />
       </div>
     </AppShell>
-  )
-}
-
-export function TrainingLoadPage() {
-  return (
-    <MetricPage
-      title="Training Load"
-      eyebrow="Training"
-      description="COROS short/long load ratio from the latest sync (~1 week of daily comments)."
-      metric="load"
-      valueDigits={2}
-      showRangeTabs={false}
-    />
   )
 }
 

@@ -432,6 +432,11 @@ class CoachAdviceResponse(BaseModel):
     advice: DailyAdviceRead
     citations: list[ScienceCitation] = []
     disclaimer: str | None = None
+    cached: bool = False
+    generated_at: datetime | None = None
+    scope: str = "today"
+    week_start: date | None = None
+    topic: str | None = None
 
 
 class CoachChatRequest(BaseModel):

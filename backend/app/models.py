@@ -506,3 +506,63 @@ class CoachMessage(Base):
     citations = Column(Text, nullable=True)
     provider = Column(String(32), nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+
+
+class DailyAdviceSnapshot(Base):
+    """One saved Today brief per athlete per local date.
+
+    Regenerated only when the athlete hits Refresh, or when health / recovery /
+    training signals that feed the brief have changed.
+    """
+
+    __tablename__ = "daily_advice_snapshots"
+    __table_args__ = (
+        UniqueConstraint(
+            "athlete_profile_id",
+            "advice_date",
+            name="uq_athlete_advice_date",
+        ),
+    )
+
+    id = Column(Integer, primary_key=True, index=True, autoincrement=True)
+    athlete_profile_id = Column(
+        Integer, ForeignKey("athlete_profiles.id"), nullable=False, index=True
+    )
+    advice_date = Column(Date, nullable=False, index=True)
+    fingerprint = Column(String(64), nullable=False)
+    payload_json = Column(Text, nullable=False)
+    provider = Column(String(32), nullable=True)
+    model = Column(String(128), nullable=True)
+    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+
+class WeeklyAdviceSnapshot(Base):
+    """One saved Week brief per athlete per Monday week-start per topic.
+
+    Topics: ``volume`` (distance ACWR) and ``load`` (COROS effort). Regenerated
+    on Refresh, or when that topic's signals / recovery / plan change.
+    """
+
+    __tablename__ = "weekly_advice_snapshots"
+    __table_args__ = (
+        UniqueConstraint(
+            "athlete_profile_id",
+            "week_start",
+            "topic",
+            name="uq_athlete_week_brief_topic",
+        ),
+    )
+
+    id = Column(Integer, primary_key=True, index=True, autoincrement=True)
+    athlete_profile_id = Column(
+        Integer, ForeignKey("athlete_profiles.id"), nullable=False, index=True
+    )
+    week_start = Column(Date, nullable=False, index=True)
+    topic = Column(String(32), nullable=False, default="volume")
+    fingerprint = Column(String(64), nullable=False)
+    payload_json = Column(Text, nullable=False)
+    provider = Column(String(32), nullable=True)
+    model = Column(String(128), nullable=True)
+    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)

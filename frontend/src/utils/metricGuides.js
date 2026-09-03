@@ -136,10 +136,29 @@ export const METRIC_GUIDES = {
       },
     ],
   },
+  acwr: {
+    title: 'Volume & ACWR',
+    summary:
+      'Volume is distance. ACWR is this week’s kilometres divided by your usual week — a traffic light for whether you jumped too fast.',
+    sections: [
+      {
+        heading: 'What it means',
+        body: 'Acute load is the last 7 days. Chronic load is the last 28 days divided by 4 (a usual week). Their ratio near 0.8–1.3 is the typical productive zone; above 1.5 is a spike.',
+      },
+      {
+        heading: 'How to use it',
+        body: 'Progress one thing at a time (distance or intensity). After a spike, hold or deload so the 28-day average can catch up. Pair with sleep and how joints feel.',
+      },
+      {
+        heading: 'Data note',
+        body: 'This is GPS distance from synced activities, not COROS effort load. Indoor, swim, and strength sessions may look small if kilometres are low.',
+      },
+    ],
+  },
   load: {
     title: 'Training Load',
     summary:
-      'Training load compares short-term stress to longer-term fitness. The load ratio helps balance progression and recovery.',
+      'Training load is COROS effort — short-term stress versus your long-term fitness base. The ratio uses the same traffic-light bands as distance ACWR (about 0.8–1.3 productive, above 1.5 a spike).',
     sections: [
       {
         heading: 'What it means',

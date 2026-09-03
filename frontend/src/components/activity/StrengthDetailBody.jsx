@@ -11,6 +11,7 @@ export default function StrengthDetailBody({
   streamMessage,
   dataRows,
   notesPanel = null,
+  onPullDetail,
 }) {
   const tabs = [
     { id: 'workout', label: 'Workout' },
@@ -20,12 +21,19 @@ export default function StrengthDetailBody({
   ]
   const [tab, setTab] = useState('workout')
   const exercises = detail?.exercises || []
+  const muscleMap = detail?.muscle_map || null
 
   return (
     <div className="space-y-4">
       <DetailTabs tabs={tabs} active={tab} onChange={setTab} />
 
-      {tab === 'workout' && <ExerciseList exercises={exercises} />}
+      {tab === 'workout' && (
+        <ExerciseList
+          exercises={exercises}
+          muscleMap={muscleMap}
+          onPullDetail={onPullDetail}
+        />
+      )}
 
       {tab === 'hr' && (
         <div className="space-y-3">

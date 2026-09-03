@@ -580,7 +580,8 @@ def backfill_coros_fit_for_one(
     try:
         client = _client_for_connection(db, connection)
         client.initialize()
-        result = attach_coros_fit_to_activity(client, db, connection, activity)
+        # force=True so that "Pull detail again" always re-extracts exercises.
+        result = attach_coros_fit_to_activity(client, db, connection, activity, force=True)
     except CorosMcpError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
     except Exception as exc:  # noqa: BLE001
@@ -588,6 +589,7 @@ def backfill_coros_fit_for_one(
 
     if not result.get("ok") and result.get("reason") not in {
         "already_has_points",
+        "already_has_points_and_exercises",
         "target_already_has_points",
     }:
         # Still return payload so UI can show why; not always a hard failure.

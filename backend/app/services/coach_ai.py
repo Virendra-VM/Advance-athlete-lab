@@ -10,6 +10,7 @@ rather than shown.
 
 from __future__ import annotations
 
+import hashlib
 import json
 import logging
 import time
@@ -21,7 +22,7 @@ from sqlalchemy.orm import Session
 
 from app.config import AI_DEBUG
 from app.ai_schemas import ChatReplyJSON, DailyAdviceJSON, WeekPlanJSON
-from app.models import Activity, ActivityNote, AthleteProfile, CoachMessage, PlannedWorkout, TrainingPlan
+from app.models import Activity, ActivityNote, AthleteProfile, CoachMessage, DailyAdviceSnapshot, PlannedWorkout, TrainingPlan, WeeklyAdviceSnapshot
 from app.services.ai import ProviderError, provider_chain
 from app.services.athlete_coach_context import build_athlete_coach_context
 from app.services.coach_safety import (
@@ -33,7 +34,9 @@ from app.services.coach_safety import (
 )
 from app.services.coach_templates import (
     build_template_advice,
+    build_template_load_brief,
     build_template_week,
+    build_template_week_brief,
 )
 from app.services.science_kb import (
     citation_slugs,
@@ -45,6 +48,8 @@ from app.services.ai_coach import (
     BASE_SYSTEM_PROMPT as SYSTEM_PROMPT,
     athlete_state_block,
     autopsy_task_for_packet,
+    chat_system_prompt,
+    chat_task,
     coach_modality,
     retrieval_query_for_modality,
     science_sports_for_modality,
@@ -57,6 +62,7 @@ from app.services.ai_coach import (
     today_call_prompt_block,
 )
 from app.services.coach_intent import (
+    GENERAL_CHAT,
     SCHEDULE_UPDATE,
     WORKOUT_AUDIT,
     classify_chat_intent_detailed,
@@ -95,17 +101,17 @@ WEEK_PLAN_SCHEMA = """{
 }"""
 
 ADVICE_SCHEMA = """{
-  "headline": "string, max 10 words",
-  "recommendation": "string, what to do today",
-  "session_adjustment": "string or null",
-  "rationale": "string referencing the athlete's own numbers",
+  "headline": "string, max 10 words, no markdown",
+  "recommendation": "string with REAL newlines. Lead sentence, then numbered sessions. Each session is '1. Name — duration' followed by '- Label: value' bullets. Bold labels with **Label:** only. Never one packed paragraph.",
+  "session_adjustment": "string or null, one or two short sentences, **Label:** allowed, no essays",
+  "rationale": "string referencing the athlete's own numbers, max two sentences",
   "citations": ["S1"],
   "escalate": false,
   "escalation_reason": null
 }"""
 
 CHAT_SCHEMA = """{
-  "reply": "string, conversational but specific",
+  "reply": "string, bullet-only GENERAL_CHAT answer: skip autopsy sections, max two sentences per bullet, optional bold REFRAME",
   "citations": ["S1"],
   "escalate": false,
   "escalation_reason": null,
@@ -249,7 +255,13 @@ def _parse_local_date(value, tz: ZoneInfo) -> date | None:
     return dt.astimezone(tz).date()
 
 
-def _activity_digest_row(activity: dict, clock: dict) -> dict:
+_SESSION_FILE_KEYS = ("laps", "exercises", "streams", "work_laps", "points")
+_SESSION_AUDIT_METRICS = ("np", "pct_ftp", "avg_power", "max_power", "avg_cadence", "lap_count")
+
+
+def _activity_digest_row(
+    activity: dict, clock: dict, *, include_session_audit: bool = False
+) -> dict:
     local = _parse_local_date(activity.get("activity_date") or activity.get("date"), clock["tz"])
     skip = {
         "provider",
@@ -273,6 +285,11 @@ def _activity_digest_row(activity: dict, clock: dict) -> dict:
         row["avg_hr"] = activity.get("average_heartrate")
     if "max_hr" not in row:
         row["max_hr"] = activity.get("max_heartrate")
+    for key in _SESSION_FILE_KEYS:
+        row.pop(key, None)
+    if not include_session_audit:
+        for key in _SESSION_AUDIT_METRICS:
+            row.pop(key, None)
     return row
 
 
@@ -289,8 +306,14 @@ def _when_label(activity_day: date, today: date) -> str:
     return f"in {-delta} days"
 
 
-def _context_digest(context: dict, clock: dict | None = None) -> str:
-    """Compact, prompt-friendly view of the athlete. Excludes sensitive extras."""
+def _context_digest(
+    context: dict, clock: dict | None = None, *, include_session_audit: bool = False
+) -> str:
+    """Compact, prompt-friendly view of the athlete. Excludes sensitive extras.
+
+    Laps, streams, and autopsy metrics of the last synced file stay out of this
+    digest unless ``include_session_audit`` is True (WORKOUT_AUDIT only).
+    """
     clock = clock or resolve_clock()
     profile = dict(context.get("profile") or {})
     profile.pop("name", None)
@@ -326,12 +349,10 @@ def _context_digest(context: dict, clock: dict | None = None) -> str:
         },
         "readiness_flags": context.get("readiness_flags") or [],
         "recent_activities": [
-            _activity_digest_row(activity, clock)
+            _activity_digest_row(
+                activity, clock, include_session_audit=include_session_audit
+            )
             for activity in (context.get("recent_activities") or [])[:20]
-        ],
-        "recent_key_sessions": [
-            _activity_digest_row(session, clock)
-            for session in (context.get("focal_sessions") or [])[:3]
         ],
         "latest_health": coros.get("latest_health"),
         "health_trend": coros.get("health_trend") or [],
@@ -880,11 +901,141 @@ def _copy_completions_from_superseded(
 # ---------------------------------------------------------------- daily advice
 
 
+def advice_input_fingerprint(context: dict, clock: dict) -> str:
+    """Hash of the health / recovery / training signals that should rewrite Today."""
+    coros = context.get("coros") or {}
+    health = coros.get("latest_health") or {}
+    fitness = coros.get("fitness") or {}
+    load = coros.get("training_load") or {}
+    safety = context.get("safety") or {}
+    activities = context.get("recent_activities") or []
+    latest = activities[0] if activities else {}
+    local_date = str(clock.get("local_date") or "")[:10]
+    today_count = 0
+    for activity in activities:
+        stamp = str(activity.get("date") or activity.get("activity_date") or "")[:10]
+        if stamp == local_date:
+            today_count += 1
+    payload = {
+        "date": local_date,
+        "health": {
+            "metric_date": health.get("metric_date"),
+            "sleep_score": health.get("sleep_score"),
+            "sleep_duration_min": health.get("sleep_duration_min"),
+            "hrv": health.get("hrv"),
+            "hrv_assessment": health.get("hrv_assessment"),
+            "stress": health.get("stress"),
+            "resting_heart_rate": health.get("resting_heart_rate"),
+        },
+        "recovery": {
+            "recovery_pct": fitness.get("recovery_pct"),
+            "recovery_level": fitness.get("recovery_level"),
+            "vo2max": fitness.get("vo2max"),
+            "recovery_full_at": fitness.get("recovery_full_at"),
+        },
+        "load": {
+            "short_load": load.get("short_load"),
+            "long_load": load.get("long_load"),
+            "load_ratio": load.get("load_ratio"),
+        },
+        "training": {
+            "latest_id": latest.get("id"),
+            "latest_date": str(latest.get("date") or latest.get("activity_date") or "")[:19],
+            "latest_name": latest.get("name"),
+            "today_count": today_count,
+        },
+        "readiness": (safety.get("readiness") or {}).get("action"),
+        "flags": sorted(context.get("readiness_flags") or []),
+    }
+    blob = json.dumps(payload, sort_keys=True, default=str, separators=(",", ":"))
+    return hashlib.sha256(blob.encode("utf-8")).hexdigest()
+
+
 def generate_daily_advice(
-    db: Session, profile: AthleteProfile, timezone_name: str | None = None
+    db: Session,
+    profile: AthleteProfile,
+    timezone_name: str | None = None,
+    *,
+    force: bool = False,
 ) -> dict:
+    """Return today's brief. Rewrite only on Refresh or when signals changed."""
     clock = resolve_clock(timezone_name)
     context = build_athlete_coach_context(db, profile.id)
+    fingerprint = advice_input_fingerprint(context, clock)
+    try:
+        advice_date = date.fromisoformat(str(clock["local_date"])[:10])
+    except ValueError:
+        advice_date = clock["today"]
+
+    existing = (
+        db.query(DailyAdviceSnapshot)
+        .filter(
+            DailyAdviceSnapshot.athlete_profile_id == profile.id,
+            DailyAdviceSnapshot.advice_date == advice_date,
+        )
+        .first()
+    )
+    if existing and not force and existing.fingerprint == fingerprint:
+        payload = json.loads(existing.payload_json)
+        payload["cached"] = True
+        payload["generated_at"] = existing.updated_at or existing.created_at
+        return payload
+
+    payload = _compose_daily_advice(db, profile, context, clock)
+    payload["cached"] = False
+    now = datetime.now(dt_timezone.utc).replace(tzinfo=None)
+    payload["generated_at"] = now
+    _upsert_advice_snapshot(
+        db,
+        profile_id=profile.id,
+        advice_date=advice_date,
+        fingerprint=fingerprint,
+        payload=payload,
+        existing=existing,
+        generated_at=now,
+    )
+    return payload
+
+
+def _upsert_advice_snapshot(
+    db: Session,
+    *,
+    profile_id: int,
+    advice_date: date,
+    fingerprint: str,
+    payload: dict,
+    existing: DailyAdviceSnapshot | None,
+    generated_at: datetime,
+) -> DailyAdviceSnapshot:
+    stored = dict(payload)
+    stored.pop("cached", None)
+    body = json.dumps(stored, default=str)
+    if existing is None:
+        existing = DailyAdviceSnapshot(
+            athlete_profile_id=profile_id,
+            advice_date=advice_date,
+            fingerprint=fingerprint,
+            payload_json=body,
+            provider=payload.get("provider"),
+            model=payload.get("model"),
+            created_at=generated_at,
+            updated_at=generated_at,
+        )
+        db.add(existing)
+    else:
+        existing.fingerprint = fingerprint
+        existing.payload_json = body
+        existing.provider = payload.get("provider")
+        existing.model = payload.get("model")
+        existing.updated_at = generated_at
+    db.commit()
+    db.refresh(existing)
+    return existing
+
+
+def _compose_daily_advice(
+    db: Session, profile: AthleteProfile, context: dict, clock: dict
+) -> dict:
     safety = context["safety"]
     readiness = safety["readiness"]
 
@@ -914,7 +1065,15 @@ Give today's guidance for {clock['weekday']} {clock['local_date']}. If they alre
 acknowledge the actual session (use power, %FTP, max HR, and key-session laps — not duration vs
 the typical 60-minute weekday length). Do not talk as if the week is starting unless it is Monday
 or Tuesday. Reference the athlete's own numbers (sleep, HRV, resting HR, recent load, FTP) in
-the rationale.
+the rationale. Never more than two consecutive sentences per block.
+recommendation MUST contain newline characters. Example shape:
+Today: two easy sessions only — no quality work.
+1. Easy strength — 40 min
+- Focus: anti-extension core only
+- Avoid: back squat, deadlift, crunch
+2. Z2 indoor spin — 45 min
+- Power: 130-174 W
+Do not pack sessions into one paragraph. Do not write a wall of **bold**.
 
 Respond with JSON matching exactly this shape:
 {ADVICE_SCHEMA}"""
@@ -945,6 +1104,313 @@ Respond with JSON matching exactly this shape:
         "provider": provider_name,
         "model": model_name,
         "date": clock["local_date"],
+        "readiness": readiness,
+        "advice": advice,
+        "citations": [hit["citation"] for hit in hits] if provider_name != "rules" else [],
+        "disclaimer": safety["disclaimer"],
+    }
+
+
+def _distance_load_dict(db: Session, profile_id: int) -> dict:
+    from app.services.training_load import compute_athlete_stats
+
+    stats = compute_athlete_stats(db, profile_id)
+    return {
+        "acute_load_km": stats.acute_load_km,
+        "chronic_load_km": stats.chronic_load_km,
+        "acwr": stats.acwr,
+        "weekly_volume_km": [bucket.total_distance_km for bucket in stats.weekly_volume_history],
+    }
+
+
+def _effort_load_dict(context: dict) -> dict:
+    load = (context.get("coros") or {}).get("training_load") or {}
+    comments = []
+    for entry in (load.get("daily_comments") or [])[:8]:
+        if isinstance(entry, str) and entry.strip():
+            comments.append(entry.strip())
+        elif isinstance(entry, dict):
+            text = entry.get("comment") or entry.get("text") or ""
+            comments.append(
+                {
+                    "date": entry.get("date"),
+                    "comment": text,
+                    "load_ratio": entry.get("load_ratio"),
+                }
+            )
+    return {
+        "short_load": load.get("short_load"),
+        "long_load": load.get("long_load"),
+        "load_ratio": load.get("load_ratio"),
+        "daily_comments": comments,
+    }
+
+
+WEEK_BRIEF_TOPICS = frozenset({"volume", "load"})
+
+
+def normalize_week_topic(topic: str | None) -> str:
+    value = (topic or "volume").strip().lower()
+    return value if value in WEEK_BRIEF_TOPICS else "volume"
+
+
+def week_brief_input_fingerprint(
+    context: dict, clock: dict, distance: dict, topic: str = "volume"
+) -> str:
+    """Hash of the signals that should rewrite that page's Week brief."""
+    topic = normalize_week_topic(topic)
+    coros = context.get("coros") or {}
+    health = coros.get("latest_health") or {}
+    fitness = coros.get("fitness") or {}
+    safety = context.get("safety") or {}
+    plan = context.get("current_plan") or {}
+    shared = {
+        "topic": topic,
+        "week_start": str(clock.get("week_start_iso") or clock.get("week_start") or "")[:10],
+        "readiness": (safety.get("readiness") or {}).get("action"),
+        "flags": sorted(context.get("readiness_flags") or []),
+        "health": {
+            "sleep_score": health.get("sleep_score"),
+            "hrv": health.get("hrv"),
+            "hrv_assessment": health.get("hrv_assessment"),
+            "stress": health.get("stress"),
+        },
+        "recovery_pct": fitness.get("recovery_pct"),
+        "plan_id": plan.get("plan_id") or (plan.get("plan") or {}).get("id"),
+    }
+    if topic == "load":
+        effort = (coros.get("training_load") or {})
+        payload = {
+            **shared,
+            "effort": {
+                "short_load": effort.get("short_load"),
+                "long_load": effort.get("long_load"),
+                "load_ratio": effort.get("load_ratio"),
+                "comments": effort.get("daily_comments") or [],
+            },
+        }
+    else:
+        load = safety.get("load") or {}
+        payload = {
+            **shared,
+            "distance": {
+                "acwr": distance.get("acwr"),
+                "acute_load_km": distance.get("acute_load_km"),
+                "chronic_load_km": distance.get("chronic_load_km"),
+                "weekly_volume_km": distance.get("weekly_volume_km") or [],
+            },
+            "minutes_acwr": load.get("minutes_acwr"),
+        }
+    blob = json.dumps(payload, sort_keys=True, default=str, separators=(",", ":"))
+    return hashlib.sha256(blob.encode("utf-8")).hexdigest()
+
+
+def generate_week_brief(
+    db: Session,
+    profile: AthleteProfile,
+    timezone_name: str | None = None,
+    *,
+    force: bool = False,
+    topic: str = "volume",
+) -> dict:
+    """Return this week's page brief. Rewrite on Refresh or when that topic's signals change."""
+    topic = normalize_week_topic(topic)
+    clock = resolve_clock(timezone_name)
+    context = build_athlete_coach_context(db, profile.id)
+    current_plan = get_active_plan(db, profile.id, clock["week_start"])
+    context["current_plan"] = current_plan or {}
+    distance = _distance_load_dict(db, profile.id) if topic == "volume" else {}
+    fingerprint = week_brief_input_fingerprint(context, clock, distance, topic)
+    week_start = clock["week_start"]
+
+    existing = (
+        db.query(WeeklyAdviceSnapshot)
+        .filter(
+            WeeklyAdviceSnapshot.athlete_profile_id == profile.id,
+            WeeklyAdviceSnapshot.week_start == week_start,
+            WeeklyAdviceSnapshot.topic == topic,
+        )
+        .first()
+    )
+    if existing and not force and existing.fingerprint == fingerprint:
+        payload = json.loads(existing.payload_json)
+        payload["cached"] = True
+        payload["generated_at"] = existing.updated_at or existing.created_at
+        return payload
+
+    payload = _compose_week_brief(
+        db, profile, context, clock, distance, current_plan, topic=topic
+    )
+    payload["cached"] = False
+    now = datetime.now(dt_timezone.utc).replace(tzinfo=None)
+    payload["generated_at"] = now
+    _upsert_week_brief_snapshot(
+        db,
+        profile_id=profile.id,
+        week_start=week_start,
+        topic=topic,
+        fingerprint=fingerprint,
+        payload=payload,
+        existing=existing,
+        generated_at=now,
+    )
+    return payload
+
+
+def _upsert_week_brief_snapshot(
+    db: Session,
+    *,
+    profile_id: int,
+    week_start: date,
+    topic: str,
+    fingerprint: str,
+    payload: dict,
+    existing: WeeklyAdviceSnapshot | None,
+    generated_at: datetime,
+) -> WeeklyAdviceSnapshot:
+    stored = dict(payload)
+    stored.pop("cached", None)
+    body = json.dumps(stored, default=str)
+    if existing is None:
+        existing = WeeklyAdviceSnapshot(
+            athlete_profile_id=profile_id,
+            week_start=week_start,
+            topic=topic,
+            fingerprint=fingerprint,
+            payload_json=body,
+            provider=payload.get("provider"),
+            model=payload.get("model"),
+            created_at=generated_at,
+            updated_at=generated_at,
+        )
+        db.add(existing)
+    else:
+        existing.topic = topic
+        existing.fingerprint = fingerprint
+        existing.payload_json = body
+        existing.provider = payload.get("provider")
+        existing.model = payload.get("model")
+        existing.updated_at = generated_at
+    db.commit()
+    db.refresh(existing)
+    return existing
+
+
+def _compose_week_brief(
+    db: Session,
+    profile: AthleteProfile,
+    context: dict,
+    clock: dict,
+    distance: dict,
+    current_plan: dict | None,
+    topic: str = "volume",
+) -> dict:
+    topic = normalize_week_topic(topic)
+    safety = context["safety"]
+    readiness = safety["readiness"]
+    effort = _effort_load_dict(context) if topic == "load" else {}
+
+    if topic == "load":
+        query = f"training load TRIMP short-term long-term effort {' '.join(context['readiness_flags'])}".strip()
+        hits = _retrieve(db, query or "training-load management", profile, k=4)
+        focus_block = f"""COROS EFFORT LOAD (this page — heart-rate TRIMP, not kilometres)
+{json.dumps(effort, indent=2, default=str)}
+
+TASK
+Write THIS WEEK's Training Load brief (not today's single session, not the Volume/ACWR page).
+Week of Monday {clock['week_start_iso']} through Sunday {clock['week_end_iso']}.
+Today is {clock['weekday']} {clock['local_date']}.
+Lead with whether short-term vs long-term effort is underloaded (<0.8), in the sweet spot
+(about 0.8-1.3), caution (1.3-1.5), or spiking (above 1.5). Use their short_load, long_load,
+and load_ratio numbers. If daily_comments exist, weave one concrete COROS note in.
+Then numbered remaining-week actions with newlines in the same shape as daily advice:
+Lead sentence.
+1. Action — duration or constraint
+- Label: value
+If recovery says rest, remaining days stay easy even if the ratio looks productive.
+If short/long/ratio are missing, say they need a COROS sync — do not invent numbers.
+Do not mention kilometres, GPS distance, or ACWR. This brief is effort only.
+Never more than two consecutive sentences per block. Do not pack into one paragraph."""
+    else:
+        query = f"ACWR weekly volume load-management {' '.join(context['readiness_flags'])}".strip()
+        hits = _retrieve(db, query or "ACWR load-management", profile, k=4)
+        focus_block = f"""DISTANCE LOAD (this page's ACWR — kilometres, not COROS effort)
+{json.dumps(distance, indent=2, default=str)}
+
+TASK
+Write THIS WEEK's Volume & ACWR brief (not today's single session, not the Training Load page).
+Week of Monday {clock['week_start_iso']} through Sunday {clock['week_end_iso']}.
+Today is {clock['weekday']} {clock['local_date']}.
+Lead with whether they are underloaded, in the sweet spot (about 0.8-1.3 ACWR), caution (1.3-1.5),
+or spiking (above 1.5). Use their own km numbers. Then numbered remaining-week actions with newlines
+in the same shape as daily advice:
+Lead sentence.
+1. Action — duration or constraint
+- Label: value
+If recovery says rest, remaining days stay easy even if ACWR looks productive.
+If the 28-day baseline is thin (many weekly_volume_km zeros), say the ratio is jumpy — not a verdict.
+Do not discuss COROS short-term load, long-term load, or load ratio. This brief is kilometres only.
+Never more than two consecutive sentences per block. Do not pack into one paragraph."""
+
+    user_prompt = f"""{format_clock_block(clock)}
+
+ATHLETE CONTEXT
+{_context_digest(context, clock)}
+
+CURRENT WEEK PLAN
+{_plan_digest(current_plan, clock)}
+
+SAFETY RULES (hard limits)
+{safety_prompt_rules(safety, weekday_index=clock["weekday_index"])}
+
+DETERMINISTIC READINESS VERDICT (you must not contradict this)
+action={readiness['action']} · {readiness['reason']}
+
+RETRIEVED EVIDENCE
+{format_science_for_prompt(hits)}
+
+{focus_block}
+
+Respond with JSON matching exactly this shape:
+{ADVICE_SCHEMA}"""
+
+    result = _call_provider(SYSTEM_PROMPT, user_prompt)
+    provider_name, model_name = "rules", "deterministic-template"
+    advice: dict | None = None
+
+    if result is not None:
+        raw, provider_name, model_name = result
+        try:
+            advice = DailyAdviceJSON.model_validate(raw).model_dump(mode="json")
+        except ValidationError as exc:
+            logger.warning("Week brief schema validation failed for %s: %s", provider_name, exc)
+            advice = None
+            provider_name, model_name = "rules", "deterministic-template"
+
+    if advice is None:
+        advice = (
+            build_template_load_brief(context, safety, effort)
+            if topic == "load"
+            else build_template_week_brief(context, safety, distance)
+        )
+
+    if readiness["action"] == "rest_or_mobility":
+        advice["session_adjustment"] = (
+            advice.get("session_adjustment")
+            or (
+                "Keep remaining days easy or rest — do not chase weekly load points."
+                if topic == "load"
+                else "Keep remaining days easy or rest — do not chase weekly kilometres."
+            )
+        )
+
+    return {
+        "provider": provider_name,
+        "model": model_name,
+        "date": clock["local_date"],
+        "week_start": clock["week_start"],
+        "scope": "week",
+        "topic": topic,
         "readiness": readiness,
         "advice": advice,
         "citations": [hit["citation"] for hit in hits] if provider_name != "rules" else [],
@@ -1132,6 +1598,8 @@ def coach_chat(
             decision.schedule_score,
         )
     intent = resolved_intent
+    if intent not in (WORKOUT_AUDIT, SCHEDULE_UPDATE, GENERAL_CHAT):
+        intent = GENERAL_CHAT
 
     history = chat_history(db, profile.id, limit=12)
     current_plan = get_active_plan(db, profile.id, clock["week_start"])
@@ -1194,7 +1662,7 @@ def coach_chat(
         session_packet
         and (session_packet.get("prescription") or session_packet.get("prescribed_vs_executed"))
     )
-    drop_assistant = has_prescription or intent == SCHEDULE_UPDATE
+    drop_assistant = has_prescription or intent != WORKOUT_AUDIT
     transcript = _recent_transcript(history, drop_assistant=drop_assistant)
 
     extra_block = ""
@@ -1222,12 +1690,24 @@ CORRECTION / PRESCRIPTION RULES (hard)
 
 ROUTING (hard)
 Intent is SCHEDULE_UPDATE. Do not autopsy a past ride. Do not load or invent session telemetry.
-Do not write essays or paragraphs. Bullets, key-values, and the week table only.
+Completely skip ⚡ THE BOTTOM LINE, 🔬 MECHANICAL PRECISION, and 🫀 CARDIOVASCULAR COST.
+Do not inject the last synced workout's laps, NP, IF, TSS, or autopsy metrics.
+Do not write essays or paragraphs. Never more than two consecutive sentences per block.
+Bullets, key-values, and the week table only.
 Use CURRENT WEEK PLAN plus the athlete's proposed calendar.
 Copy TODAY'S CALL status line exactly. Guard active back/spine limits with non-negotiable DO NOT lifts on strength days.
 """
     else:
-        extra_block = f"\n{athlete_state_block(context, safety)}\n"
+        extra_block = f"""
+{athlete_state_block(context, safety)}
+
+ROUTING (hard)
+Intent is GENERAL_CHAT. Completely skip ⚡ THE BOTTOM LINE, 🔬 MECHANICAL PRECISION, and 🫀 CARDIOVASCULAR COST.
+Do not load, invent, or quote the last synced workout's telemetry, laps, NP, IF, or TSS.
+Focus 100% on the athlete's specific biological, schedule-adjacent, or emotional question.
+Never more than two consecutive sentences per bullet.
+If they feel they failed or cut a session short: 💬 REFRAME as spaced **bold** bullets.
+"""
 
     if intent == WORKOUT_AUDIT:
         task = autopsy_task_for_packet(modality, session_packet)
@@ -1238,19 +1718,14 @@ Copy TODAY'S CALL status line exactly. Guard active back/spine limits with non-n
         chat_schema = SCHEDULE_SCHEMA
         system_prompt = schedule_system_prompt()
     else:
-        task = """Answer as their coach. Use the NOW block: if they trained today, say today — not only the date.
-If it is Friday–Sunday, do not tell them to "start this week easy"; talk about remaining days.
-Be specific to their data and constraints, keep it under 400 words, and never contradict the safety rules.
-Do not treat typical session length as a hard cap on long rides.
-Do not autopsy a past workout unless they asked how that session went.
-Match the sport of any session you discuss."""
+        task = chat_task()
         chat_schema = CHAT_SCHEMA
-        system_prompt = SYSTEM_PROMPT
+        system_prompt = chat_system_prompt()
 
     user_prompt = f"""{format_clock_block(clock)}
 
 ATHLETE CONTEXT
-{_context_digest(context, clock)}
+{_context_digest(context, clock, include_session_audit=(intent == WORKOUT_AUDIT))}
 
 CURRENT WEEK PLAN
 {_plan_digest(current_plan, clock)}

@@ -432,3 +432,105 @@ def run_migrations() -> None:
             plan_columns = {col["name"] for col in inspector.get_columns("training_plans")}
             if "published_at" not in plan_columns:
                 conn.execute(text("ALTER TABLE training_plans ADD COLUMN published_at TIMESTAMP"))
+
+        inspector = inspect(conn)
+        tables = set(inspector.get_table_names())
+        if "daily_advice_snapshots" not in tables:
+            conn.execute(
+                text(
+                    """
+                    CREATE TABLE daily_advice_snapshots (
+                        id SERIAL PRIMARY KEY,
+                        athlete_profile_id INTEGER NOT NULL REFERENCES athlete_profiles(id),
+                        advice_date DATE NOT NULL,
+                        fingerprint VARCHAR(64) NOT NULL,
+                        payload_json TEXT NOT NULL,
+                        provider VARCHAR(32),
+                        model VARCHAR(128),
+                        created_at TIMESTAMP NOT NULL DEFAULT NOW(),
+                        updated_at TIMESTAMP NOT NULL DEFAULT NOW(),
+                        CONSTRAINT uq_athlete_advice_date UNIQUE (athlete_profile_id, advice_date)
+                    )
+                    """
+                )
+            )
+            conn.execute(
+                text(
+                    "CREATE INDEX IF NOT EXISTS ix_daily_advice_snapshots_athlete_profile_id "
+                    "ON daily_advice_snapshots (athlete_profile_id)"
+                )
+            )
+            conn.execute(
+                text(
+                    "CREATE INDEX IF NOT EXISTS ix_daily_advice_snapshots_advice_date "
+                    "ON daily_advice_snapshots (advice_date)"
+                )
+            )
+
+        inspector = inspect(conn)
+        tables = set(inspector.get_table_names())
+        if "weekly_advice_snapshots" not in tables:
+            conn.execute(
+                text(
+                    """
+                    CREATE TABLE weekly_advice_snapshots (
+                        id SERIAL PRIMARY KEY,
+                        athlete_profile_id INTEGER NOT NULL REFERENCES athlete_profiles(id),
+                        week_start DATE NOT NULL,
+                        topic VARCHAR(32) NOT NULL DEFAULT 'volume',
+                        fingerprint VARCHAR(64) NOT NULL,
+                        payload_json TEXT NOT NULL,
+                        provider VARCHAR(32),
+                        model VARCHAR(128),
+                        created_at TIMESTAMP NOT NULL DEFAULT NOW(),
+                        updated_at TIMESTAMP NOT NULL DEFAULT NOW(),
+                        CONSTRAINT uq_athlete_week_brief_topic UNIQUE (athlete_profile_id, week_start, topic)
+                    )
+                    """
+                )
+            )
+            conn.execute(
+                text(
+                    "CREATE INDEX IF NOT EXISTS ix_weekly_advice_snapshots_athlete_profile_id "
+                    "ON weekly_advice_snapshots (athlete_profile_id)"
+                )
+            )
+            conn.execute(
+                text(
+                    "CREATE INDEX IF NOT EXISTS ix_weekly_advice_snapshots_week_start "
+                    "ON weekly_advice_snapshots (week_start)"
+                )
+            )
+
+        inspector = inspect(conn)
+        tables = set(inspector.get_table_names())
+        if "weekly_advice_snapshots" in tables:
+            week_columns = {col["name"] for col in inspector.get_columns("weekly_advice_snapshots")}
+            if "topic" not in week_columns:
+                conn.execute(
+                    text(
+                        "ALTER TABLE weekly_advice_snapshots "
+                        "ADD COLUMN topic VARCHAR(32) NOT NULL DEFAULT 'volume'"
+                    )
+                )
+            unique_names = {
+                item["name"] for item in inspector.get_unique_constraints("weekly_advice_snapshots")
+            }
+            if "uq_athlete_week_brief" in unique_names:
+                conn.execute(
+                    text("ALTER TABLE weekly_advice_snapshots DROP CONSTRAINT uq_athlete_week_brief")
+                )
+            inspector = inspect(conn)
+            unique_names = {
+                item["name"] for item in inspector.get_unique_constraints("weekly_advice_snapshots")
+            }
+            if "uq_athlete_week_brief_topic" not in unique_names:
+                conn.execute(
+                    text(
+                        """
+                        ALTER TABLE weekly_advice_snapshots
+                        ADD CONSTRAINT uq_athlete_week_brief_topic
+                        UNIQUE (athlete_profile_id, week_start, topic)
+                        """
+                    )
+                )
