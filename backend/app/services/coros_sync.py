@@ -346,13 +346,34 @@ def sync_health_metrics(
                 continue
             bucket = buckets.setdefault(metric_date, {})
             raw_bucket = raw_by_date.setdefault(metric_date, {})
-            raw_bucket[label] = item
+            raw_bucket[label] = {k: v for k, v in item.items() if k != "_source"}
             for key, value in item.items():
-                if key == "metric_date" or value is None:
+                if key in {"metric_date", "_source"} or value is None:
                     continue
                 # Daily report header RHR/HRV are baselines, not per-day values.
                 if label == "daily" and key in {"resting_heart_rate", "hrv"}:
                     continue
+                # Stage minutes from daily health are absolute COROS values.
+                # Sleep-report ratios are integer-rounded — never let them overwrite
+                # precise daily stage minutes / percentages once daily is present.
+                if label == "sleep" and key in {
+                    "deep_sleep_min",
+                    "light_sleep_min",
+                    "rem_sleep_min",
+                    "deep_sleep_pct",
+                    "light_sleep_pct",
+                    "rem_sleep_pct",
+                }:
+                    if bucket.get(key) is not None:
+                        continue
+                    # Also skip ratio overwrite when absolute minutes already exist.
+                    min_key = {
+                        "deep_sleep_pct": "deep_sleep_min",
+                        "light_sleep_pct": "light_sleep_min",
+                        "rem_sleep_pct": "rem_sleep_min",
+                    }.get(key)
+                    if min_key and bucket.get(min_key) is not None:
+                        continue
                 bucket[key] = value
         # Keep a copy of the raw tool text for debugging on the latest day
         if isinstance(raw_payload, str) and buckets:

@@ -5,12 +5,30 @@ export const SLEEP_RANGES = [
   { id: 'year', label: 'Year', days: 365 },
 ]
 
+/** COROS / Garmin–style stage palette (night recovery, high contrast). */
 export const STAGE_COLORS = {
-  awake: '#c4a574',
-  rem: '#6b9ac4',
-  light: '#a4c3b2',
-  deep: '#3d5a4c',
+  awake: '#F59E0B',
+  rem: '#38BDF8',
+  light: '#818CF8',
+  deep: '#3730A3',
 }
+
+/** Line / bar accents for sleep charts (not the global sage UI accent). */
+export const SLEEP_CHART = {
+  duration: '#5B8DEF',
+  durationSoft: 'rgba(91, 141, 239, 0.18)',
+  hrv: '#14B8A6',
+  hrvSoft: 'rgba(20, 184, 166, 0.16)',
+  sleepHr: '#FB7185',
+  sleepHrSoft: 'rgba(251, 113, 133, 0.14)',
+  grid: 'color-mix(in srgb, var(--aal-line) 85%, transparent)',
+  cursor: 'rgba(91, 141, 239, 0.08)',
+  tooltipBg: 'var(--aal-card)',
+  tooltipBorder: 'var(--aal-line)',
+}
+
+/** Sleep score UI is parked until COROS MCP matches the app score. */
+export const SLEEP_SCORE_ENABLED = false
 
 export function toISODate(value) {
   if (!value) return null
@@ -95,10 +113,29 @@ export function stageMinutes(point) {
   const duration = Number(
     point?.meta?.sleep_duration_min ?? point?.secondary ?? point?.duration,
   )
+  const deepMin = Number(point?.meta?.deep_sleep_min)
+  const lightMin = Number(point?.meta?.light_sleep_min)
+  const remMin = Number(point?.meta?.rem_sleep_min)
   const deepPct = Number(point?.meta?.deep_sleep_pct ?? point?.deep)
   const lightPct = Number(point?.meta?.light_sleep_pct ?? point?.light)
   const remPct = Number(point?.meta?.rem_sleep_pct ?? point?.rem)
   const awake = Number(point?.meta?.awake_min ?? point?.awake)
+
+  // Prefer absolute COROS stage minutes when available (avoids ratio rounding drift).
+  if (
+    (!Number.isNaN(deepMin) && deepMin >= 0) ||
+    (!Number.isNaN(lightMin) && lightMin >= 0) ||
+    (!Number.isNaN(remMin) && remMin >= 0)
+  ) {
+    return {
+      duration: Number.isNaN(duration) ? null : duration,
+      deep: Number.isNaN(deepMin) ? null : deepMin,
+      light: Number.isNaN(lightMin) ? null : lightMin,
+      rem: Number.isNaN(remMin) ? null : remMin,
+      awake: Number.isNaN(awake) ? null : awake,
+    }
+  }
+
   if (!duration || Number.isNaN(duration) || duration <= 0) {
     return {
       deep: null,
@@ -160,19 +197,35 @@ export function enrichSleepPoints(series) {
   return (series?.points || []).map((point) => {
     const stages = stageMinutes(point)
     const date = toISODate(point.date)
+    const mainSleep =
+      point.meta?.main_sleep_min ??
+      point.secondary ??
+      point.meta?.sleep_duration_min ??
+      null
+    const napRaw = point.meta?.nap_duration_min
+    const nap =
+      napRaw != null && !Number.isNaN(Number(napRaw)) && Number(napRaw) > 0
+        ? Number(napRaw)
+        : null
+    // COROS app "Total Sleep" = overnight main sleep + naps that day.
+    const totalSleep =
+      mainSleep != null ? Number(mainSleep) + (nap || 0) : nap
     return {
       ...point,
       date,
       labelShort: date?.slice(5) || '',
       score: point.value,
-      duration: point.secondary ?? point.meta?.sleep_duration_min ?? null,
+      // duration drives charts / "Total Sleep" — match COROS app definition
+      duration: totalSleep,
+      mainSleep: mainSleep != null ? Number(mainSleep) : null,
       deep: point.meta?.deep_sleep_pct ?? null,
       light: point.meta?.light_sleep_pct ?? null,
       rem: point.meta?.rem_sleep_pct ?? null,
       awake: point.meta?.awake_min ?? null,
+      awakeCount: point.meta?.awake_count ?? null,
       hrv: point.meta?.hrv ?? null,
       sleepHr: point.meta?.sleep_avg_hr ?? null,
-      nap: point.meta?.nap_duration_min ?? null,
+      nap,
       bedtime: point.meta?.bedtime ?? null,
       wake: point.meta?.wake_time ?? null,
       hrvAssessment: point.meta?.hrv_assessment ?? null,

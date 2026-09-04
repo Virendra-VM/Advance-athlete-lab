@@ -311,6 +311,11 @@ def run_migrations() -> None:
                 ("wake_time", "VARCHAR(16)"),
                 ("nap_duration_min", "DOUBLE PRECISION"),
                 ("sleep_avg_hr", "DOUBLE PRECISION"),
+                ("deep_sleep_min", "DOUBLE PRECISION"),
+                ("light_sleep_min", "DOUBLE PRECISION"),
+                ("rem_sleep_min", "DOUBLE PRECISION"),
+                ("awake_count", "DOUBLE PRECISION"),
+                ("main_sleep_min", "DOUBLE PRECISION"),
             ]
             for column_name, column_type in health_additions:
                 if column_name not in health_columns:
