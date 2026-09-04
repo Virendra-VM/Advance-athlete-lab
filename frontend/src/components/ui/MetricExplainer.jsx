@@ -2,10 +2,17 @@ import { useEffect, useId, useState } from 'react'
 import { X } from 'lucide-react'
 import { guideForMetric } from '../../utils/metricGuides'
 
-export default function MetricExplainer({ metric }) {
+export default function MetricExplainer({ metric, variant = 'default' }) {
   const guide = guideForMetric(metric)
   const [open, setOpen] = useState(false)
   const titleId = useId()
+  const health = variant === 'health'
+  const accentClass = health
+    ? 'text-indigo-500 hover:underline dark:text-indigo-300'
+    : 'text-sage hover:underline'
+  const eyebrowClass = health
+    ? 'text-indigo-500 dark:text-indigo-300'
+    : 'text-sage'
 
   useEffect(() => {
     if (!open) return undefined
@@ -30,7 +37,7 @@ export default function MetricExplainer({ metric }) {
         <button
           type="button"
           onClick={() => setOpen(true)}
-          className="mt-3 text-sm font-semibold text-sage hover:underline"
+          className={`mt-3 text-sm font-semibold ${accentClass}`}
         >
           Read more
         </button>
@@ -51,7 +58,7 @@ export default function MetricExplainer({ metric }) {
           >
             <div className="mb-4 flex items-start justify-between gap-3">
               <div>
-                <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-sage">
+                <p className={`text-[10px] font-semibold uppercase tracking-[0.18em] ${eyebrowClass}`}>
                   About this metric
                 </p>
                 <h2 id={titleId} className="mt-1 text-2xl font-bold text-[var(--aal-ink)]">
@@ -61,7 +68,11 @@ export default function MetricExplainer({ metric }) {
               <button
                 type="button"
                 onClick={() => setOpen(false)}
-                className="rounded-lg border border-[var(--aal-line)] p-2 text-[var(--aal-muted)]"
+                className={`rounded-lg border border-[var(--aal-line)] p-2 text-[var(--aal-muted)] transition ${
+                  health
+                    ? 'hover:border-indigo-300 hover:text-indigo-600 dark:hover:text-indigo-300'
+                    : ''
+                }`}
                 aria-label="Close"
               >
                 <X className="h-4 w-4" />

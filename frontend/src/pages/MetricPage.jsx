@@ -17,6 +17,7 @@ import PageHeader from '../components/ui/PageHeader'
 import RangeTabs from '../components/ui/RangeTabs'
 import SectionCard from '../components/ui/SectionCard'
 import StatTile from '../components/ui/StatTile'
+import { HEALTH_CHART, healthColorsForMetric } from '../utils/healthTheme'
 
 const RANGE_DAYS = {
   '7d': 7,
@@ -113,6 +114,40 @@ function tickIntervalForSpan(pointCount) {
   return 29
 }
 
+function HealthTooltip({ active, payload, label, labelFormatter, valueFormatter }) {
+  if (!active || !payload?.length) return null
+  const title = labelFormatter ? labelFormatter(label, payload) : label
+  return (
+    <div
+      className="rounded-xl border px-3 py-2.5 shadow-lg backdrop-blur-sm"
+      style={{
+        background: 'color-mix(in srgb, var(--aal-card) 92%, transparent)',
+        borderColor: 'var(--aal-line)',
+      }}
+    >
+      <p className="text-[11px] font-semibold text-[var(--aal-muted)]">{title}</p>
+      <div className="mt-1.5 space-y-1">
+        {payload.map((entry) => {
+          const formatted = valueFormatter
+            ? valueFormatter(entry.value, entry.name, entry)
+            : [entry.value, entry.name]
+          const [val, name] = Array.isArray(formatted) ? formatted : [formatted, entry.name]
+          return (
+            <div key={entry.dataKey || entry.name} className="flex items-center gap-2 text-xs">
+              <span
+                className="size-2 shrink-0 rounded-full"
+                style={{ background: entry.color || entry.fill || HEALTH_CHART.primary }}
+              />
+              <span className="text-[var(--aal-muted)]">{name}</span>
+              <span className="ml-auto font-semibold tabular-nums text-[var(--aal-ink)]">{val}</span>
+            </div>
+          )
+        })}
+      </div>
+    </div>
+  )
+}
+
 export default function MetricPage({
   title,
   eyebrow = 'Health',
@@ -124,7 +159,13 @@ export default function MetricPage({
   showSecondary = false,
   bare = false,
   showRangeTabs = true,
+  theme = 'default',
 }) {
+  const health = theme === 'health'
+  const colors = health
+    ? healthColorsForMetric(metric)
+    : { primary: '#6b9080', secondary: '#6b9ac4' }
+
   const [range, setRange] = useState(showRangeTabs ? '4w' : 'all')
   const [series, setSeries] = useState(null)
   const [loading, setLoading] = useState(true)
@@ -195,6 +236,9 @@ export default function MetricPage({
     }
   }
 
+  const secondaryName =
+    metric === 'daily' || metric === 'steps' ? 'Calories' : 'Secondary'
+
   const body = (
     <>
       <PageHeader
@@ -204,12 +248,20 @@ export default function MetricPage({
         actions={
           showRangeTabs ? (
             <div className="flex flex-wrap items-center gap-2">
-              <RangeTabs value={range} onChange={setRange} />
+              <RangeTabs
+                value={range}
+                onChange={setRange}
+                variant={health ? 'health' : 'default'}
+              />
               <button
                 type="button"
                 onClick={handleExploreHistory}
                 disabled={backfilling || loading}
-                className="rounded-xl border border-[var(--aal-line)] px-3 py-2 text-sm font-medium text-[var(--aal-ink)] disabled:opacity-60"
+                className={`rounded-xl border border-[var(--aal-line)] bg-[var(--aal-card)] px-3 py-2 text-sm font-medium text-[var(--aal-ink)] transition disabled:opacity-60 ${
+                  health
+                    ? 'hover:border-indigo-300 hover:text-indigo-600 dark:hover:text-indigo-300'
+                    : ''
+                }`}
               >
                 {backfilling ? 'Loading history…' : 'Explore history'}
               </button>
@@ -239,29 +291,69 @@ export default function MetricPage({
         />
       ) : (
         <div className="space-y-6">
-          <div className="grid gap-4 sm:grid-cols-3">
-            <StatTile
-              label="Latest"
-              value={formatValue(latestValue, valueDigits, valueSuffix)}
-              subtitle={
-                series?.latest?.hrv_assessment ||
-                series?.latest?.recovery_level ||
-                'Cached series'
-              }
-            />
-            <StatTile
-              label="Points"
-              value={String(chartData.filter((p) => p.value != null).length)}
-              subtitle={`${chartData[0]?.date || ''} → ${
-                chartData[chartData.length - 1]?.date || ''
-              }`}
-            />
-            <StatTile
-              label="Source"
-              value={series?.source === 'backfill' ? 'Live pull' : 'Cache'}
-              subtitle={secondaryLabel || 'Postgres + COROS MCP'}
-            />
-          </div>
+          {health ? (
+            <div
+              className="relative overflow-hidden rounded-2xl border border-[var(--aal-line)] px-4 py-3.5 sm:px-5 sm:py-4"
+            >
+              <div
+                className="pointer-events-none absolute inset-0"
+                style={{
+                  background:
+                    'radial-gradient(120% 80% at 0% 0%, rgba(55,48,163,0.12), transparent 55%), radial-gradient(90% 70% at 100% 20%, rgba(91,141,239,0.1), transparent 50%), linear-gradient(165deg, var(--aal-card), color-mix(in srgb, #312e81 5%, var(--aal-card)))',
+                }}
+              />
+              <div className="relative grid gap-3 sm:grid-cols-3">
+                <StatTile
+                  label="Latest"
+                  value={formatValue(latestValue, valueDigits, valueSuffix)}
+                  subtitle={
+                    series?.latest?.hrv_assessment ||
+                    series?.latest?.recovery_level ||
+                    'Cached series'
+                  }
+                  accent={colors.primary}
+                />
+                <StatTile
+                  label="Points"
+                  value={String(chartData.filter((p) => p.value != null).length)}
+                  subtitle={`${chartData[0]?.date || ''} → ${
+                    chartData[chartData.length - 1]?.date || ''
+                  }`}
+                  accent={HEALTH_CHART.primary}
+                />
+                <StatTile
+                  label="Source"
+                  value={series?.source === 'backfill' ? 'Live pull' : 'Cache'}
+                  subtitle={secondaryLabel || 'Postgres + COROS MCP'}
+                  accent={colors.secondary || '#818CF8'}
+                />
+              </div>
+            </div>
+          ) : (
+            <div className="grid gap-4 sm:grid-cols-3">
+              <StatTile
+                label="Latest"
+                value={formatValue(latestValue, valueDigits, valueSuffix)}
+                subtitle={
+                  series?.latest?.hrv_assessment ||
+                  series?.latest?.recovery_level ||
+                  'Cached series'
+                }
+              />
+              <StatTile
+                label="Points"
+                value={String(chartData.filter((p) => p.value != null).length)}
+                subtitle={`${chartData[0]?.date || ''} → ${
+                  chartData[chartData.length - 1]?.date || ''
+                }`}
+              />
+              <StatTile
+                label="Source"
+                value={series?.source === 'backfill' ? 'Live pull' : 'Cache'}
+                subtitle={secondaryLabel || 'Postgres + COROS MCP'}
+              />
+            </div>
+          )}
 
           <SectionCard
             title={`${title} trend`}
@@ -280,43 +372,92 @@ export default function MetricPage({
             <div className="h-72 w-full">
               <ResponsiveContainer width="100%" height="100%">
                 <LineChart data={chartData}>
-                  <CartesianGrid stroke="var(--aal-line)" strokeDasharray="3 3" />
+                  <CartesianGrid
+                    stroke={health ? HEALTH_CHART.grid : 'var(--aal-line)'}
+                    strokeDasharray={health ? '4 6' : '3 3'}
+                    vertical={false}
+                  />
                   <XAxis
                     dataKey="labelShort"
-                    tick={{ fontSize: 11 }}
-                    stroke="var(--aal-muted)"
+                    tick={{ fontSize: 11, fill: 'var(--aal-muted)' }}
+                    stroke={health ? 'transparent' : 'var(--aal-muted)'}
+                    tickLine={false}
                     interval={tickInterval}
                     minTickGap={16}
                   />
-                  <YAxis tick={{ fontSize: 12 }} stroke="var(--aal-muted)" />
+                  <YAxis
+                    tick={{ fontSize: 12, fill: 'var(--aal-muted)' }}
+                    stroke={health ? 'transparent' : 'var(--aal-muted)'}
+                    tickLine={false}
+                    axisLine={false}
+                  />
                   <Tooltip
-                    labelFormatter={(_, payload) => payload?.[0]?.payload?.date || _}
-                    formatter={(value, name) => [
-                      value == null ? '—' : formatValue(value, valueDigits, valueSuffix),
-                      name,
-                    ]}
+                    cursor={
+                      health
+                        ? {
+                            stroke: HEALTH_CHART.cursorStroke,
+                            strokeWidth: 1,
+                            strokeDasharray: '4 4',
+                          }
+                        : undefined
+                    }
+                    content={
+                      health ? (
+                        <HealthTooltip
+                          labelFormatter={(_, payload) => payload?.[0]?.payload?.date || _}
+                          valueFormatter={(value, name) => [
+                            value == null
+                              ? '—'
+                              : formatValue(
+                                  value,
+                                  valueDigits,
+                                  name === secondaryName && (metric === 'daily' || metric === 'steps')
+                                    ? ''
+                                    : valueSuffix,
+                                ),
+                            name,
+                          ]}
+                        />
+                      ) : undefined
+                    }
+                    labelFormatter={
+                      health
+                        ? undefined
+                        : (_, payload) => payload?.[0]?.payload?.date || _
+                    }
+                    formatter={
+                      health
+                        ? undefined
+                        : (value, name) => [
+                            value == null ? '—' : formatValue(value, valueDigits, valueSuffix),
+                            name,
+                          ]
+                    }
                   />
                   <Line
                     type="monotone"
                     dataKey="value"
-                    name={title}
-                    stroke="#6b9080"
+                    name={
+                      metric === 'daily' || metric === 'steps' ? 'Steps' : title
+                    }
+                    stroke={colors.primary}
                     strokeWidth={2.5}
                     dot={valuedCount <= 14}
                     connectNulls
-                    activeDot={{ r: 4 }}
+                    activeDot={{ r: 5, strokeWidth: 2, stroke: '#fff' }}
                   />
-                  {showSecondary && (
+                  {showSecondary && colors.secondary ? (
                     <Line
                       type="monotone"
                       dataKey="secondary"
-                      name="Secondary"
-                      stroke="#6b9ac4"
-                      strokeWidth={2}
+                      name={secondaryName}
+                      stroke={colors.secondary}
+                      strokeWidth={2.2}
                       dot={valuedCount <= 14}
                       connectNulls
+                      activeDot={{ r: 5, strokeWidth: 2, stroke: '#fff' }}
                     />
-                  )}
+                  ) : null}
                 </LineChart>
               </ResponsiveContainer>
             </div>
@@ -326,7 +467,7 @@ export default function MetricPage({
 
       {!loading && (
         <div className="mt-6">
-          <MetricExplainer metric={metric} />
+          <MetricExplainer metric={metric} variant={health ? 'health' : 'default'} />
         </div>
       )}
     </>

@@ -4,6 +4,7 @@ import MetricPage from './MetricPage'
 export function RecoveryPage() {
   return (
     <MetricPage
+      theme="health"
       title="Recovery"
       description="Recovery percentage from stored COROS fitness snapshots."
       metric="recovery"
@@ -19,6 +20,7 @@ export { default as TrainingLoadPage } from './TrainingLoadPage'
 export function HrvPage() {
   return (
     <MetricPage
+      theme="health"
       title="HRV"
       description="Sleep HRV averages and assessments."
       metric="hrv"
@@ -30,6 +32,7 @@ export function HrvPage() {
 export function StressPage() {
   return (
     <MetricPage
+      theme="health"
       title="Stress"
       description="Daily average stress from COROS."
       metric="stress"
@@ -40,6 +43,7 @@ export function StressPage() {
 export function RhrPage() {
   return (
     <MetricPage
+      theme="health"
       title="Resting HR"
       description="Resting heart rate trend."
       metric="rhr"
@@ -54,6 +58,7 @@ export function DailyHealthPage() {
       <div className="space-y-10">
         <MetricPage
           bare
+          theme="health"
           title="Daily Health"
           eyebrow="Health"
           description="Steps and calories from COROS daily health."
@@ -63,6 +68,7 @@ export function DailyHealthPage() {
         />
         <MetricPage
           bare
+          theme="health"
           title="Average HR"
           eyebrow="Health"
           description="Daily average heart rate companion trend."

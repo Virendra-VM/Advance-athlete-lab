@@ -6,6 +6,7 @@ export default function StatTile({
   subtitle,
   to = null,
   tone = 'default',
+  accent = null,
 }) {
   const toneClass =
     tone === 'good'
@@ -26,15 +27,23 @@ export default function StatTile({
     </>
   )
 
-  const className = `block rounded-2xl border p-5 transition hover:border-sage/40 ${toneClass}`
+  const className = accent
+    ? `group relative block overflow-hidden rounded-2xl border border-[var(--aal-line)] bg-[var(--aal-card)] p-5 transition duration-200 hover:-translate-y-0.5 hover:shadow-[0_12px_28px_-16px_rgba(55,48,163,0.45)]`
+    : `block rounded-2xl border p-5 transition hover:border-sage/40 ${toneClass}`
+
+  const style = accent ? { boxShadow: `inset 3px 0 0 0 ${accent}` } : undefined
 
   if (to) {
     return (
-      <Link to={to} className={className}>
+      <Link to={to} className={className} style={style}>
         {content}
       </Link>
     )
   }
 
-  return <div className={className}>{content}</div>
+  return (
+    <div className={className} style={style}>
+      {content}
+    </div>
+  )
 }
