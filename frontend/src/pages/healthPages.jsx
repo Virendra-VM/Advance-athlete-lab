@@ -1,4 +1,3 @@
-import AppShell from '../components/layout/AppShell'
 import MetricPage from './MetricPage'
 
 export function RecoveryPage() {
@@ -16,69 +15,10 @@ export function RecoveryPage() {
 
 export { default as SleepPage } from './SleepPage'
 export { default as TrainingLoadPage } from './TrainingLoadPage'
-
-export function HrvPage() {
-  return (
-    <MetricPage
-      theme="health"
-      title="HRV"
-      description="Sleep HRV averages and assessments."
-      metric="hrv"
-      valueSuffix=" ms"
-    />
-  )
-}
-
-export function StressPage() {
-  return (
-    <MetricPage
-      theme="health"
-      title="Stress"
-      description="Daily average stress from COROS."
-      metric="stress"
-    />
-  )
-}
-
-export function RhrPage() {
-  return (
-    <MetricPage
-      theme="health"
-      title="Resting HR"
-      description="Resting heart rate trend."
-      metric="rhr"
-      valueSuffix=" bpm"
-    />
-  )
-}
-
-export function DailyHealthPage() {
-  return (
-    <AppShell title="Daily Health">
-      <div className="space-y-10">
-        <MetricPage
-          bare
-          theme="health"
-          title="Daily Health"
-          eyebrow="Health"
-          description="Steps and calories from COROS daily health."
-          metric="daily"
-          secondaryLabel="Steps primary · calories secondary"
-          showSecondary
-        />
-        <MetricPage
-          bare
-          theme="health"
-          title="Average HR"
-          eyebrow="Health"
-          description="Daily average heart rate companion trend."
-          metric="avg_hr"
-          valueSuffix=" bpm"
-        />
-      </div>
-    </AppShell>
-  )
-}
+export { default as HrvPage } from './HrvPage'
+export { default as StressPage } from './StressPage'
+export { default as RhrPage } from './RhrPage'
+export { default as DailyHealthPage } from './DailyHealthPage'
 
 export function FitnessPage() {
   return (

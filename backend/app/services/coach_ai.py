@@ -13,6 +13,7 @@ from __future__ import annotations
 import hashlib
 import json
 import logging
+import re
 import time
 from datetime import date, datetime, timedelta, timezone as dt_timezone
 from zoneinfo import ZoneInfo
@@ -34,7 +35,12 @@ from app.services.coach_safety import (
 )
 from app.services.coach_templates import (
     build_template_advice,
+    build_template_daily_brief,
+    build_template_hrv_brief,
     build_template_load_brief,
+    build_template_rhr_brief,
+    build_template_sleep_brief,
+    build_template_stress_brief,
     build_template_week,
     build_template_week_brief,
 )
@@ -109,6 +115,67 @@ ADVICE_SCHEMA = """{
   "escalate": false,
   "escalation_reason": null
 }"""
+
+HEALTH_METRIC_ADVICE_SCHEMA = """{
+  "headline": "string, max 10 words, no markdown",
+  "recommendation": "string with REAL newlines. Lead sentence about THIS metric only, then numbered actions that only interpret or record this metric. Each action is '1. Name — constraint' followed by '- Label: value' bullets. Never one packed paragraph.",
+  "session_adjustment": "string or null, one or two short sentences about THIS metric only",
+  "rationale": "string referencing this metric's own numbers, max two sentences",
+  "citations": ["S1"],
+  "escalate": false,
+  "escalation_reason": null
+}"""
+
+HEALTH_METRIC_SYSTEM_PROMPT = """You write a short week brief about ONE health metric inside Advance Athlete Lab.
+You only interpret that metric versus the athlete's own recent usual.
+You never mention workouts, sessions, intervals, races, strength, kilometres, training load, ACWR, or any other health metric.
+You never prescribe training. Do not say train as planned, keep easy days, skip quality, or convert sessions.
+Habits are allowed only when they change THIS metric (for example bedtime on the Sleep page, wearing the watch so this metric records).
+Respond with JSON matching the requested schema."""
+
+HEALTH_METRIC_BAN = """HARD RULES
+This brief is the named metric only.
+Do not mention workouts, sessions, intervals, races, strength, kilometres, training load, ACWR, or any other health metric (no HRV, sleep, stress, resting HR, or steps unless that IS this page).
+Do not prescribe training. Numbered actions may only cover how to read this metric, how it is recorded, and habits that change THIS metric.
+Never more than two consecutive sentences per block. Do not pack into one paragraph."""
+
+_TRAINING_LEAK_RE = re.compile(
+    r"\b("
+    r"workout|workouts|interval|intervals|kilometre|kilometres|kilometer|kilometers|"
+    r"acwr|tempo|long run|easy day|easy days|quality session|train as planned|"
+    r"training load|skip quality|race pace"
+    r")\b",
+    re.I,
+)
+_CROSS_METRIC_RE = {
+    "sleep": re.compile(
+        r"\b(hrv|rmssd|stress|steps?|calories|acwr)\b|resting\s*h(?:eart)?\s*r",
+        re.I,
+    ),
+    "hrv": re.compile(
+        r"\b(sleep|stress|steps?|calories|acwr)\b|resting\s*h(?:eart)?\s*r",
+        re.I,
+    ),
+    "stress": re.compile(
+        r"\b(hrv|rmssd|sleep|steps?|calories|acwr)\b|resting\s*h(?:eart)?\s*r",
+        re.I,
+    ),
+    "rhr": re.compile(r"\b(hrv|rmssd|sleep|stress|steps?|calories|acwr)\b", re.I),
+    "daily": re.compile(r"\b(hrv|rmssd|sleep|stress|acwr)\b|resting\s*h(?:eart)?\s*r", re.I),
+}
+
+
+def health_brief_off_topic(topic: str, advice: dict | None) -> bool:
+    """True when a health brief wandered into training or another metric."""
+    if not advice or topic not in _CROSS_METRIC_RE:
+        return False
+    blob = " ".join(
+        str(advice.get(key) or "")
+        for key in ("headline", "recommendation", "session_adjustment", "rationale")
+    )
+    if _TRAINING_LEAK_RE.search(blob):
+        return True
+    return bool(_CROSS_METRIC_RE[topic].search(blob))
 
 CHAT_SCHEMA = """{
   "reply": "string, bullet-only GENERAL_CHAT answer: skip autopsy sections, max two sentences per bullet, optional bold REFRAME",
@@ -1146,12 +1213,131 @@ def _effort_load_dict(context: dict) -> dict:
     }
 
 
-WEEK_BRIEF_TOPICS = frozenset({"volume", "load"})
+WEEK_BRIEF_TOPICS = frozenset({"volume", "load", "hrv", "stress", "rhr", "daily", "sleep"})
+HEALTH_WEEK_TOPICS = frozenset({"hrv", "stress", "rhr", "daily", "sleep"})
 
 
 def normalize_week_topic(topic: str | None) -> str:
     value = (topic or "volume").strip().lower()
     return value if value in WEEK_BRIEF_TOPICS else "volume"
+
+
+def _hrv_status_dict(context: dict) -> dict:
+    coros = context.get("coros") or {}
+    latest = coros.get("latest_health") or {}
+    trend = coros.get("health_trend") or []
+    nights = [row.get("hrv") for row in trend if row.get("hrv") is not None]
+    last7 = nights[:7]
+    avg7 = sum(last7) / len(last7) if last7 else None
+    last = latest.get("hrv")
+    ratio = (float(last) / float(avg7)) if last is not None and avg7 else None
+    return {
+        "hrv": last,
+        "hrv_assessment": latest.get("hrv_assessment"),
+        "avg_7d": round(avg7, 1) if avg7 is not None else None,
+        "nights_7d": len(last7),
+        "ratio_vs_usual": round(ratio, 2) if ratio is not None else None,
+        "recent_hrv": nights[:14],
+    }
+
+
+def _stress_status_dict(context: dict) -> dict:
+    coros = context.get("coros") or {}
+    latest = coros.get("latest_health") or {}
+    trend = coros.get("health_trend") or []
+    days = [row.get("stress") for row in trend if row.get("stress") is not None]
+    last7 = days[:7]
+    avg7 = sum(last7) / len(last7) if last7 else None
+    last = latest.get("stress")
+    ratio = (float(last) / float(avg7)) if last is not None and avg7 else None
+    return {
+        "stress": last,
+        "avg_7d": round(avg7, 1) if avg7 is not None else None,
+        "days_7d": len(last7),
+        "ratio_vs_usual": round(ratio, 2) if ratio is not None else None,
+        "high_absolute": bool(last is not None and float(last) >= 70),
+        "recent_stress": days[:14],
+    }
+
+
+def _rhr_status_dict(context: dict) -> dict:
+    coros = context.get("coros") or {}
+    latest = coros.get("latest_health") or {}
+    trend = coros.get("health_trend") or []
+    nights = [row.get("resting_heart_rate") for row in trend if row.get("resting_heart_rate") is not None]
+    last7 = nights[:7]
+    avg7 = sum(last7) / len(last7) if last7 else None
+    last = latest.get("resting_heart_rate")
+    ratio = (float(last) / float(avg7)) if last is not None and avg7 else None
+    delta = (float(last) - float(avg7)) if last is not None and avg7 is not None else None
+    return {
+        "resting_heart_rate": last,
+        "avg_7d": round(avg7, 1) if avg7 is not None else None,
+        "nights_7d": len(last7),
+        "ratio_vs_usual": round(ratio, 2) if ratio is not None else None,
+        "delta_bpm": round(delta, 1) if delta is not None else None,
+        "rise_soft": bool(delta is not None and delta >= 5),
+        "elevated_rise": bool(delta is not None and delta >= 7),
+        "recent_rhr": nights[:14],
+    }
+
+
+def _daily_status_dict(context: dict) -> dict:
+    coros = context.get("coros") or {}
+    latest = coros.get("latest_health") or {}
+    trend = coros.get("health_trend") or []
+    days = [row.get("steps") for row in trend if row.get("steps") is not None]
+    last7 = days[:7]
+    avg7 = sum(last7) / len(last7) if last7 else None
+    last = latest.get("steps")
+    ratio = (float(last) / float(avg7)) if last is not None and avg7 else None
+    cals = [row.get("calories") for row in trend if row.get("calories") is not None]
+    cal7 = cals[:7]
+    avg_cal = sum(cal7) / len(cal7) if cal7 else None
+    hrs = [row.get("avg_heart_rate") for row in trend if row.get("avg_heart_rate") is not None]
+    hr7 = hrs[:7]
+    avg_hr7 = sum(hr7) / len(hr7) if hr7 else None
+    return {
+        "steps": last,
+        "calories": latest.get("calories"),
+        "avg_heart_rate": latest.get("avg_heart_rate"),
+        "avg_7d_steps": round(avg7, 0) if avg7 is not None else None,
+        "avg_7d_calories": round(avg_cal, 0) if avg_cal is not None else None,
+        "avg_7d_hr": round(avg_hr7, 1) if avg_hr7 is not None else None,
+        "days_7d": len(last7),
+        "ratio_vs_usual": round(ratio, 2) if ratio is not None else None,
+        "sedentary": bool(last is not None and float(last) < 5000),
+        "recent_steps": days[:14],
+    }
+
+
+def _sleep_status_dict(context: dict) -> dict:
+    coros = context.get("coros") or {}
+    latest = coros.get("latest_health") or {}
+    trend = coros.get("health_trend") or []
+    durations = [row.get("sleep_duration_min") for row in trend if row.get("sleep_duration_min") is not None]
+    last7 = durations[:7]
+    avg7 = sum(last7) / len(last7) if last7 else None
+    last = latest.get("sleep_duration_min")
+    ratio = (float(last) / float(avg7)) if last is not None and avg7 else None
+    scores = [row.get("sleep_score") for row in trend if row.get("sleep_score") is not None]
+    score7 = scores[:7]
+    avg_score = sum(score7) / len(score7) if score7 else None
+    return {
+        "sleep_duration_min": last,
+        "sleep_score": latest.get("sleep_score"),
+        "deep_sleep_pct": latest.get("deep_sleep_pct"),
+        "rem_sleep_pct": latest.get("rem_sleep_pct"),
+        "light_sleep_pct": latest.get("light_sleep_pct"),
+        "nap_duration_min": latest.get("nap_duration_min"),
+        "bedtime": latest.get("bedtime"),
+        "wake_time": latest.get("wake_time"),
+        "avg_7d_min": round(avg7, 0) if avg7 is not None else None,
+        "avg_7d_score": round(avg_score, 1) if avg_score is not None else None,
+        "nights_7d": len(last7),
+        "ratio_vs_usual": round(ratio, 2) if ratio is not None else None,
+        "recent_duration_min": durations[:14],
+    }
 
 
 def week_brief_input_fingerprint(
@@ -1189,6 +1375,16 @@ def week_brief_input_fingerprint(
                 "comments": effort.get("daily_comments") or [],
             },
         }
+    elif topic == "hrv":
+        payload = {"topic": topic, "week_start": shared["week_start"], "hrv": _hrv_status_dict(context)}
+    elif topic == "stress":
+        payload = {"topic": topic, "week_start": shared["week_start"], "stress": _stress_status_dict(context)}
+    elif topic == "rhr":
+        payload = {"topic": topic, "week_start": shared["week_start"], "rhr": _rhr_status_dict(context)}
+    elif topic == "daily":
+        payload = {"topic": topic, "week_start": shared["week_start"], "daily": _daily_status_dict(context)}
+    elif topic == "sleep":
+        payload = {"topic": topic, "week_start": shared["week_start"], "sleep": _sleep_status_dict(context)}
     else:
         load = safety.get("load") or {}
         payload = {
@@ -1309,8 +1505,80 @@ def _compose_week_brief(
     safety = context["safety"]
     readiness = safety["readiness"]
     effort = _effort_load_dict(context) if topic == "load" else {}
+    hrv = _hrv_status_dict(context) if topic == "hrv" else {}
+    stress = _stress_status_dict(context) if topic == "stress" else {}
+    rhr = _rhr_status_dict(context) if topic == "rhr" else {}
+    daily = _daily_status_dict(context) if topic == "daily" else {}
+    sleep = _sleep_status_dict(context) if topic == "sleep" else {}
 
-    if topic == "load":
+    if topic == "hrv":
+        query = "HRV heart-rate variability overnight milliseconds rMSSD"
+        hits = _retrieve(db, query, profile, k=4)
+        focus_block = f"""OVERNIGHT HRV ONLY (milliseconds vs the athlete's 7-day usual)
+{json.dumps(hrv, indent=2, default=str)}
+
+TASK
+Write THIS WEEK's HRV brief. Week of Monday {clock['week_start_iso']} through Sunday {clock['week_end_iso']}.
+Today is {clock['weekday']} {clock['local_date']}.
+Lead with last night vs 7-day usual (ratio_vs_usual). Below ~0.90 is suppressed, ~0.95-1.08 typical,
+above that a high night. Use hrv ms, avg_7d, and hrv_assessment (balanced/unbalanced).
+If hrv is missing, say they need an overnight HRV recording — do not invent milliseconds.
+{HEALTH_METRIC_BAN}"""
+    elif topic == "stress":
+        query = "daily stress allostatic load wearable stress score"
+        hits = _retrieve(db, query, profile, k=4)
+        focus_block = f"""DAILY STRESS ONLY (all-day average vs the athlete's 7-day usual)
+{json.dumps(stress, indent=2, default=str)}
+
+TASK
+Write THIS WEEK's Stress brief. Week of Monday {clock['week_start_iso']} through Sunday {clock['week_end_iso']}.
+Today is {clock['weekday']} {clock['local_date']}.
+Lead with today vs 7-day usual. Below ~0.90 is quiet, ~0.90-1.10 typical, 1.10-1.25 elevated,
+above that high. A raw score of 70+ (high_absolute) is high even if the ratio looks modest.
+If stress is missing, say they need a daily-stress recording — do not invent scores.
+{HEALTH_METRIC_BAN}"""
+    elif topic == "rhr":
+        query = "resting heart rate overnight bpm baseline"
+        hits = _retrieve(db, query, profile, k=4)
+        focus_block = f"""RESTING HEART RATE ONLY (overnight bpm vs the athlete's 7-day usual)
+{json.dumps(rhr, indent=2, default=str)}
+
+TASK
+Write THIS WEEK's Resting HR brief. Week of Monday {clock['week_start_iso']} through Sunday {clock['week_end_iso']}.
+Today is {clock['weekday']} {clock['local_date']}.
+Lead with last night vs 7-day usual and delta_bpm. Below ~0.97 is quieter than usual,
+~0.97-1.05 typical, 1.05-1.08 a little high, above that elevated. About +5 bpm is a little high;
+about +7 bpm is elevated even if the ratio looks modest.
+If resting_heart_rate is missing, say they need an overnight recording — do not invent bpm.
+{HEALTH_METRIC_BAN}"""
+    elif topic == "daily":
+        query = "daily steps incidental movement calories day average heart rate"
+        hits = _retrieve(db, query, profile, k=4)
+        focus_block = f"""DAILY HEALTH ONLY (steps vs 7-day usual; calories and day-average HR are companions on this page)
+{json.dumps(daily, indent=2, default=str)}
+
+TASK
+Write THIS WEEK's Daily Health brief. Week of Monday {clock['week_start_iso']} through Sunday {clock['week_end_iso']}.
+Today is {clock['weekday']} {clock['local_date']}.
+Lead with today vs 7-day usual steps. Below ~0.75 is quiet, ~0.75-1.20 typical, 1.20-1.50 busy,
+above that very high. Under 5,000 steps (sedentary=true) is quiet even if the ratio looks modest.
+You may mention calories and day-average HR because they belong to this page. Nothing else.
+If steps are missing, say they need a daily-health recording — do not invent step counts.
+{HEALTH_METRIC_BAN}"""
+    elif topic == "sleep":
+        query = "sleep duration stages bedtime sleep score naps overnight"
+        hits = _retrieve(db, query, profile, k=4)
+        focus_block = f"""SLEEP ONLY (overnight duration, stages, naps, bedtime vs the athlete's 7-day usual)
+{json.dumps(sleep, indent=2, default=str)}
+
+TASK
+Write THIS WEEK's Sleep brief. Week of Monday {clock['week_start_iso']} through Sunday {clock['week_end_iso']}.
+Today is {clock['weekday']} {clock['local_date']}.
+Lead with last night's sleep_duration_min vs avg_7d_min (ratio_vs_usual). You may use sleep_score,
+deep/rem/light percentages, nap_duration_min, bedtime, and wake_time. Nothing else.
+If sleep_duration_min is missing, say they need an overnight sleep recording — do not invent minutes.
+{HEALTH_METRIC_BAN}"""
+    elif topic == "load":
         query = f"training load TRIMP short-term long-term effort {' '.join(context['readiness_flags'])}".strip()
         hits = _retrieve(db, query or "training-load management", profile, k=4)
         focus_block = f"""COROS EFFORT LOAD (this page — heart-rate TRIMP, not kilometres)
@@ -1352,7 +1620,20 @@ If the 28-day baseline is thin (many weekly_volume_km zeros), say the ratio is j
 Do not discuss COROS short-term load, long-term load, or load ratio. This brief is kilometres only.
 Never more than two consecutive sentences per block. Do not pack into one paragraph."""
 
-    user_prompt = f"""{format_clock_block(clock)}
+    metric_only = topic in HEALTH_WEEK_TOPICS
+    if metric_only:
+        user_prompt = f"""{format_clock_block(clock)}
+
+RETRIEVED EVIDENCE
+{format_science_for_prompt(hits)}
+
+{focus_block}
+
+Respond with JSON matching exactly this shape:
+{HEALTH_METRIC_ADVICE_SCHEMA}"""
+        system_prompt = HEALTH_METRIC_SYSTEM_PROMPT
+    else:
+        user_prompt = f"""{format_clock_block(clock)}
 
 ATHLETE CONTEXT
 {_context_digest(context, clock)}
@@ -1373,8 +1654,9 @@ RETRIEVED EVIDENCE
 
 Respond with JSON matching exactly this shape:
 {ADVICE_SCHEMA}"""
+        system_prompt = SYSTEM_PROMPT
 
-    result = _call_provider(SYSTEM_PROMPT, user_prompt)
+    result = _call_provider(system_prompt, user_prompt)
     provider_name, model_name = "rules", "deterministic-template"
     advice: dict | None = None
 
@@ -1382,26 +1664,42 @@ Respond with JSON matching exactly this shape:
         raw, provider_name, model_name = result
         try:
             advice = DailyAdviceJSON.model_validate(raw).model_dump(mode="json")
+            if metric_only and health_brief_off_topic(topic, advice):
+                logger.warning("Health week brief for %s mentioned other topics; using template", topic)
+                advice = None
+                provider_name, model_name = "rules", "deterministic-template"
         except ValidationError as exc:
             logger.warning("Week brief schema validation failed for %s: %s", provider_name, exc)
             advice = None
             provider_name, model_name = "rules", "deterministic-template"
 
     if advice is None:
-        advice = (
-            build_template_load_brief(context, safety, effort)
-            if topic == "load"
-            else build_template_week_brief(context, safety, distance)
-        )
+        if topic == "load":
+            advice = build_template_load_brief(context, safety, effort)
+        elif topic == "hrv":
+            advice = build_template_hrv_brief(context, safety, hrv)
+        elif topic == "stress":
+            advice = build_template_stress_brief(context, safety, stress)
+        elif topic == "rhr":
+            advice = build_template_rhr_brief(context, safety, rhr)
+        elif topic == "daily":
+            advice = build_template_daily_brief(context, safety, daily)
+        elif topic == "sleep":
+            advice = build_template_sleep_brief(context, safety, sleep)
+        else:
+            advice = build_template_week_brief(context, safety, distance)
 
-    if readiness["action"] == "rest_or_mobility":
+    if topic not in HEALTH_WEEK_TOPICS and readiness["action"] == "rest_or_mobility":
+        fallback = {
+            "load": "Keep remaining days easy or rest — do not chase weekly load points.",
+            "hrv": "Keep remaining days easy or rest — a recovered HRV number does not override rest.",
+            "stress": "Keep remaining days easy or rest — a calmer stress score does not override rest.",
+            "rhr": "Keep remaining days easy or rest — a quieter resting HR does not override rest.",
+            "daily": "Keep remaining days easy or rest — extra walking does not override rest.",
+            "volume": "Keep remaining days easy or rest — do not chase weekly kilometres.",
+        }
         advice["session_adjustment"] = (
-            advice.get("session_adjustment")
-            or (
-                "Keep remaining days easy or rest — do not chase weekly load points."
-                if topic == "load"
-                else "Keep remaining days easy or rest — do not chase weekly kilometres."
-            )
+            advice.get("session_adjustment") or fallback.get(topic) or fallback["volume"]
         )
 
     return {

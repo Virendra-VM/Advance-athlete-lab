@@ -4,6 +4,7 @@ export default function LoadEquation({
   acuteKm,
   chronicKm,
   acwr,
+  accent = 'training',
 }) {
   const resolved =
     cells ||
@@ -28,6 +29,11 @@ export default function LoadEquation({
       },
     ]
 
+  const hintClass =
+    accent === 'health'
+      ? 'text-indigo-500 dark:text-indigo-300'
+      : 'text-sage'
+
   return (
     <div>
       {mobileHint ? (
@@ -37,7 +43,7 @@ export default function LoadEquation({
         {resolved.map((cell, index) => (
           <div key={cell.label} className="contents">
             <div className="rounded-2xl border border-[var(--aal-line)] bg-[var(--aal-bg)] px-4 py-3">
-              <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-sage">{cell.hint}</p>
+              <p className={`text-[10px] font-semibold uppercase tracking-[0.16em] ${hintClass}`}>{cell.hint}</p>
               <p className="mt-2 font-display text-3xl tabular-nums tracking-tight text-[var(--aal-ink)]">
                 {cell.value}
                 {cell.unit ? (

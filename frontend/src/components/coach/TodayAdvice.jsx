@@ -125,7 +125,9 @@ function AdviceBrief({ text, tone = 'sage' }) {
       ? 'bg-red-500/15 text-danger-muted'
       : tone === 'amber'
         ? 'bg-amber-500/15 text-amber-status'
-        : 'bg-sage/15 text-sage'
+        : tone === 'indigo'
+          ? 'bg-indigo-500/15 text-indigo-600 dark:text-indigo-300'
+          : 'bg-sage/15 text-sage'
 
   return (
     <div className="mt-3 space-y-3">
@@ -228,6 +230,17 @@ function SignalChip({ label, value }) {
   )
 }
 
+const HEALTH_WEEK_TOPICS = new Set(['hrv', 'stress', 'rhr', 'daily', 'sleep'])
+
+const HEALTH_BRIEF = {
+  icon: MoonStar,
+  accent: 'text-indigo-500 dark:text-indigo-300',
+  ring: 'border-indigo-300/40 bg-indigo-50/50 dark:bg-indigo-950/20',
+  panel: 'border-indigo-300/35 bg-[var(--aal-card)]',
+  button:
+    'border-indigo-300/50 bg-indigo-50/80 text-indigo-600 dark:bg-indigo-950/30 dark:text-indigo-300',
+}
+
 const WEEK_TOPIC = {
   volume: {
     scopeLabel: 'Volume',
@@ -242,6 +255,41 @@ const WEEK_TOPIC = {
     refreshTitle: 'Rewrite this load brief from COROS short/long load and recovery',
     cacheHeld: 'Held for this week — rewrites if the load ratio, recovery, or the plan changes.',
     loading: 'Reading this week’s training load…',
+  },
+  hrv: {
+    scopeLabel: 'HRV',
+    adjustmentTitle: 'This week’s HRV',
+    refreshTitle: 'Rewrite this brief from overnight HRV only',
+    cacheHeld: 'Held for this week — rewrites if overnight HRV changes.',
+    loading: 'Reading this week’s HRV…',
+  },
+  stress: {
+    scopeLabel: 'Stress',
+    adjustmentTitle: 'This week’s stress',
+    refreshTitle: 'Rewrite this brief from daily stress only',
+    cacheHeld: 'Held for this week — rewrites if daily stress changes.',
+    loading: 'Reading this week’s stress…',
+  },
+  rhr: {
+    scopeLabel: 'Resting HR',
+    adjustmentTitle: 'This week’s resting HR',
+    refreshTitle: 'Rewrite this brief from overnight resting HR only',
+    cacheHeld: 'Held for this week — rewrites if resting HR changes.',
+    loading: 'Reading this week’s resting HR…',
+  },
+  daily: {
+    scopeLabel: 'Daily',
+    adjustmentTitle: 'This week’s daily health',
+    refreshTitle: 'Rewrite this brief from steps, calories, and day-average HR only',
+    cacheHeld: 'Held for this week — rewrites if steps, calories, or day-average HR change.',
+    loading: 'Reading this week’s daily health…',
+  },
+  sleep: {
+    scopeLabel: 'Sleep',
+    adjustmentTitle: 'This week’s sleep',
+    refreshTitle: 'Rewrite this brief from overnight sleep only',
+    cacheHeld: 'Held for this week — rewrites if sleep duration or stages change.',
+    loading: 'Reading this week’s sleep…',
   },
 }
 
@@ -260,6 +308,8 @@ export default function TodayAdvice({
   topic = null,
 }) {
   const isWeek = scope === 'week'
+  const metricOnly = isWeek && HEALTH_WEEK_TOPICS.has(topic)
+  const look = metricOnly ? HEALTH_BRIEF : READINESS[advice?.readiness?.action] || READINESS.proceed
   const weekCopy = WEEK_TOPIC[topic] || {
     scopeLabel: 'Week',
     adjustmentTitle: 'This week’s load',
@@ -304,18 +354,25 @@ export default function TodayAdvice({
   if (!advice) return null
 
   const readiness = READINESS[advice.readiness?.action] || READINESS.proceed
-  const Icon = readiness.icon
+  const Icon = look.icon
   const body = advice.advice || {}
+  const briefTone = metricOnly
+    ? 'indigo'
+    : advice.readiness?.action === 'rest_or_mobility'
+      ? 'danger'
+      : advice.readiness?.action === 'downgrade_to_easy'
+        ? 'amber'
+        : 'sage'
 
   if (compact) {
     const sleep = formatSleep(health?.sleep_duration_min)
     return (
-      <section className={`rounded-2xl border px-4 py-3.5 sm:px-5 ${readiness.panel}`}>
+      <section className={`rounded-2xl border px-4 py-3.5 sm:px-5 ${look.panel}`}>
         <div className="flex flex-wrap items-start justify-between gap-2">
           <div className="flex items-center gap-2">
-            <Icon className={`h-4 w-4 shrink-0 ${readiness.accent}`} />
-            <p className={`text-[11px] font-semibold uppercase tracking-[0.16em] ${readiness.accent}`}>
-              {scopeLabel} · {readiness.label}
+            <Icon className={`h-4 w-4 shrink-0 ${look.accent}`} />
+            <p className={`text-[11px] font-semibold uppercase tracking-[0.16em] ${look.accent}`}>
+              {metricOnly ? scopeLabel : `${scopeLabel} · ${readiness.label}`}
             </p>
           </div>
           <button
@@ -336,16 +393,7 @@ export default function TodayAdvice({
           </h2>
         ) : null}
         <p className="mt-1 text-[11px] text-[var(--aal-muted)]">{cacheNote}</p>
-        <AdviceBrief
-          text={body.recommendation}
-          tone={
-            advice.readiness?.action === 'rest_or_mobility'
-              ? 'danger'
-              : advice.readiness?.action === 'downgrade_to_easy'
-                ? 'amber'
-                : 'sage'
-          }
-        />
+        <AdviceBrief text={body.recommendation} tone={briefTone} />
 
         <div className="mt-3 flex flex-wrap gap-2">
           {isWeek
@@ -353,7 +401,7 @@ export default function TodayAdvice({
                 <SignalChip key={chip.label} label={chip.label} value={chip.value} />
               ))
             : null}
-          {isWeek && (!loadChips || !loadChips.length) ? (
+          {isWeek && !metricOnly && (!loadChips || !loadChips.length) ? (
             <>
               <SignalChip
                 label="ACWR"
@@ -369,37 +417,41 @@ export default function TodayAdvice({
               />
             </>
           ) : null}
-          <SignalChip
-            label="Sleep score"
-            value={health?.sleep_score != null ? `${Math.round(health.sleep_score)}` : null}
-          />
-          <SignalChip label="Time asleep" value={sleep} />
-          <SignalChip
-            label="HRV"
-            value={
-              health?.hrv != null
-                ? `${Math.round(health.hrv)}${health.hrv_assessment ? ` · ${health.hrv_assessment}` : ''}`
-                : null
-            }
-          />
-          <SignalChip
-            label="RHR"
-            value={health?.resting_heart_rate != null ? `${Math.round(health.resting_heart_rate)}` : null}
-          />
-          <SignalChip label="Stress" value={health?.stress != null ? `${Math.round(health.stress)}` : null} />
-          <SignalChip
-            label="Recovery"
-            value={
-              fitness?.recovery_pct != null
-                ? `${Math.round(fitness.recovery_pct)}%`
-                : fitness?.recovery_level || null
-            }
-          />
+          {metricOnly ? null : (
+            <>
+              <SignalChip
+                label="Sleep score"
+                value={health?.sleep_score != null ? `${Math.round(health.sleep_score)}` : null}
+              />
+              <SignalChip label="Time asleep" value={sleep} />
+              <SignalChip
+                label="HRV"
+                value={
+                  health?.hrv != null
+                    ? `${Math.round(health.hrv)}${health.hrv_assessment ? ` · ${health.hrv_assessment}` : ''}`
+                    : null
+                }
+              />
+              <SignalChip
+                label="RHR"
+                value={health?.resting_heart_rate != null ? `${Math.round(health.resting_heart_rate)}` : null}
+              />
+              <SignalChip label="Stress" value={health?.stress != null ? `${Math.round(health.stress)}` : null} />
+              <SignalChip
+                label="Recovery"
+                value={
+                  fitness?.recovery_pct != null
+                    ? `${Math.round(fitness.recovery_pct)}%`
+                    : fitness?.recovery_level || null
+                }
+              />
+            </>
+          )}
         </div>
 
         <AdjustmentNote text={body.session_adjustment} title={adjustmentTitle} />
 
-        {advice.readiness?.reason ? (
+        {metricOnly ? null : advice.readiness?.reason ? (
           <p className="mt-2 text-xs text-[var(--aal-muted)]">Why: {advice.readiness.reason}</p>
         ) : null}
 
@@ -408,7 +460,10 @@ export default function TodayAdvice({
             <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-danger-muted" />
             <p>
               <span className="font-semibold">See a professional. </span>
-              {body.escalation_reason || 'Your symptoms need assessment before more training.'}
+              {body.escalation_reason ||
+              (metricOnly
+                ? 'These readings need a professional look.'
+                : 'Your symptoms need assessment before more training.')}
             </p>
           </div>
         ) : null}
@@ -419,12 +474,12 @@ export default function TodayAdvice({
   const padding = 'p-5 sm:p-6'
 
   return (
-    <section className={`rounded-2xl border ${padding} ${readiness.ring}`}>
+    <section className={`rounded-2xl border ${padding} ${look.ring}`}>
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div className="flex items-center gap-2">
-          <Icon className={`h-4 w-4 ${readiness.accent}`} />
-          <p className={`text-[11px] font-semibold uppercase tracking-[0.18em] ${readiness.accent}`}>
-            {scopeLabel} · {readiness.label}
+          <Icon className={`h-4 w-4 ${look.accent}`} />
+          <p className={`text-[11px] font-semibold uppercase tracking-[0.18em] ${look.accent}`}>
+            {metricOnly ? scopeLabel : `${scopeLabel} · ${readiness.label}`}
           </p>
         </div>
         <button
@@ -446,16 +501,7 @@ export default function TodayAdvice({
       >
         <MarkdownInline text={body.headline} />
       </h2>
-      <AdviceBrief
-        text={body.recommendation}
-        tone={
-          advice.readiness?.action === 'rest_or_mobility'
-            ? 'danger'
-            : advice.readiness?.action === 'downgrade_to_easy'
-              ? 'amber'
-              : 'sage'
-        }
-      />
+      <AdviceBrief text={body.recommendation} tone={briefTone} />
 
       <AdjustmentNote text={body.session_adjustment} title={adjustmentTitle} />
 
@@ -465,7 +511,7 @@ export default function TodayAdvice({
         </p>
       ) : null}
 
-      {advice.readiness?.reason ? (
+      {metricOnly ? null : advice.readiness?.reason ? (
         <p className="mt-2 text-xs text-[var(--aal-muted)]">Signal: {advice.readiness.reason}</p>
       ) : null}
 
@@ -474,7 +520,10 @@ export default function TodayAdvice({
           <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-danger-muted" />
           <p>
             <span className="font-semibold">See a professional. </span>
-            {body.escalation_reason || 'Your symptoms need assessment before more training.'}
+            {body.escalation_reason ||
+              (metricOnly
+                ? 'These readings need a professional look.'
+                : 'Your symptoms need assessment before more training.')}
           </p>
         </div>
       ) : null}
@@ -497,10 +546,12 @@ export function TodayAlertButton({
 }) {
   const [open, setOpen] = useState(false)
   const rootRef = useRef(null)
-  const readiness = READINESS[advice?.readiness?.action] || READINESS.proceed
-  const Icon = readiness.icon
-  const escalate = Boolean(advice?.advice?.escalate)
   const isWeek = scope === 'week'
+  const metricOnly = isWeek && HEALTH_WEEK_TOPICS.has(topic)
+  const readiness = READINESS[advice?.readiness?.action] || READINESS.proceed
+  const look = metricOnly ? HEALTH_BRIEF : readiness
+  const Icon = look.icon
+  const escalate = Boolean(advice?.advice?.escalate)
   const scopeLabel = isWeek ? (WEEK_TOPIC[topic]?.scopeLabel || 'Week') : 'Today'
 
   useEffect(() => {
@@ -521,11 +572,13 @@ export function TodayAlertButton({
 
   const tone = escalate
     ? 'border-red-300/50 bg-red-50 text-danger-muted dark:bg-red-950/40'
-    : advice?.readiness?.action === 'downgrade_to_easy'
-      ? 'border-amber-status/40 bg-amber-50/80 text-amber-status dark:bg-amber-950/30'
-      : advice?.readiness?.action === 'rest_or_mobility'
-        ? 'border-red-300/40 bg-red-50/70 text-danger-muted dark:bg-red-950/30'
-        : 'border-sage/35 bg-sage/10 text-sage'
+    : metricOnly
+      ? HEALTH_BRIEF.button
+      : advice?.readiness?.action === 'downgrade_to_easy'
+        ? 'border-amber-status/40 bg-amber-50/80 text-amber-status dark:bg-amber-950/30'
+        : advice?.readiness?.action === 'rest_or_mobility'
+          ? 'border-red-300/40 bg-red-50/70 text-danger-muted dark:bg-red-950/30'
+          : 'border-sage/35 bg-sage/10 text-sage'
 
   return (
     <div ref={rootRef} className="relative">
@@ -541,7 +594,7 @@ export function TodayAlertButton({
           <Icon className="h-4 w-4" />
         )}
         <span className="hidden sm:inline">
-          {scopeLabel} · {readiness.label}
+          {metricOnly ? scopeLabel : `${scopeLabel} · ${readiness.label}`}
         </span>
         <span className="sm:hidden">{scopeLabel}</span>
         {escalate ? <span className="h-1.5 w-1.5 rounded-full bg-danger-muted" /> : null}

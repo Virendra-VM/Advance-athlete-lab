@@ -1,4 +1,4 @@
-import { useEffect, useId, useMemo, useState } from 'react'
+import { useCallback, useEffect, useId, useMemo, useState } from 'react'
 import { motion } from 'framer-motion'
 import { ChevronLeft, ChevronRight, Info, Moon, X } from 'lucide-react'
 import {
@@ -18,6 +18,8 @@ import {
   YAxis,
 } from 'recharts'
 import { backfillMetricHistory, getMetricSeries } from '../api/coros'
+import { getCoachStatus, getWeekBrief } from '../api/coach'
+import { WeekAlertButton } from '../components/coach/TodayAdvice'
 import SleepBarActive from '../components/charts/SleepBarActive'
 import AppShell from '../components/layout/AppShell'
 import EmptyState from '../components/ui/EmptyState'
@@ -457,6 +459,42 @@ export default function SleepPage() {
   const [activeFactor, setActiveFactor] = useState(null)
   /** Index from end of all nights — 0 = latest night (Day view navigation). */
   const [dayOffset, setDayOffset] = useState(0)
+  const [brief, setBrief] = useState(null)
+  const [briefLoading, setBriefLoading] = useState(false)
+  const [briefError, setBriefError] = useState('')
+  const [consented, setConsented] = useState(false)
+
+  const loadBrief = useCallback(async (force = false) => {
+    setBriefLoading(true)
+    setBriefError('')
+    try {
+      setBrief(await getWeekBrief({ refresh: Boolean(force), topic: 'sleep' }))
+    } catch (err) {
+      setBriefError(err.message || "Could not load this week’s sleep brief.")
+    } finally {
+      setBriefLoading(false)
+    }
+  }, [])
+
+  useEffect(() => {
+    let cancelled = false
+    async function boot() {
+      try {
+        const statusResult = await getCoachStatus().catch(() => null)
+        if (cancelled) return
+        const aiOn = Boolean(statusResult?.ai_consent)
+        setConsented(aiOn)
+        if (aiOn) loadBrief(false)
+        else setBriefError('Turn on AI coaching in settings to get a sleep brief.')
+      } catch {
+        /* sleep data still loads without the brief */
+      }
+    }
+    boot()
+    return () => {
+      cancelled = true
+    }
+  }, [loadBrief])
 
   // Load full available history once so Day/Week/Month/Year can slice instantly.
   useEffect(() => {
@@ -568,6 +606,11 @@ export default function SleepPage() {
 
   const factorFocus = view === 'day' ? dayNight : summary
   const modalPoints = view === 'day' ? compareNights : chartPoints
+  const usual7 = useMemo(() => {
+    const nights = allValued.slice(-7).map((point) => point.duration).filter((value) => value != null)
+    if (!nights.length) return null
+    return nights.reduce((sum, value) => sum + Number(value), 0) / nights.length
+  }, [allValued])
 
   return (
     <AppShell title="Sleep">
@@ -590,6 +633,24 @@ export default function SleepPage() {
             >
               {backfilling ? 'Loading history…' : 'Explore history'}
             </button>
+            <WeekAlertButton
+              topic="sleep"
+              advice={brief}
+              loading={briefLoading && !brief}
+              error={briefError}
+              onRefresh={() => (consented ? loadBrief(true) : null)}
+              refreshing={briefLoading}
+              loadChips={[
+                {
+                  label: 'Last night',
+                  value: dayNight?.duration != null ? formatMinutes(dayNight.duration) : null,
+                },
+                {
+                  label: '7-day usual',
+                  value: usual7 != null ? formatMinutes(usual7) : null,
+                },
+              ]}
+            />
           </div>
         }
       />

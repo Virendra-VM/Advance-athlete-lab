@@ -1,0 +1,383 @@
+1) Prompt 1 outPut
+
+Your vision is the difference between a static fitness plan (which is what commercial apps like Runna actually deliver under the hood) and a true, dynamic Digital Twin Periodization Engine.
+You have mapped out the exact framework used by elite coaches to prepare Olympic-level athletes for peak performance.
+Here is what I understand from your concept, followed by the exact, step-by-step scientific and programming architecture to build this into our system.
+What We Are Building: "The Dynamic Periodization Engine"
+Commercial apps treat training as a static timeline—if you miss a run or add a race, the whole spreadsheet breaks.
+What you are proposing is a Retrograde Periodization Engine. It anchors on your A-Race (the Tata Mumbai Half Marathon on Jan 17, 2027) and works backward, dividing your season into distinct physiological phases.
+In between, it automatically routes and adapts training loads around your B, C, and D Races without breaking your overall recovery or causing injury.
+🗓️ The Sports Science Phase Blueprint
+To prepare your body safely—especially given your active lower back limitation—the AI will schedule your training into five distinct physiological blocks:
+1. 🛡️ Prep / Base Phase (Aerobic & Muscle Armor)
+The Science: Building capillary density, mitochondrial volume, and strengthening your core and glutes to handle impact shock.
+The Focus: Zone 2 base runs, hip/spine mobility, and unilateral "Armor" strength training.
+💡 The Analogy: This is laying the concrete foundation of your house. If the foundation is weak or cracked, the house will collapse when we try to build the top floors.
+2. ⚡ Build Phase (Threshold & Mitochondrial Stress)
+The Science: Raising your Lactate Threshold (LT2) and Functional Threshold Power (FTP) so you can run faster at a lower heart rate.
+The Focus: Progressive over-under interval sessions and moderate-length tempo runs.
+💡 The Analogy: This is upgrading your car's engine size. We are turning a 4-cylinder engine into a V6 so you can cruise at higher speeds without redlining.
+3. 🎯 Peak Phase (Specific Race-Pace Mastery)
+The Science: Maximizing running economy and pacing precision specifically for your 1:35:00 goal pace (approx. 4:30/km).
+The Focus: PacePro-style race-pace simulations, high-volume Z2 runs, and specific running dynamics work.
+💡 The Analogy: This is the dress rehearsal before opening night. We are tuning the exact gears you will use on race day so your muscle memory takes over.
+4. 📉 Taper Phase (Neuromuscular Supercompensation)
+The Science: Reducing training volume by 40–60% while maintaining intensity to flush systemic fatigue, restore glycogen, and peak your nervous system.
+The Focus: Short, explosive, high-recovery sessions.
+💡 The Analogy: This is pulling a slingshot back. We are letting your muscles fully absorb the weeks of training so they snap forward with maximum elastic power on race day.
+5. 🧘 Rest / Restore Phase (System Reset)
+The Science: Vagal tone up-regulation, parasympathetic repair, and healing musculoskeletal micro-tears.
+The Focus: Yoga, deep thoracic decompression, and total active recovery.
+💡 The Analogy: Parking the race car in the garage for a full oil change and tire replacement before starting the next season.
+🏁 The Race Priority Hierarchy
+To make the AI understand how to handle intermediate events, we will program a Race Classification Router:
+                  [ USER ADDS AN EVENT ]
+                            |
+           +----------------+----------------+
+           |                                 |
+     [ A-RACE ]                         [ B-RACE ]
+ - Primary Target                   - Target Simulation
+ - Full 2-Week Taper                - 3-Day Mini-Taper
+ - Post-Race Rest                   - 3-Day Easy Flush
+           |                                 |
+           +----------------+----------------+
+                            |
+                    [ C/D CHECKPOINT ]
+                - Social / Baselines
+                - No Taper (Run as Workout)
+                - Zero Extra Rest
+A-Race (The Goal): Tata Mumbai Half Marathon (Jan 17, 2027). Complete 2-week taper going in, and a mandatory 1-week recovery block coming out.
+B-Races (The Simulations): 10k or 15k competitive tune-ups (e.g., 6 weeks out). The AI schedules a 3-day mini-taper to allow you to run fast, and a 3-day active recovery block afterward. It uses these results to auto-calibrate your 1:35 half-marathon pacing curve.
+C-Races (The Socials): Parkruns or local 5ks. No taper allowed. The AI treats this as a hard speed workout within your normal training week, with zero rest days scheduled afterward.
+D-Races (The Lab/Checkpoints): Guided LTHR/FTP tests. Used strictly to reset your training zones so your targets remain physiologically accurate as you get fitter.
+🛠️ How We Implement This in Your Code
+To make your FastAPI backend handle this in the most scientifically rigorous way, we will write a PeriodizationService in Phase 3. Here is the logic:
+Anchor the Timeline: Calculate the total number of weeks between today and your A-Race date.
+Distribute the Blocks: The system will automatically divide your weeks using standard sports science ratios (e.g., 40% Base, 30% Build, 20% Peak, 10% Taper).
+Inject the B & C Races: When you add a B-Race, the database model will flag that calendar week. The algorithm will automatically decrease the volume (TSS) of the preceding 3 days, convert the race day to high intensity, and lock the following 3 days into recovery spin/yoga.
+Enforce the Injury Shield (Your Back Guardrail): The periodization engine will cap your weekly running volume increases to an ACWR limit of 1.15 (well below the dangerous 1.3 injury zone) and completely block high-volume impact jumps before your Saturday football match to protect your lower back.
+
+
+
+2) Prompt 2 out put
+
+To build a world-class, scientifically bulletproof Periodization and Autoregulation Engine, we must integrate the exact mathematical models and physiological logic used by premium athletic platforms.
+
+Under the hood of systems like Garmin Connect, TrainingPeaks, and Oura, the coaching advice is dictated by precise algorithms tracking **hormonal fluctuations, cardiac stress, training volume ratios, and autonomic strain**1more_horiz.
+
+By using the scientific principles of **Acute:Chronic Workload Ratio (ACWR)**, **dynamic menstrual cycle phase mapping**, and **biometric-driven training status downgrades**, we can turn your app into the ultimate digital twin2more_horiz.
+
+---
+
+Part 1: The Core Scientific Architecture
+
+1. The Autoregulation Engine (When to Stop vs. Go)
+
+Instead of forcing a static training plan, your backend will evaluate daily athletic readiness. The baseline training allowance is calculated from the athlete's **Oura/wearable readiness score**, then dynamically downgraded if specific biometric or hormonal red flags are triggered27:
+
+- **Step 1: Calculate Base Training Intensity Allowance**7:
+  - $\text{Readiness Score} \ge 85 \rightarrow$ **🟢 Hard/Quality Session Allowed**
+  - $\text{Readiness Score} \ge 75 \rightarrow$ **🟡 Moderate Session Allowed**
+  - $\text{Readiness Score} \ge 65 \rightarrow$ **🟠 Easy Session Allowed**
+  - $\text{Readiness Score} < 65 \rightarrow$ **🔴 REST / Recovery Only**
+- **Step 2: Apply the "Hormonal & Autonomic Downgrade" Rule**7: Force an automatic **one-level intensity downgrade** (e.g., from Hard to Moderate, or Moderate to Easy) if *any* of the following conditions are met:
+  1. **HRV Suppression:** Last night's average HRV is $\le -7$ below the athlete's personal baseline7.
+  2. **Overtraining Risk:** ACWR exceeds $1.5$ (which automatically forces the upcoming sessions to Easy to prevent injury)7.
+  3. **Sleep Deprivation:** Total sleep last night was $< 6$ hours7.
+  4. **Menstrual Phase:** The female athlete is in the active menstrual phase (Days 1–5)6.
+  5. **Late Luteal Phase:** The athlete is within $\le 3$ days of their expected period start7.
+- **Step 3: Alert Flags & Actionable Warnings**78:
+  - **Recovery Debt:** Triggered if overnight HRV is $\le -7$ below baseline *and* the last 3 days' readiness average is $< 80$7.
+  - **Injury Risk:** Triggered when the ACWR enters the $1.3 - 1.5$ danger zone (hard veto at $> 1.5$)7.
+  - **Sleep Debt:** Triggered if 2 out of the last 3 nights' sleep was $< 7$ hours8.
+
+1. The Menstrual Cycle Periodization Protocol (Female Athletes)
+
+Standard apps assume a generic, static 28-day calendar. Elite sports science demands a **dynamic, biometric-tracked menstrual engine** derived directly from wearable tags, adapting the physical volume to match hormonal advantages5:
+
+- **The Ingestion & Calculation Method**56:
+  1. Extract the last 120 days of Oura `get_enhanced_tags`5.
+  2. Isolate the dates of all "Generic Period" tags5.
+  3. Group consecutive tagged days; any gap of $> 7$ days marks the start of a new cycle6.
+  4. Average the gaps between cycle starts to establish the athlete's personalized, true cycle length (do not assume 28 days)6.
+  5. $\text{Current Day in Cycle} = \text{Current Date} - \text{Last Cycle Start Date} + 1$6.
+- **The 4-Phase Hormonal Adaptation Rules**69:
+  - **Days 1–5: Menstrual Phase (Hormones Low)** $\rightarrow$ Limit training to Easy/Recovery. High baseline physical tax69.
+  - **Days 6–13: Follicular Phase (Estrogen Rising)** $\rightarrow$ **High-Adaptability Window.** Schedule primary hard quality blocks (tempo, speed, intervals, strength). High pain tolerance and maximum muscle glycogen storage9.
+  - **Days 14–17: Ovulatory Phase (Estrogen Peak)** $\rightarrow$ **Peak Force Window.** Safely schedule maximum physical stress sessions and explosive strength training.
+  - **Days 18+: Luteal Phase (Progesterone Rising)** $\rightarrow$ **Systemic Stress Window.** High resting heart rate, higher core temp, and elevated cardiovascular strain. Transition training to steady-state Zone 2 endurance6.
+  - **Late Luteal (**$\le 3$ **days to period start):** Force recovery spin, deep breathing, and active recovery78.
+
+1. The Periodization & Race-Load Engine (A, B, C, D Races)
+
+To balance your overall training load, we will build a retrograde periodization service that maps your training year relative to your **A-Race** date while dynamically budgeting acute physical stress1011:
+
+- **ACWR Load Calculation**67:
+  - $\text{Acute Load} = \text{Sum of training volume (km or TSS) over the last 7 days}$6.
+  - $\text{Chronic Load} = \text{Sum of training volume (km or TSS) over the last 28 days divided by 4}$6.
+  - $\text{ACWR Ratio} = \text{Acute Load} / \text{Chronic Load}$6.
+  - **Optimal Sweet Spot:** $0.8 - 1.3$. Fitness increases safely without injury risk7.
+  - **Caution Zone:** $1.3 - 1.5$. Hold weekly training volume flat79.
+  - **Overtraining Zone:** $> 1.5$. Veto quality sessions and force recovery7.
+- **Dynamic Intermediate Event Adjustments**1213:
+  - **A-Race (Tata Mumbai Half Marathon):** Primary goal1014. Enforce a 2-week volume taper (reduce weekly mileage by 40-60% while maintaining target pacing intensities)15.
+  - **B-Race (Simulations):** High-priority tune-ups13. The AI automatically alters the schedule to include a 3-day mini-taper before and a 3-day active recovery block after.
+  - **C-Race (Socials/Parkruns):** Treated purely as a hard interval session inside the normal week layout16. Zero taper allowed.
+  - **D-Race (Guided Fitness Tests):** Guided LTHR/FTP workouts1718. Triggers an automatic update of pacing and power zones in the athlete's profile1920.
+
+---
+
+Part 2: The Master Cursor Prompt
+
+Copy and paste this exact prompt into **Cursor Pro** to implement this entire physiological architecture across your database, API, and RAG services:
+
+```
+Act as an expert Python Backend Architect, Database Engineer, and Sports Scientist. We are building the core Periodization, Autoregulation, and Menstrual Cycle Periodization Services for our premium AI Coach application.
+
+Please implement the following code updates in our FastAPI backend:
+
+1. DATABASE SCHEMA UPDATES (PostgreSQL & SQLAlchemy Models):
+   - Expand the `AthleteProfile` model to track:
+     * `cycle_tracking_enabled` (Boolean)
+     * `cycle_override_length` (Integer, Optional)
+     * `lthr_bpm` (Integer)
+     * `ftp_watts` (Integer)
+     * `max_hr_bpm` (Integer)
+   - Create an `Event` model representing scheduled races or checkpoints:
+     * `id` (UUID, Primary Key)
+     * `name` (String)
+     * `date` (Date)
+     * `priority` (Enum: 'A', 'B', 'C', 'D')
+     * `sport_type` (Enum: 'Run', 'Bike', 'Swim', 'Strength')
+     * `target_duration_or_distance` (Float)
+
+2. CORE AUTOREGULATION & DYNAMIC DOWNGRADE SERVICE (`backend/app/services/autoregulation.py`):
+   - Write a Python class `AutoregulationEngine` that computes training permissions based on Oura and Strava biometrics:
+     * Calculate Acute:Chronic Workload Ratio (ACWR):
+       - Acute Load = sum of distance (km) or TSS of activities over the past 7 days.
+       - Chronic Load = sum of distance (km) or TSS over the past 28 days / 4.
+       - Return ACWR = Acute / Chronic. Identify ACWR Zones: <0.8 (Detraining), 0.8-1.3 (Optimal), 1.3-1.5 (Caution), >1.5 (Injury Risk).
+     * Determine Today's Call Level:
+       - Base call from Oura Readiness: >=85 (HARD allowed), >=75 (MODERATE allowed), >=65 (EASY allowed), <65 (REST/RECOVERY only).
+       - Downgrade the Today's Call Level by 1 tier if any of these conditions are true:
+         a) last_night_hrv <= -7% of personal baseline.
+         b) ACWR > 1.5 (automatically forces the level to EASY/REST).
+         c) last_night_sleep < 6 hours.
+         d) Athlete is in Day 1-5 (Menstrual) or within 3 days of period start (Late Luteal).
+     * Generate Actionable Dashboard Warnings:
+       - 'RECOVERY_DEBT': hrv_percentage <= -7% AND average of last 3 days' readiness < 80.
+       - 'INJURY_RISK': ACWR >= 1.3.
+       - 'SLEEP_DEBT': 2 of the last 3 nights of sleep were < 7 hours.
+       - 'PERIOD_INCOMING': late luteal phase (days_to_period <= 3).
+
+3. BIOMETRIC MENSTRUAL CYCLE DETECTOR SERVICE (`backend/app/services/menstrual_engine.py`):
+   - Implement the Oura-derived cycle algorithm:
+     * Parse consecutive tagged "Generic Period" days from Oura `get_enhanced_tags` over the past 120 days.
+     * Define a new cycle start whenever consecutive tag blocks are separated by a gap of >7 days.
+     * Calculate the average gap between starts to output the personal `cycle_length`.
+     * Current day in cycle = current_date - last_start_date + 1.
+     * Return Phase:
+       - Day 1-5: MENSTRUAL (Low Hormones, Rest/Restore, Downgrade Intensity).
+       - Day 6-13: FOLLICULAR (High Estrogen, Prime Adaptability, Target Hard Quality & Strength).
+       - Day 14-17: OVULATORY (Estrogen Peak, Max Force, Explosive Loading).
+       - Day 18+: LUTEAL (High Progesterone, Sympathetic Stress, Target Zone 2 Endurance).
+       - Late Luteal (<=3 days remaining to expected start): Target Active Recovery & Mobility.
+
+4. RETROGRADE PERIODIZATION ENGINE (`backend/app/services/periodization.py`):
+   - Write a retrograde periodization service that builds weekly targets working backward from scheduled events:
+     * Locate the primary A-Race date (e.g., Jan 17, 2027) and identify the weeks remaining.
+     * Distribute weeks into standard scientific blocks:
+       - Base Phase (40% of duration): Structural alignment, core strength, high-volume Zone 2.
+       - Build Phase (30% of duration): Focus on raising LT2/FTP via progressive over-unders.
+       - Peak Phase (20% of duration): Race-pace simulations and muscular endurance.
+       - Taper Phase (10% of duration): Progressive 40-60% volume reduction, maintaining pace intensity.
+     * Dynamic Intermediate Event Adapters:
+       - IF week contains a B-Race: decrease training volume of the preceding 3 days (mini-taper) and block out the following 3 days as recovery.
+       - IF week contains a C-Race: schedule it as a normal quality session on the user's preferred workout day (no taper).
+       - IF week contains a D-Race: schedule a threshold-testing session (e.g. 30-min FTP or LTHR test) and auto-recalibrate user baselines if a new threshold is accepted.
+
+5. AI COACH INTEGRATION (`backend/app/services/ai_coach.py`):
+   - Refactor the prompt generator to fetch these outputs from our new databases and engines.
+   - When generating the weekly plan, dynamically inject:
+     * Current Periodization Phase.
+     * Day in cycle and corresponding menstrual phase adaptation rule.
+     * Current ACWR score and Today's Call readiness level.
+     * Warnings of any active Recovery Debt, Injury Risk, or Sleep Debt.
+   - Enforce the "Sponge, Sail, and Credit Card" physical analogies to explain the biomechanics of spinal safety and recovery to the athlete.
+
+Please generate clean, modern Python services for these modules, ensuring all mathematical formulas and logical boundaries are highly readable, fully tested, and integrate flawlessly with our FastAPI and SQLAlchemy schemas.
+
+```
+
+---
+
+How This Transforms Your App's Intelligence
+
+By pasting this prompt, Cursor will expand your backend database and write the core algorithms that run your entire application. This puts your app on the same technological tier as **Suunto/Firstbeat's physical models** and **Oura's recovery dashboards**21more_horiz:
+
+1. **Your app now understands the calendar like a real coach:** It will automatically map out your base, build, peak, and taper phases relative to the Tata Mumbai Half Marathon1011.
+2. **It knows how your body works dynamically:** If your HRV crashes or your sleep is poor, the app immediately intercepts the calendar and dials back the intensity—explaining the *why* with easy-to-understand physical analogies7.
+3. **It respects and protects female physiology:** Instead of forcing generic routines, it tracks the actual days of the menstrual cycle and aligns training to make high-intensity sessions highly productive during high-hormone phases while protecting recovery when estrogen dips69.
+
+
+
+3) Prompt 3 OutPut
+
+**The Multi-Brand, Multi-Race Periodization Architecture**
+
+To realize your vision, we are transitioning your app from a standard single-device tracker into an **Enterprise-Grade, Hardware-Agnostic Digital Twin Periodization Engine**.
+
+Instead of locking the backend to a single wearable (like Oura), we will build a **Unified Biometric Ingestion Layer**. By leveraging webhooks and developer APIs across major brands—including the **COROS Developer API**, **Garmin Connect Developer APIs (Health, Activity, Training, and Women's Health)**, and **Strava v3 Webhook Events**—your system will normalize raw biometric and workout files (such as `.FIT` or `.GPX`) into a single standardized payload.
+
+---
+
+**How the Unified System Works Scientifically**
+
+```
+                      [ WEBHOOKS & APIs ]
+             (COROS, Garmin, Strava, manual inputs)
+                            │
+                            ▼
+           [ UNIFIED BIOMETRIC INGESTION LAYER ]
+          - Normalizes HR, HRV, Sleep, Temp, and Laps
+                            │
+                            ▼
+        ┌──────────────────────────────────────┐
+        │     DYNAMIC AUTOREGULATION CORE      │
+        │ Calculates ACWR & Menstrual Phases  │
+        └──────────────────┬───────────────────┘
+                           │
+                           ▼
+          [ RETROGRADE PERIODIZATION SCHEDULER ]
+       - Maps Base -> Build -> Peak -> Taper Phases
+       - Interjects A, B, C, D, E Race Load Modifiers
+                           │
+                           ▼
+            [ "GRITTY COACH" PROMPT GENERATOR ]
+       - Applies Orthopedic Spinal Guardrails
+       - Outputs point-by-point, analogy-driven plan
+
+```
+
+**1. Hardware-Agnostic Biometric Standardization**
+
+The backend will ingest biometrics (HRV, resting heart rate, sleep duration, and temperature anomalies) without caring if they come from a COROS watch, a Garmin fēnix, or a chest strap. It maps these to a standardized `AthleteBiometrics` schema.
+
+- **The HRV Calibration:** Heart Rate Variability (RMSSD) is normalized against an athlete-specific rolling 28-day baseline to detect autonomic nervous system suppression.
+
+**2. Menstrual-Cycle Periodization (Dynamic 4-Phase Rules)**
+
+Rather than using a fixed calendar, the system dynamically maps cycle days using temperature deviations from COROS/Oura/Garmin Women's Health APIs, or manual athlete logs.
+
+- **Phase 1: Menstrual (Days 1–5):** _Hormones Low._ Rest/Restore. Focus on active recovery spins, yoga, and structural decompressions.
+- **Phase 2: Follicular (Days 6–13):** _Estrogen Rising._ **High Adaptability.** Prime time for heavy neuromuscular loading, high-volume threshold work, and explosive strength.
+- **Phase 3: Ovulatory (Days 14–17):** _Estrogen Peak._ **Max Force.** Plan highest-intensity quality efforts.
+- **Phase 4: Luteal (Days 18+):** _Progesterone Rising._ **Systemic Stress.** Core temp and resting HR rise naturally. Shift training to steady-state Zone 2 endurance; apply a mandatory 1-tier intensity downgrade during late luteal (last 3 days of cycle) to protect recovery.
+
+**3. Retrograde Periodization with Hierarchical Races (A, B, C, D, E)**
+
+The season schedule anchors on your **A-Race** (the Tata Mumbai Half Marathon on Jan 17, 2027) and splits the remaining weeks into Base (capillary density/armor), Build (FTP/LT2 threshold progressive stress), Peak (race-pace economy), and Taper (supercompensation) phases. The system then dynamically budgets load for other scheduled events:
+
+- **A-Race (Primary):** Strict 2-week progressive volume taper (40–60% reduction) preserving pace intensity.
+- **B-Race (Simulations):** Competed at 90-95% effort. Triggers an automatic 3-day mini-taper before and 3 days of recovery after.
+- **C-Race (Socials/Parkruns):** Treated strictly as a hard training session inside the normal week. Zero taper allowed.
+- **D-Race (Zone Calibration):** Real-world FTP/LTHR tests used to auto-recalibrate your training zones so future workouts remain precise.
+
+**4. The Orthopedic Safety Guardrail (Your Spine Lock)**
+
+For athletes with active lower back limitations, the system automatically runs a validation check.
+
+- **If lower-back history is marked "active":** The backend completely blacklists loaded spinal flexion (back squats, deadlifts, crunches) and prevents excessive vertical impact stacking (such as running a fast 10k right after lower-body lifting or stacking running workouts back-to-back with 11v11 football).
+
+---
+
+**The Master Cursor Prompt**
+
+Copy and paste this production-ready, highly comprehensive prompt directly into **Cursor Pro** to write the complete backend code, schemas, and AI prompts.
+
+```
+Act as an expert Python Backend Architect, Database Engineer, and Sports Scientist. We are building a hardware-agnostic, multi-brand Periodization, Autoregulation, and Menstrual Cycle Tracking backend for our premium AI Coach application.
+
+Please implement the following architectural updates across our FastAPI backend:
+
+1. HARDWARE-AGNOSTIC DATABASE SCHEMA (PostgreSQL / SQLAlchemy):
+   - Modify the `AthleteProfile` model to ingest the user's detailed onboarding profile:
+     * `age` (Integer), `height_cm` (Float), `weight_kg` (Float), `gender` (Enum: 'Male', 'Female')
+     * `primary_goal` (Enum: 'Lose weight', 'Build muscle', 'Improve mobility', 'Train for an event', 'Get more active', 'Reduce stress')
+     * `secondary_goal` (Enum: 'Get stronger', 'Improve endurance', 'Better flexibility', 'More energy')
+     * `training_history` (Enum: 'Beginner', 'Intermediate', 'Advanced')
+     * `ftp_watts` (Integer), `lthr_bpm` (Integer), `max_hr_bpm` (Integer)
+     * `equipment` (JSON/List: bodyweight, bands, road_bike, trainer, etc.)
+     * `injuries` (JSON/Dict: e.g., {"lower_back": "active", "knee": "none"})
+     * `cycle_tracking_enabled` (Boolean), `cycle_length_manual` (Integer, Optional)
+   - Create a unified `AthleteBiometrics` model to store standardized data synced from COROS, Garmin, Oura, Polar, or Strava:
+     * `date` (Date, Primary Key combined with athlete_id)
+     * `resting_heart_rate` (Integer)
+     * `heart_rate_variability` (Float)  # Standardized RMSSD
+     * `sleep_seconds` (Integer)
+     * `temperature_deviation` (Float)   # Degrees Celsius from baseline
+     * `source_device` (String)          # e.g., "COROS", "Garmin", "Oura"
+   - Create a hierarchical `Event` model for training periodization:
+     * `id` (UUID, Primary Key)
+     * `name` (String)
+     * `date` (Date)
+     * `priority` (Enum: 'A', 'B', 'C', 'D', 'E')  # A=Main, B=Sim, C=Social, D=Test, E=Other
+     * `sport_type` (Enum: 'Run', 'Bike', 'Swim', 'Strength')
+     * `target_metric` (String)                    # e.g., "1:35:00 half-marathon" or "21 km"
+
+2. UNIVERSAL AUTOREGULATION CORE (`backend/app/services/autoregulation.py`):
+   - Implement the `AutoregulationEngine` to calculate training constraints:
+     * Calculate Acute:Chronic Workload Ratio (ACWR):
+       - Acute Load = sum of distance (km) or TSS of activities over the past 7 days.
+       - Chronic Load = sum of distance (km) or TSS over the past 28 days / 4.
+       - Return ACWR = Acute / Chronic. (Sweet spot: 0.8-1.3, Caution: 1.3-1.5, Veto/Injury Risk: >1.5).
+     * Determine Today's Call Level:
+       - Base call from Sleep & HRV: HRV >= baseline and Sleep >= 7h -> "🟢 PRIMED / ACCUMULATE".
+       - HRV -7% below 28-day baseline OR Sleep < 6h -> Downgrade 1 tier: "🟡 CAUTION / ABSORB".
+       - HRV -15% below baseline OR Sleep < 5h OR ACWR > 1.5 -> Force: "🔴 REST / RESTORE".
+     * Generate Actionable Warnings: 'RECOVERY_DEBT' (HRV <= -7% and 3-day Sleep average < 6.5h), 'INJURY_RISK' (ACWR >= 1.3), 'SPINE_VULNERABILITY' (if injury dict shows active lower back).
+
+3. HORMONE-AWARE MENSTRUAL CYCLER ENGINE (`backend/app/services/menstrual_engine.py`):
+   - If `cycle_tracking_enabled` is True, determine current menstrual day and phase:
+     * Support dynamic calculation: Ingest temperature deviations and manual tags over 120 days. Gaps of >7 days between consecutive "period" tags denote a new cycle. Calculate rolling personal average `cycle_length`.
+     * Day in cycle = days since last cycle start + 1.
+     * Implement the 4-Phase Hormonal Adaptation Rules:
+       - Days 1-5: MENSTRUAL phase. (Downgrade overall training to EASY/RECOVERY, ban high-intensity, emphasize active tissue glide and decompression).
+       - Days 6-13: FOLLICULAR phase. (🟢 Estrogen rising. High adaptability. Prioritize primary hard quality tempo, speed, and heavy strength blocks).
+       - Days 14-17: OVULATORY phase. (🟢 Estrogen peak. Peak force window. Safe to execute maximum physical stress/explosive power sessions).
+       - Days 18+: LUTEAL phase. (🟡 Progesterone high. Systemic stress. High core temp and cardiovascular drift. Transition to Zone 2 base endurance).
+       - Late Luteal (<=3 days remaining to next cycle): (Force automatic 1-tier intensity downgrade, focus on parasympathetic rest, recovery spins, and deep breathing).
+
+4. RETROGRADE PERIODIZATION SERVICE (`backend/app/services/periodization.py`):
+   - Build a training block scheduler working backward from the primary 'A' event:
+     * Map remaining weeks to target phases: Base Phase (40%), Build Phase (30%), Peak Phase (20%), Taper Phase (10%).
+     * Dynamic Intermediate Event Adapters:
+       - IF week has a 'B' Event: Set a 3-day mini-taper (reduce volume by 30% preceding the event) and schedule a 3-day post-event active recovery block.
+       - IF week has a 'C' Event: Embed it as a normal quality session on the athlete's preferred training day; do not alter other days.
+       - IF week has a 'D' Event: Set a guided threshold-testing protocol (FTP or LTHR test) to auto-recalibrate biological training zones.
+
+5. AI COACH SYSTEM PROMPT TEMPLATE (`backend/app/services/ai_coach.py`):
+   - Refactor the AI prompt template to dynamically parse the user's comprehensive onboarding profile, menstrual phase, current periodization phase, ACWR status, and safety limitations.
+   - Enforce the following strict prompt layout and stylistic rules:
+     * Persona ("The Gritty Master Coach"): Direct, elite, protective, using high-agency performance language.
+     * Strict Paragraph Ban: No long paragraphs or text walls. Max 2 consecutive sentences per block or bullet. Use bullet points and clear, bolded key-value metrics.
+     * "Science -> Translation -> Analogy" Framework: Every major performance metric or safety adjustment must be explained in 3 simple points:
+       - 🔬 THE SCIENCE: State the physiological mechanism (e.g., "7.5% cardiovascular decoupling" or "low-RPM torque spikes").
+       - 🗣️ LOCKER ROOM LINGO: Translate into simple, raw, athletic terms (e.g., "Your cardiovascular system is running expensive today").
+       - 💡 REAL-WORLD EXAMPLE: Provide a memorable physical analogy (e.g., "Think of this like your car radiator running on max while holding a steady highway speed").
+     * Orthopedic Spine Lock Guardrails: If "lower_back" is active, strictly ban loaded spinal flexion, deadlifts, back squats, crunches, or good mornings. Force unilateral lower body and anti-extension core variations (dead bug, bird dog, planks) [25].
+     * Context Suppression: If the user query is classified as general chat or scheduling, bypass the previous workout's "autopsy" entirely, and focus solely on addressing their training schedule or physiology question.
+
+Please provide the complete, modernized Python code for these services, ensuring they are robust, highly cohesive, and integrate smoothly with FastAPI endpoints.
+
+```
+
+---
+
+**Why this Model Excels Beyond Commercial Competitors**
+
+By submitting this prompt in Cursor:
+
+- **No device lockouts:** If you switch from COROS to a Garmin watch or Oura ring down the road, your app won't care. It looks at standard `resting_heart_rate` and `heart_rate_variability`.
+- **The season acts as a dynamic roadmap:** Instead of a static PDF training calendar, if you schedule a "B-Race" (like a local 10k tune-up), the periodization engine automatically scales down your Wednesday and Thursday volume, schedules a mini-taper, and inserts active recovery on the following Monday.
+- **Hormone-informed safety:** It dynamically scales physical loads relative to your menstrual phase, preventing unnecessary nervous system burnout when recovery capability is clinically low.

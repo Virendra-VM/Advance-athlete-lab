@@ -169,8 +169,19 @@ def read_week_brief(
 ):
     """This week's page brief. Cached per Monday week + topic unless signals changed or refresh=true."""
     topic_key = (topic or "volume").strip().lower()
-    if topic_key not in {"volume", "load"}:
-        raise HTTPException(status_code=422, detail="topic must be volume or load")
+    if topic_key not in {
+        "volume",
+        "load",
+        "hrv",
+        "stress",
+        "rhr",
+        "daily",
+        "sleep",
+    }:
+        raise HTTPException(
+            status_code=422,
+            detail="topic must be volume, load, hrv, stress, rhr, daily, or sleep",
+        )
     profile = _require_profile(current_user, db)
     _require_ai_consent(db, profile)
     return CoachAdviceResponse(

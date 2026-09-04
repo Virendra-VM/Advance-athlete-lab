@@ -48,7 +48,7 @@ export const METRIC_GUIDES = {
   hrv: {
     title: 'HRV',
     summary:
-      'Heart-rate variability reflects autonomic balance. Higher HRV (for you) usually signals better recovery readiness.',
+      'Heart-rate variability is overnight beat-to-beat change (milliseconds). This page compares last night with your 7-day usual — not someone else’s number, and not the ACWR load bands.',
     sections: [
       {
         heading: 'What it means',
@@ -67,7 +67,7 @@ export const METRIC_GUIDES = {
   stress: {
     title: 'Stress',
     summary:
-      'Daily stress averages how hard your body was working outside structured workouts — life load plus recovery debt.',
+      'Daily stress is COROS’s all-day average (life load plus training). This page compares today with your 7-day usual — higher is more loaded, and a 70+ day is a safety flag even if the ratio looks modest.',
     sections: [
       {
         heading: 'What it means',
@@ -86,7 +86,7 @@ export const METRIC_GUIDES = {
   rhr: {
     title: 'Resting HR',
     summary:
-      'Resting heart rate is a simple recovery marker. A rise above your baseline often means incomplete recovery or illness.',
+      'Resting HR is overnight beats per minute. This page compares last night with your 7-day usual — higher is more loaded, and a rise of about 5–7 bpm is a coaching flag even if the ratio looks modest.',
     sections: [
       {
         heading: 'What it means',
@@ -105,7 +105,7 @@ export const METRIC_GUIDES = {
   daily: {
     title: 'Daily Health',
     summary:
-      'Steps and calories show everyday movement outside workouts — useful context for total load and recovery.',
+      'Daily health is incidental movement: steps versus your 7-day usual, with calories and day-average HR as companions. Quiet and very-high days are both cautions — this is not GPS volume and not a 10,000-step target.',
     sections: [
       {
         heading: 'What it means',

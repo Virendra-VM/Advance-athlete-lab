@@ -16,7 +16,14 @@ if str(BACKEND_ROOT) not in sys.path:
 
 from app.database import Base  # noqa: E402
 from app.models import Activity, AthleteConsent, AthleteProfile, DailyHealthMetric, TrainingLoadSnapshot  # noqa: E402
-from app.services.coach_ai import generate_week_brief, week_brief_input_fingerprint  # noqa: E402
+from app.services.coach_ai import generate_week_brief, health_brief_off_topic, week_brief_input_fingerprint  # noqa: E402
+from app.services.coach_templates import (  # noqa: E402
+    build_template_daily_brief,
+    build_template_hrv_brief,
+    build_template_rhr_brief,
+    build_template_sleep_brief,
+    build_template_stress_brief,
+)
 
 
 def _base_context() -> dict:
@@ -84,6 +91,118 @@ def test_week_fingerprint_is_split_by_topic():
     assert week_brief_input_fingerprint(context, clock, only_km, "volume") != volume
 
 
+def test_stress_fingerprint_tracks_stress_not_distance():
+    clock = {"week_start_iso": "2026-09-01"}
+    context = _base_context()
+    context["coros"]["health_trend"] = [
+        {"metric_date": "2026-09-01", "stress": 40},
+        {"metric_date": "2026-08-31", "stress": 38},
+    ]
+    baseline = week_brief_input_fingerprint(context, clock, _distance(), "stress")
+    spiked = _distance()
+    spiked["acwr"] = 1.8
+    assert week_brief_input_fingerprint(context, clock, spiked, "stress") == baseline
+    jumped = copy.deepcopy(context)
+    jumped["coros"]["latest_health"]["stress"] = 78
+    assert week_brief_input_fingerprint(jumped, clock, _distance(), "stress") != baseline
+    assert week_brief_input_fingerprint(context, clock, _distance(), "stress") != week_brief_input_fingerprint(
+        context, clock, _distance(), "hrv"
+    )
+    assert week_brief_input_fingerprint(context, clock, _distance(), "stress") != week_brief_input_fingerprint(
+        context, clock, _distance(), "volume"
+    )
+
+
+def test_sleep_fingerprint_tracks_sleep_not_distance():
+    clock = {"week_start_iso": "2026-09-01"}
+    context = _base_context()
+    context["coros"]["latest_health"]["sleep_duration_min"] = 420
+    context["coros"]["health_trend"] = [
+        {"metric_date": "2026-09-01", "sleep_duration_min": 420, "sleep_score": 78},
+        {"metric_date": "2026-08-31", "sleep_duration_min": 400, "sleep_score": 74},
+    ]
+    baseline = week_brief_input_fingerprint(context, clock, _distance(), "sleep")
+    spiked = _distance()
+    spiked["acwr"] = 1.8
+    assert week_brief_input_fingerprint(context, clock, spiked, "sleep") == baseline
+    short = copy.deepcopy(context)
+    short["coros"]["latest_health"]["sleep_duration_min"] = 280
+    assert week_brief_input_fingerprint(short, clock, _distance(), "sleep") != baseline
+    assert week_brief_input_fingerprint(context, clock, _distance(), "sleep") != week_brief_input_fingerprint(
+        context, clock, _distance(), "hrv"
+    )
+
+
+def test_daily_fingerprint_tracks_steps_not_distance():
+    clock = {"week_start_iso": "2026-09-01"}
+    context = _base_context()
+    context["coros"]["latest_health"]["steps"] = 8420
+    context["coros"]["latest_health"]["calories"] = 2140
+    context["coros"]["health_trend"] = [
+        {"metric_date": "2026-09-01", "steps": 8420, "calories": 2140},
+        {"metric_date": "2026-08-31", "steps": 7900, "calories": 2050},
+    ]
+    baseline = week_brief_input_fingerprint(context, clock, _distance(), "daily")
+    spiked = _distance()
+    spiked["acwr"] = 1.8
+    assert week_brief_input_fingerprint(context, clock, spiked, "daily") == baseline
+    jumped = copy.deepcopy(context)
+    jumped["coros"]["latest_health"]["steps"] = 18200
+    assert week_brief_input_fingerprint(jumped, clock, _distance(), "daily") != baseline
+    assert week_brief_input_fingerprint(context, clock, _distance(), "daily") != week_brief_input_fingerprint(
+        context, clock, _distance(), "volume"
+    )
+    assert week_brief_input_fingerprint(context, clock, _distance(), "daily") != week_brief_input_fingerprint(
+        context, clock, _distance(), "stress"
+    )
+
+
+def test_rhr_fingerprint_tracks_rhr_not_distance():
+    clock = {"week_start_iso": "2026-09-01"}
+    context = _base_context()
+    context["coros"]["health_trend"] = [
+        {"metric_date": "2026-09-01", "resting_heart_rate": 50},
+        {"metric_date": "2026-08-31", "resting_heart_rate": 49},
+    ]
+    context["coros"]["latest_health"]["resting_heart_rate"] = 50
+    baseline = week_brief_input_fingerprint(context, clock, _distance(), "rhr")
+    spiked = _distance()
+    spiked["acwr"] = 1.8
+    assert week_brief_input_fingerprint(context, clock, spiked, "rhr") == baseline
+    jumped = copy.deepcopy(context)
+    jumped["coros"]["latest_health"]["resting_heart_rate"] = 62
+    assert week_brief_input_fingerprint(jumped, clock, _distance(), "rhr") != baseline
+    assert week_brief_input_fingerprint(context, clock, _distance(), "rhr") != week_brief_input_fingerprint(
+        context, clock, _distance(), "hrv"
+    )
+    assert week_brief_input_fingerprint(context, clock, _distance(), "rhr") != week_brief_input_fingerprint(
+        context, clock, _distance(), "stress"
+    )
+    assert week_brief_input_fingerprint(context, clock, _distance(), "rhr") != week_brief_input_fingerprint(
+        context, clock, _distance(), "volume"
+    )
+
+
+def test_hrv_fingerprint_tracks_hrv_not_distance():
+    clock = {"week_start_iso": "2026-09-01"}
+    context = _base_context()
+    context["coros"]["health_trend"] = [
+        {"metric_date": "2026-09-01", "hrv": 51},
+        {"metric_date": "2026-08-31", "hrv": 54},
+    ]
+    baseline = week_brief_input_fingerprint(context, clock, _distance(), "hrv")
+    spiked = _distance()
+    spiked["acwr"] = 1.8
+    assert week_brief_input_fingerprint(context, clock, spiked, "hrv") == baseline
+    dropped = copy.deepcopy(context)
+    dropped["coros"]["latest_health"]["hrv"] = 33
+    dropped["coros"]["latest_health"]["hrv_assessment"] = "unbalanced"
+    assert week_brief_input_fingerprint(dropped, clock, _distance(), "hrv") != baseline
+    assert week_brief_input_fingerprint(context, clock, _distance(), "hrv") != week_brief_input_fingerprint(
+        context, clock, _distance(), "volume"
+    )
+
+
 def test_generate_week_brief_uses_cache_until_signals_change():
     from app.services import coach_ai as coach_ai_mod
 
@@ -117,10 +236,14 @@ def test_generate_week_brief_uses_cache_until_signals_change():
                 provider="coros",
                 metric_date=date.today(),
                 sleep_score=78,
+                sleep_duration_min=420,
                 hrv=61,
                 hrv_assessment="balanced",
                 stress=32,
                 resting_heart_rate=50,
+                steps=8420,
+                calories=2140,
+                avg_heart_rate=72,
             )
         )
         db.commit()
@@ -179,10 +302,152 @@ def test_generate_week_brief_uses_cache_until_signals_change():
 
         load_again = generate_week_brief(db, profile, timezone_name="UTC", topic="load")
         assert load_again["cached"] is True
+
+        hrv_brief = generate_week_brief(db, profile, timezone_name="UTC", topic="hrv")
+        assert hrv_brief["cached"] is False
+        assert hrv_brief["topic"] == "hrv"
+        assert hrv_brief["advice"]["headline"] != volume_again["advice"]["headline"]
+        assert "ms" in (hrv_brief["advice"]["recommendation"] or "")
+
+        stress_brief = generate_week_brief(db, profile, timezone_name="UTC", topic="stress")
+        assert stress_brief["cached"] is False
+        assert stress_brief["topic"] == "stress"
+        assert stress_brief["advice"]["headline"] != hrv_brief["advice"]["headline"]
+        rec = stress_brief["advice"]["recommendation"] or ""
+        assert "stress" in rec.lower()
+        assert "ms" not in rec.lower()
+
+        rhr_brief = generate_week_brief(db, profile, timezone_name="UTC", topic="rhr")
+        assert rhr_brief["cached"] is False
+        assert rhr_brief["topic"] == "rhr"
+        assert rhr_brief["advice"]["headline"] != stress_brief["advice"]["headline"]
+        rhr_rec = rhr_brief["advice"]["recommendation"] or ""
+        assert "bpm" in rhr_rec.lower()
+        assert "ms" not in rhr_rec.lower()
+
+        daily_brief = generate_week_brief(db, profile, timezone_name="UTC", topic="daily")
+        assert daily_brief["cached"] is False
+        assert daily_brief["topic"] == "daily"
+        assert daily_brief["advice"]["headline"] != rhr_brief["advice"]["headline"]
+        daily_rec = daily_brief["advice"]["recommendation"] or ""
+        assert "step" in daily_rec.lower()
+        assert "ms" not in daily_rec.lower()
+
+        sleep_brief = generate_week_brief(db, profile, timezone_name="UTC", topic="sleep")
+        assert sleep_brief["cached"] is False
+        assert sleep_brief["topic"] == "sleep"
+        assert sleep_brief["advice"]["headline"] != daily_brief["advice"]["headline"]
+        sleep_rec = sleep_brief["advice"]["recommendation"] or ""
+        assert "sleep" in sleep_rec.lower() or "min" in sleep_rec.lower()
+        assert "ms" not in sleep_rec.lower()
+
+        for rec in (
+            hrv_brief["advice"]["recommendation"],
+            stress_brief["advice"]["recommendation"],
+            rhr_brief["advice"]["recommendation"],
+            daily_brief["advice"]["recommendation"],
+            sleep_brief["advice"]["recommendation"],
+        ):
+            text = (rec or "").lower()
+            assert "interval" not in text
+            assert "train as planned" not in text
+            assert "kilometre" not in text and "kilometer" not in text
     finally:
         coach_ai_mod._call_provider = original
         db.close()
         engine.dispose()
+
+
+def test_health_brief_rejects_workouts_and_other_metrics():
+    assert health_brief_off_topic(
+        "sleep",
+        {
+            "headline": "Sleep is short",
+            "recommendation": "Keep easy days and skip the intervals.",
+            "session_adjustment": None,
+            "rationale": "",
+        },
+    )
+    assert health_brief_off_topic(
+        "sleep",
+        {
+            "headline": "Sleep",
+            "recommendation": "HRV is also low tonight.",
+            "session_adjustment": None,
+            "rationale": "",
+        },
+    )
+    assert health_brief_off_topic(
+        "hrv",
+        {
+            "headline": "HRV is low",
+            "recommendation": "Train as planned if sleep was fine.",
+            "session_adjustment": None,
+            "rationale": "",
+        },
+    )
+    assert not health_brief_off_topic(
+        "sleep",
+        {
+            "headline": "Sleep is around your usual night",
+            "recommendation": "Last night 420 min vs 7-day usual 400 min.",
+            "session_adjustment": "Typical sleep duration is the useful zone on this page.",
+            "rationale": "",
+        },
+    )
+
+
+def test_health_templates_stay_on_metric():
+    safety = {}
+    ctx = {}
+    cases = [
+        (
+            "hrv",
+            build_template_hrv_brief(
+                ctx, safety, {"hrv": 50, "avg_7d": 52, "ratio_vs_usual": 0.96, "hrv_assessment": "balanced"}
+            ),
+        ),
+        (
+            "stress",
+            build_template_stress_brief(
+                ctx, safety, {"stress": 32, "avg_7d": 30, "ratio_vs_usual": 1.07, "high_absolute": False}
+            ),
+        ),
+        (
+            "rhr",
+            build_template_rhr_brief(
+                ctx,
+                safety,
+                {"resting_heart_rate": 48, "avg_7d": 50, "ratio_vs_usual": 0.96, "delta_bpm": -2},
+            ),
+        ),
+        (
+            "daily",
+            build_template_daily_brief(
+                ctx,
+                safety,
+                {
+                    "steps": 8000,
+                    "avg_7d_steps": 7500,
+                    "ratio_vs_usual": 1.07,
+                    "calories": 2200,
+                    "avg_heart_rate": 72,
+                },
+            ),
+        ),
+        (
+            "sleep",
+            build_template_sleep_brief(
+                ctx,
+                safety,
+                {"sleep_duration_min": 420, "avg_7d_min": 400, "ratio_vs_usual": 1.05, "sleep_score": 78},
+            ),
+        ),
+        ("hrv", build_template_hrv_brief(ctx, safety, {})),
+        ("sleep", build_template_sleep_brief(ctx, safety, {})),
+    ]
+    for topic, advice in cases:
+        assert not health_brief_off_topic(topic, advice), (topic, advice)
 
 
 def run() -> None:
@@ -190,7 +455,14 @@ def run() -> None:
         test_week_fingerprint_is_stable,
         test_week_fingerprint_changes_with_acwr_and_recovery,
         test_week_fingerprint_is_split_by_topic,
+        test_hrv_fingerprint_tracks_hrv_not_distance,
+        test_stress_fingerprint_tracks_stress_not_distance,
+        test_rhr_fingerprint_tracks_rhr_not_distance,
+        test_daily_fingerprint_tracks_steps_not_distance,
+        test_sleep_fingerprint_tracks_sleep_not_distance,
         test_generate_week_brief_uses_cache_until_signals_change,
+        test_health_brief_rejects_workouts_and_other_metrics,
+        test_health_templates_stay_on_metric,
     ]
     for test in tests:
         test()
