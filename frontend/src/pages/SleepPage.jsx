@@ -1,6 +1,6 @@
-import { useEffect, useId, useMemo, useState } from 'react'
+import { useCallback, useEffect, useId, useMemo, useState } from 'react'
 import { motion } from 'framer-motion'
-import { ChevronLeft, ChevronRight, Moon, X } from 'lucide-react'
+import { ChevronLeft, ChevronRight, Info, Moon, X } from 'lucide-react'
 import {
   Area,
   AreaChart,
@@ -18,7 +18,9 @@ import {
   YAxis,
 } from 'recharts'
 import { backfillMetricHistory, getMetricSeries } from '../api/coros'
-import BarActiveGlow from '../components/charts/BarActiveEffects'
+import { getCoachStatus, getWeekBrief } from '../api/coach'
+import { WeekAlertButton } from '../components/coach/TodayAdvice'
+import SleepBarActive from '../components/charts/SleepBarActive'
 import AppShell from '../components/layout/AppShell'
 import EmptyState from '../components/ui/EmptyState'
 import LoadingDots from '../components/ui/LoadingDots'
@@ -27,6 +29,7 @@ import RangeTabs from '../components/ui/RangeTabs'
 import SectionCard from '../components/ui/SectionCard'
 import { SLEEP_FACTOR_GUIDES } from '../utils/sleepGuides'
 import {
+  SLEEP_CHART,
   SLEEP_RANGES,
   STAGE_COLORS,
   aggregateByWeek,
@@ -44,43 +47,45 @@ import {
   summarizePeriod,
 } from '../utils/sleepHelpers'
 
-function ScoreRing({ score, label = 'Score' }) {
-  const value =
-    score == null || Number.isNaN(Number(score))
-      ? null
-      : Math.max(0, Math.min(100, Number(score)))
-  const radius = 54
-  const circumference = 2 * Math.PI * radius
-  const offset = value == null ? circumference : circumference * (1 - value / 100)
+/* Sleep score ring parked — re-enable with SLEEP_SCORE_ENABLED when MCP matches COROS app.
+function ScoreRing({ score, label = 'Score', hint = null }) { ... }
+*/
 
+function SleepTooltip({ active, payload, label, labelFormatter, valueFormatter }) {
+  if (!active || !payload?.length) return null
+  const title = labelFormatter ? labelFormatter(label, payload) : label
   return (
-    <div className="relative mx-auto h-36 w-36">
-      <svg viewBox="0 0 128 128" className="h-full w-full -rotate-90">
-        <circle cx="64" cy="64" r={radius} fill="none" stroke="var(--aal-line)" strokeWidth="10" />
-        <circle
-          cx="64"
-          cy="64"
-          r={radius}
-          fill="none"
-          stroke="#6b9080"
-          strokeWidth="10"
-          strokeLinecap="round"
-          strokeDasharray={circumference}
-          strokeDashoffset={offset}
-          className="transition-[stroke-dashoffset] duration-700 ease-out"
-        />
-      </svg>
-      <div className="absolute inset-0 flex flex-col items-center justify-center">
-        <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-sage">{label}</p>
-        <p className="text-4xl font-bold tabular-nums text-[var(--aal-ink)]">
-          {value == null ? '—' : Math.round(value)}
-        </p>
+    <div
+      className="rounded-xl border px-3 py-2.5 shadow-lg backdrop-blur-sm"
+      style={{
+        background: 'color-mix(in srgb, var(--aal-card) 92%, transparent)',
+        borderColor: 'var(--aal-line)',
+      }}
+    >
+      <p className="text-[11px] font-semibold text-[var(--aal-muted)]">{title}</p>
+      <div className="mt-1.5 space-y-1">
+        {payload.map((entry) => {
+          const formatted = valueFormatter
+            ? valueFormatter(entry.value, entry.name, entry)
+            : [entry.value, entry.name]
+          const [val, name] = Array.isArray(formatted) ? formatted : [formatted, entry.name]
+          return (
+            <div key={entry.dataKey || entry.name} className="flex items-center gap-2 text-xs">
+              <span
+                className="size-2 shrink-0 rounded-full"
+                style={{ background: entry.color || entry.fill || SLEEP_CHART.duration }}
+              />
+              <span className="text-[var(--aal-muted)]">{name}</span>
+              <span className="ml-auto font-semibold tabular-nums text-[var(--aal-ink)]">{val}</span>
+            </div>
+          )
+        })}
       </div>
     </div>
   )
 }
 
-function StageBar({ stages, className = '' }) {
+function StageBar({ stages, className = '', compact = false }) {
   const parts = [
     { key: 'awake', label: 'Awake', value: stages?.awakeMin, color: STAGE_COLORS.awake },
     { key: 'rem', label: 'REM', value: stages?.remMin, color: STAGE_COLORS.rem },
@@ -92,7 +97,7 @@ function StageBar({ stages, className = '' }) {
   if (!total) {
     return (
       <div
-        className={`rounded-full bg-[var(--aal-accent-soft)] px-3 py-3 text-sm text-[var(--aal-muted)] ${className}`}
+        className={`rounded-full bg-[var(--aal-accent-soft)] px-3 py-2 text-xs text-[var(--aal-muted)] ${className}`}
       >
         Stage mix unavailable
       </div>
@@ -101,20 +106,35 @@ function StageBar({ stages, className = '' }) {
 
   return (
     <div className={className}>
-      <div className="flex h-3 overflow-hidden rounded-full bg-[var(--aal-accent-soft)]">
+      <div
+        className={`flex overflow-hidden rounded-full bg-slate-900/10 dark:bg-white/10 ${
+          compact ? 'h-3' : 'h-3.5'
+        }`}
+      >
         {parts.map((part) => (
           <div
             key={part.key}
             title={`${part.label}: ${formatMinutes(part.value)}`}
+            className="transition-[width] duration-500 first:rounded-l-full last:rounded-r-full"
             style={{ width: `${(part.value / total) * 100}%`, backgroundColor: part.color }}
           />
         ))}
       </div>
-      <div className="mt-3 flex flex-wrap gap-x-4 gap-y-2 text-xs text-[var(--aal-muted)]">
+      <div
+        className={`flex flex-wrap text-[var(--aal-muted)] ${
+          compact ? 'mt-2 gap-x-4 gap-y-1.5 text-sm' : 'mt-3 gap-x-4 gap-y-2 text-sm'
+        }`}
+      >
         {parts.map((part) => (
           <span key={part.key} className="inline-flex items-center gap-1.5">
-            <span className="h-2 w-2 rounded-full" style={{ backgroundColor: part.color }} />
-            {part.label} {formatMinutes(part.value)}
+            <span
+              className={`rounded-full ${compact ? 'h-2 w-2' : 'h-2.5 w-2.5'}`}
+              style={{ backgroundColor: part.color }}
+            />
+            {part.label}{' '}
+            <span className="font-semibold tabular-nums text-[var(--aal-ink)]">
+              {formatMinutes(part.value)}
+            </span>
           </span>
         ))}
       </div>
@@ -122,20 +142,53 @@ function StageBar({ stages, className = '' }) {
   )
 }
 
-function FactorCard({ label, value, hint, onClick }) {
+function FactorCard({
+  label,
+  value,
+  hint,
+  onClick,
+  onInfoClick = null,
+  infoLabel = 'About this metric',
+  accent = SLEEP_CHART.duration,
+}) {
   return (
-    <button
-      type="button"
-      onClick={onClick}
-      className="rounded-2xl border border-[var(--aal-line)] bg-[var(--aal-card)] p-4 text-left transition hover:border-sage/40 hover:bg-sage/5 focus:outline-none focus-visible:ring-2 focus-visible:ring-sage/40"
+    <div
+      className="group relative overflow-hidden rounded-2xl border border-[var(--aal-line)] bg-[var(--aal-card)] p-4 transition duration-200 hover:-translate-y-0.5 hover:shadow-[0_12px_28px_-16px_rgba(55,48,163,0.45)]"
+      style={{ boxShadow: 'inset 3px 0 0 0 ' + accent }}
     >
-      <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-[var(--aal-muted)]">
-        {label}
-      </p>
-      <p className="mt-2 text-2xl font-bold tabular-nums text-[var(--aal-ink)]">{value}</p>
-      {hint ? <p className="mt-1 text-xs text-[var(--aal-muted)]">{hint}</p> : null}
-      <p className="mt-3 text-xs font-semibold text-sage">Details →</p>
-    </button>
+      <div className="flex items-start justify-between gap-2">
+        <button
+          type="button"
+          onClick={onClick}
+          className="min-w-0 flex-1 text-left focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-400/40"
+        >
+          <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-[var(--aal-muted)]">
+            {label}
+          </p>
+          <p className="mt-2 text-2xl font-bold tabular-nums text-[var(--aal-ink)] transition group-hover:text-indigo-600 dark:group-hover:text-indigo-300">
+            {value}
+          </p>
+          {hint ? <p className="mt-1 text-xs text-[var(--aal-muted)]">{hint}</p> : null}
+          <p className="mt-3 text-xs font-semibold text-indigo-500 opacity-80 transition group-hover:opacity-100">
+            Details →
+          </p>
+        </button>
+        {onInfoClick ? (
+          <button
+            type="button"
+            onClick={(event) => {
+              event.stopPropagation()
+              onInfoClick()
+            }}
+            className="shrink-0 rounded-full border border-[var(--aal-line)] p-1.5 text-[var(--aal-muted)] transition hover:border-indigo-300 hover:bg-indigo-50 hover:text-indigo-600 dark:hover:bg-indigo-950/40 dark:hover:text-indigo-300"
+            aria-label={infoLabel}
+            title={infoLabel}
+          >
+            <Info className="h-3.5 w-3.5" />
+          </button>
+        ) : null}
+      </div>
+    </div>
   )
 }
 
@@ -147,6 +200,7 @@ function SleepFactorModal({ factor, points, focus, view, onClose }) {
   const chartKey = {
     score: 'score',
     duration: 'duration',
+    nap: 'nap',
     deep: 'deep',
     rem: 'rem',
     light: 'light',
@@ -164,6 +218,7 @@ function SleepFactorModal({ factor, points, focus, view, onClose }) {
   const focusValue = (() => {
     if (factor === 'score') return formatNumber(focus?.score ?? focus?.avgScore, 0)
     if (factor === 'duration') return formatMinutes(focus?.duration ?? focus?.avgDuration)
+    if (factor === 'nap') return formatMinutes(focus?.nap ?? focus?.avgNap)
     if (factor === 'deep') return formatPct(focus?.deep ?? focus?.avgDeep)
     if (factor === 'rem') return formatPct(focus?.rem ?? focus?.avgRem)
     if (factor === 'light') return formatPct(focus?.light ?? focus?.avgLight)
@@ -182,7 +237,7 @@ function SleepFactorModal({ factor, points, focus, view, onClose }) {
       const c = bedtimeConsistency(points)
       return c.avgBedtime ? `Avg bedtime ${formatClock(c.avgBedtime)}` : '—'
     }
-    if (factor === 'duration' || factor === 'awake') {
+    if (factor === 'duration' || factor === 'awake' || factor === 'nap') {
       return `${view} avg ${formatMinutes(average(chartData.map((p) => p[chartKey])))}`
     }
     if (factor === 'deep' || factor === 'rem' || factor === 'light') {
@@ -212,7 +267,7 @@ function SleepFactorModal({ factor, points, focus, view, onClose }) {
       >
         <div className="mb-4 flex items-start justify-between gap-3">
           <div>
-            <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-sage">
+            <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-indigo-500 dark:text-indigo-300">
               {view} insight
             </p>
             <h2 id={titleId} className="mt-1 text-2xl font-bold text-[var(--aal-ink)]">
@@ -229,7 +284,7 @@ function SleepFactorModal({ factor, points, focus, view, onClose }) {
           </button>
         </div>
 
-        <div className="rounded-2xl bg-sage/10 px-4 py-4">
+        <div className="rounded-2xl bg-indigo-500/10 px-4 py-4">
           <p className="text-3xl font-bold tabular-nums text-[var(--aal-ink)]">{focusValue}</p>
           <p className="mt-1 text-sm text-[var(--aal-muted)]">{avgValue}</p>
         </div>
@@ -255,7 +310,7 @@ function SleepFactorModal({ factor, points, focus, view, onClose }) {
                 labelFormatter={(_, payload) => payload?.[0]?.payload?.date || _}
                 formatter={(value) => {
                   if (value == null) return ['—', guide.title]
-                  if (factor === 'duration' || factor === 'awake') {
+                  if (factor === 'duration' || factor === 'awake' || factor === 'nap') {
                     return [formatMinutes(value), guide.title]
                   }
                   if (factor === 'deep' || factor === 'rem' || factor === 'light') {
@@ -272,10 +327,11 @@ function SleepFactorModal({ factor, points, focus, view, onClose }) {
               <Area
                 type="monotone"
                 dataKey={chartKey}
-                stroke="#6b9080"
-                fill="#6b908033"
-                strokeWidth={2}
+                stroke={SLEEP_CHART.duration}
+                fill={SLEEP_CHART.durationSoft}
+                strokeWidth={2.4}
                 connectNulls
+                activeDot={{ r: 5, strokeWidth: 2, stroke: '#fff' }}
               />
             </AreaChart>
           </ResponsiveContainer>
@@ -319,6 +375,7 @@ function StagePie({ stages }) {
     { name: 'Light', value: stages?.lightMin, color: STAGE_COLORS.light },
     { name: 'Deep', value: stages?.deepMin, color: STAGE_COLORS.deep },
   ].filter((item) => item.value != null && item.value > 0)
+  const total = stagePie.reduce((sum, item) => sum + item.value, 0)
 
   if (!stagePie.length) {
     return (
@@ -330,37 +387,61 @@ function StagePie({ stages }) {
 
   return (
     <div className="grid gap-4 sm:grid-cols-2 sm:items-center">
-      <div className="h-52">
+      <div className="relative h-56">
         <ResponsiveContainer width="100%" height="100%">
           <PieChart>
             <Pie
               data={stagePie}
               dataKey="value"
               nameKey="name"
-              innerRadius={48}
-              outerRadius={78}
-              paddingAngle={2}
+              innerRadius={58}
+              outerRadius={86}
+              paddingAngle={3}
+              stroke="var(--aal-card)"
+              strokeWidth={3}
             >
               {stagePie.map((entry) => (
-                <Cell key={entry.name} fill={entry.color} />
+                <Cell
+                  key={entry.name}
+                  fill={entry.color}
+                  className="origin-center transition duration-200 hover:opacity-90"
+                />
               ))}
             </Pie>
-            <Tooltip formatter={(value, name) => [formatMinutes(value), name]} />
+            <Tooltip
+              content={
+                <SleepTooltip valueFormatter={(value, name) => [formatMinutes(value), name]} />
+              }
+            />
           </PieChart>
         </ResponsiveContainer>
+        <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center">
+          <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-[var(--aal-muted)]">
+            Asleep
+          </p>
+          <p className="text-lg font-bold tabular-nums text-[var(--aal-ink)]">
+            {formatMinutes(total - (stages?.awakeMin || 0))}
+          </p>
+        </div>
       </div>
-      <div className="space-y-3">
+      <div className="space-y-2.5">
         {stagePie.map((entry) => (
           <div
             key={entry.name}
-            className="flex items-center justify-between rounded-xl border border-[var(--aal-line)] px-3 py-2"
+            className="flex items-center justify-between rounded-xl border border-[var(--aal-line)] bg-[var(--aal-card)] px-3 py-2.5 transition hover:border-indigo-300/50 hover:bg-indigo-50/40 dark:hover:bg-indigo-950/30"
           >
-            <span className="inline-flex items-center gap-2 text-sm font-medium">
-              <span className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: entry.color }} />
+            <span className="inline-flex items-center gap-2 text-sm font-medium text-[var(--aal-ink)]">
+              <span
+                className="h-2.5 w-2.5 rounded-full shadow-[0_0_0_3px_rgba(0,0,0,0.04)]"
+                style={{ backgroundColor: entry.color }}
+              />
               {entry.name}
             </span>
-            <span className="text-sm tabular-nums text-[var(--aal-muted)]">
+            <span className="text-sm font-semibold tabular-nums text-[var(--aal-ink)]">
               {formatMinutes(entry.value)}
+              <span className="ml-1.5 text-[11px] font-normal text-[var(--aal-muted)]">
+                {total ? `${Math.round((entry.value / total) * 100)}%` : ''}
+              </span>
             </span>
           </div>
         ))}
@@ -378,6 +459,42 @@ export default function SleepPage() {
   const [activeFactor, setActiveFactor] = useState(null)
   /** Index from end of all nights — 0 = latest night (Day view navigation). */
   const [dayOffset, setDayOffset] = useState(0)
+  const [brief, setBrief] = useState(null)
+  const [briefLoading, setBriefLoading] = useState(false)
+  const [briefError, setBriefError] = useState('')
+  const [consented, setConsented] = useState(false)
+
+  const loadBrief = useCallback(async (force = false) => {
+    setBriefLoading(true)
+    setBriefError('')
+    try {
+      setBrief(await getWeekBrief({ refresh: Boolean(force), topic: 'sleep' }))
+    } catch (err) {
+      setBriefError(err.message || "Could not load this week’s sleep brief.")
+    } finally {
+      setBriefLoading(false)
+    }
+  }, [])
+
+  useEffect(() => {
+    let cancelled = false
+    async function boot() {
+      try {
+        const statusResult = await getCoachStatus().catch(() => null)
+        if (cancelled) return
+        const aiOn = Boolean(statusResult?.ai_consent)
+        setConsented(aiOn)
+        if (aiOn) loadBrief(false)
+        else setBriefError('Turn on AI coaching in settings to get a sleep brief.')
+      } catch {
+        /* sleep data still loads without the brief */
+      }
+    }
+    boot()
+    return () => {
+      cancelled = true
+    }
+  }, [loadBrief])
 
   // Load full available history once so Day/Week/Month/Year can slice instantly.
   useEffect(() => {
@@ -454,7 +571,6 @@ export default function SleepPage() {
       ? bedtimeConsistency(compareNights)
       : summary.consistency
 
-  const heroScore = view === 'day' ? dayNight?.score : summary.avgScore
   const heroDuration = view === 'day' ? dayNight?.duration : summary.avgDuration
   const heroStages =
     view === 'day'
@@ -465,7 +581,6 @@ export default function SleepPage() {
           remMin: summary.remMin,
           awakeMin: summary.awakeMin,
         }
-
   async function handleExploreHistory() {
     setBackfilling(true)
     setError('')
@@ -491,13 +606,18 @@ export default function SleepPage() {
 
   const factorFocus = view === 'day' ? dayNight : summary
   const modalPoints = view === 'day' ? compareNights : chartPoints
+  const usual7 = useMemo(() => {
+    const nights = allValued.slice(-7).map((point) => point.duration).filter((value) => value != null)
+    if (!nights.length) return null
+    return nights.reduce((sum, value) => sum + Number(value), 0) / nights.length
+  }, [allValued])
 
   return (
     <AppShell title="Sleep">
       <PageHeader
         eyebrow="Health"
         title="Sleep"
-        subtitle="Switch Day / Week / Month / Year for COROS-style sleep insights — averages, stages, and trends change with each view."
+        subtitle="Overnight stages, naps, and recovery signals from COROS — Day / Week / Month / Year."
         actions={
           <div className="flex flex-wrap items-center gap-2">
             <RangeTabs
@@ -509,10 +629,28 @@ export default function SleepPage() {
               type="button"
               onClick={handleExploreHistory}
               disabled={backfilling || loading}
-              className="rounded-xl border border-[var(--aal-line)] px-3 py-2 text-sm font-medium disabled:opacity-60"
+              className="rounded-xl border border-[var(--aal-line)] bg-[var(--aal-card)] px-3 py-2 text-sm font-medium transition hover:border-indigo-300 hover:text-indigo-600 disabled:opacity-60 dark:hover:text-indigo-300"
             >
               {backfilling ? 'Loading history…' : 'Explore history'}
             </button>
+            <WeekAlertButton
+              topic="sleep"
+              advice={brief}
+              loading={briefLoading && !brief}
+              error={briefError}
+              onRefresh={() => (consented ? loadBrief(true) : null)}
+              refreshing={briefLoading}
+              loadChips={[
+                {
+                  label: 'Last night',
+                  value: dayNight?.duration != null ? formatMinutes(dayNight.duration) : null,
+                },
+                {
+                  label: '7-day usual',
+                  value: usual7 != null ? formatMinutes(usual7) : null,
+                },
+              ]}
+            />
           </div>
         }
       />
@@ -526,69 +664,80 @@ export default function SleepPage() {
       ) : !allValued.length ? (
         <EmptyState
           title="No sleep data yet"
-          description="Connect COROS and sync to pull sleep score, stages, and HRV."
+          description="Connect COROS and sync to pull sleep duration, stages, naps, and HRV."
           actionLabel="Connect COROS"
           actionTo="/connect-coros"
         />
       ) : (
         <motion.div
           key={view}
-          initial={{ opacity: 0, y: 8 }}
+          initial={{ opacity: 0, y: 10 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.28 }}
+          transition={{ duration: 0.32, ease: [0.22, 1, 0.36, 1] }}
           className="space-y-6"
         >
-          <div className="overflow-hidden rounded-3xl border border-[var(--aal-line)] bg-[linear-gradient(160deg,var(--aal-card)_0%,var(--aal-accent-soft)_100%)] p-5 sm:p-7">
-            <div className="flex flex-col gap-6 lg:flex-row lg:items-center lg:justify-between">
-              <div className="flex items-start gap-4">
-                <div className="rounded-2xl bg-sage/15 p-3 text-sage">
-                  <Moon className="h-6 w-6" />
+          <div className="relative overflow-hidden rounded-2xl border border-[var(--aal-line)] px-4 py-3.5 sm:px-5 sm:py-4">
+            <div
+              className="pointer-events-none absolute inset-0"
+              style={{
+                background:
+                  'radial-gradient(120% 80% at 0% 0%, rgba(55,48,163,0.14), transparent 55%), radial-gradient(90% 70% at 100% 20%, rgba(56,189,248,0.1), transparent 50%), linear-gradient(165deg, var(--aal-card), color-mix(in srgb, #312e81 6%, var(--aal-card)))',
+              }}
+            />
+            <div className="relative flex flex-col gap-3 lg:flex-row lg:items-center lg:gap-4">
+              <div className="flex shrink-0 items-center gap-3">
+                <div className="shrink-0 rounded-xl bg-indigo-600/15 p-2 text-indigo-600 dark:text-indigo-300">
+                  <Moon className="h-[18px] w-[18px]" />
                 </div>
-                <div>
-                  <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-sage">
+                <div className="min-w-0">
+                  <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-indigo-500 dark:text-indigo-300">
                     {viewEyebrow}
                   </p>
-                  <div className="mt-1 flex items-center gap-2">
+                  <div className="mt-0.5 flex flex-nowrap items-center gap-1.5">
                     {view === 'day' ? (
                       <>
                         <button
                           type="button"
                           disabled={!canPrevDay}
                           onClick={() => setDayOffset((v) => v + 1)}
-                          className="rounded-lg border border-[var(--aal-line)] p-1.5 disabled:opacity-40"
+                          className="shrink-0 rounded-md border border-[var(--aal-line)] bg-[var(--aal-card)]/80 p-1 transition hover:border-indigo-300 disabled:opacity-40"
                           aria-label="Previous night"
                         >
-                          <ChevronLeft className="h-4 w-4" />
+                          <ChevronLeft className="h-3.5 w-3.5" />
                         </button>
-                        <h2 className="text-2xl font-bold text-[var(--aal-ink)]">
+                        <h2 className="whitespace-nowrap text-lg font-bold leading-tight text-[var(--aal-ink)] sm:text-xl">
                           {periodTitle(view, summary, dayNight)}
                         </h2>
                         <button
                           type="button"
                           disabled={!canNextDay}
                           onClick={() => setDayOffset((v) => Math.max(0, v - 1))}
-                          className="rounded-lg border border-[var(--aal-line)] p-1.5 disabled:opacity-40"
+                          className="shrink-0 rounded-md border border-[var(--aal-line)] bg-[var(--aal-card)]/80 p-1 transition hover:border-indigo-300 disabled:opacity-40"
                           aria-label="Next night"
                         >
-                          <ChevronRight className="h-4 w-4" />
+                          <ChevronRight className="h-3.5 w-3.5" />
                         </button>
                       </>
                     ) : (
-                      <h2 className="text-2xl font-bold text-[var(--aal-ink)]">
+                      <h2 className="whitespace-nowrap text-lg font-bold leading-tight text-[var(--aal-ink)] sm:text-xl">
                         {periodTitle(view, summary, dayNight)}
                       </h2>
                     )}
                   </div>
-                  <p className="mt-1 text-sm text-[var(--aal-muted)]">
+                  <p className="mt-0.5 text-xs text-[var(--aal-muted)] sm:text-sm">
                     {view === 'day' ? (
                       <>
                         {formatClock(dayNight?.bedtime)} → {formatClock(dayNight?.wake)}
-                        {dayNight?.nap != null ? ` · Nap ${formatMinutes(dayNight.nap)}` : ''}
+                        {dayNight?.mainSleep != null
+                          ? ``
+                          : ''}
+                        {dayNight?.nap != null
+                          ? ``
+                          : ''}
                       </>
                     ) : (
                       <>
-                        {summary.nights} night{summary.nights === 1 ? '' : 's'} · avg score{' '}
-                        {formatNumber(summary.avgScore, 0)} · avg sleep{' '}
+                        {summary.nights} night{summary.nights === 1 ? '' : 's'} · avg sleep{' '}
                         {formatMinutes(summary.avgDuration)}
                       </>
                     )}
@@ -596,54 +745,77 @@ export default function SleepPage() {
                 </div>
               </div>
 
-              <div className="grid flex-1 gap-6 sm:grid-cols-[auto_1fr] sm:items-center">
-                <button
-                  type="button"
-                  onClick={() => setActiveFactor('score')}
-                  className="justify-self-center"
-                >
-                  <ScoreRing
-                    score={heroScore}
-                    label={view === 'day' ? 'Score' : 'Avg score'}
-                  />
-                </button>
-                <div className="space-y-4">
-                  <button
-                    type="button"
-                    onClick={() => setActiveFactor('duration')}
-                    className="text-left"
-                  >
-                    <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-[var(--aal-muted)]">
-                      {view === 'day' ? 'Total sleep' : `Avg sleep / night`}
-                    </p>
-                    <p className="text-4xl font-bold tabular-nums text-[var(--aal-ink)]">
-                      {formatMinutes(heroDuration)}
-                    </p>
-                  </button>
-                  <StageBar stages={heroStages} />
-                </div>
+              <button
+                type="button"
+                onClick={() => setActiveFactor('duration')}
+                className="shrink-0 rounded-xl border border-indigo-500/20 bg-[var(--aal-card)]/80 px-5 py-3 text-left backdrop-blur-sm transition hover:border-indigo-400/50 hover:shadow-[0_10px_28px_-18px_rgba(55,48,163,0.55)] lg:min-w-[11.5rem] xl:min-w-[13rem]"
+              >
+                <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-indigo-500 dark:text-indigo-300">
+                  {view === 'day' ? 'Total sleep' : 'Avg / night'}
+                </p>
+                <p className="mt-1 text-3xl font-bold tabular-nums tracking-tight text-[var(--aal-ink)] xl:text-4xl">
+                  {formatMinutes(heroDuration)}
+                </p>
+                {view === 'day' && (dayNight?.mainSleep != null || dayNight?.nap != null) ? (
+                  <p className="mt-1 text-xs text-[var(--aal-muted)]">
+                    {dayNight?.mainSleep != null
+                      ? `Main ${formatMinutes(dayNight.mainSleep)}`
+                      : 'Main —'}
+                    {dayNight?.nap != null ? ` + Nap ${formatMinutes(dayNight.nap)}` : ''}
+                  </p>
+                ) : null}
+              </button>
+
+              <div className="min-w-0 flex-1">
+                <StageBar stages={heroStages} compact />
               </div>
             </div>
           </div>
 
-          <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+          <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
             <FactorCard
               label={view === 'day' ? 'Deep sleep' : 'Avg deep'}
               value={formatPct(view === 'day' ? dayNight?.deep : summary.avgDeep)}
-              hint={view === 'day' ? 'Share of this night' : `${view} average`}
+              hint={view === 'day' ? 'Share of overnight sleep' : `${view} average`}
+              accent={STAGE_COLORS.deep}
               onClick={() => setActiveFactor('deep')}
             />
             <FactorCard
               label={view === 'day' ? 'REM sleep' : 'Avg REM'}
               value={formatPct(view === 'day' ? dayNight?.rem : summary.avgRem)}
-              hint={view === 'day' ? 'Share of this night' : `${view} average`}
+              hint={view === 'day' ? 'Share of overnight sleep' : `${view} average`}
+              accent={STAGE_COLORS.rem}
               onClick={() => setActiveFactor('rem')}
             />
             <FactorCard
               label={view === 'day' ? 'Awake' : 'Avg awake'}
-              value={formatMinutes(view === 'day' ? dayNight?.awake : summary.avgAwake)}
+              value={
+                view === 'day'
+                  ? `${formatMinutes(dayNight?.awake)}${
+                      dayNight?.awakeCount != null
+                        ? ``
+                        : ''
+                    }`
+                  : formatMinutes(summary.avgAwake)
+              }
               hint={view === 'day' ? 'Wakefulness overnight' : `${view} average`}
+              accent={STAGE_COLORS.awake}
               onClick={() => setActiveFactor('awake')}
+            />
+            <FactorCard
+              label={view === 'day' ? 'Total nap time' : 'Avg total nap'}
+              value={formatMinutes(view === 'day' ? dayNight?.nap : summary.avgNap)}
+              hint={
+                view === 'day'
+                  ? dayNight?.nap != null
+                    ? 'Nap session length from sync'
+                    : 'No nap logged'
+                  : `${view} average`
+              }
+              accent={STAGE_COLORS.light}
+              onClick={() => setActiveFactor('nap')}
+              onInfoClick={() => setActiveFactor('nap')}
+              infoLabel="Why Total nap time can differ from the COROS app"
             />
             <FactorCard
               label="Bedtime consistency"
@@ -657,6 +829,7 @@ export default function SleepPage() {
                   ? `Avg ${formatClock(consistency.avgBedtime)} · ${consistency.label}`
                   : consistency.label
               }
+              accent="#6366F1"
               onClick={() => setActiveFactor('consistency')}
             />
           </div>
@@ -673,17 +846,23 @@ export default function SleepPage() {
               <StagePie stages={heroStages} />
               {view !== 'day' ? (
                 <div className="mt-4 grid grid-cols-3 gap-2 text-center text-xs">
-                  <div className="rounded-xl bg-[var(--aal-accent-soft)] px-2 py-3">
+                  <div className="rounded-xl border border-[var(--aal-line)] px-2 py-3">
                     <p className="text-[var(--aal-muted)]">Deep</p>
-                    <p className="mt-1 font-semibold tabular-nums">{formatPct(summary.avgDeep)}</p>
+                    <p className="mt-1 font-semibold tabular-nums" style={{ color: STAGE_COLORS.deep }}>
+                      {formatPct(summary.avgDeep)}
+                    </p>
                   </div>
-                  <div className="rounded-xl bg-[var(--aal-accent-soft)] px-2 py-3">
+                  <div className="rounded-xl border border-[var(--aal-line)] px-2 py-3">
                     <p className="text-[var(--aal-muted)]">Light</p>
-                    <p className="mt-1 font-semibold tabular-nums">{formatPct(summary.avgLight)}</p>
+                    <p className="mt-1 font-semibold tabular-nums" style={{ color: STAGE_COLORS.light }}>
+                      {formatPct(summary.avgLight)}
+                    </p>
                   </div>
-                  <div className="rounded-xl bg-[var(--aal-accent-soft)] px-2 py-3">
+                  <div className="rounded-xl border border-[var(--aal-line)] px-2 py-3">
                     <p className="text-[var(--aal-muted)]">REM</p>
-                    <p className="mt-1 font-semibold tabular-nums">{formatPct(summary.avgRem)}</p>
+                    <p className="mt-1 font-semibold tabular-nums" style={{ color: STAGE_COLORS.rem }}>
+                      {formatPct(summary.avgRem)}
+                    </p>
                   </div>
                 </div>
               ) : null}
@@ -710,6 +889,7 @@ export default function SleepPage() {
                       ? dayNight?.hrvAssessment || 'Overnight assessment'
                       : `${summary.nights} nights`
                   }
+                  accent={SLEEP_CHART.hrv}
                   onClick={() => setActiveFactor('hrv')}
                 />
                 <FactorCard
@@ -720,6 +900,7 @@ export default function SleepPage() {
                     ' bpm',
                   )}
                   hint={view === 'day' ? 'This night' : `${view} average`}
+                  accent={SLEEP_CHART.sleepHr}
                   onClick={() => setActiveFactor('sleepHr')}
                 />
               </div>
@@ -727,32 +908,51 @@ export default function SleepPage() {
                 <div className="mt-4 h-44">
                   <ResponsiveContainer width="100%" height="100%">
                     <LineChart data={chartPoints}>
-                      <CartesianGrid stroke="var(--aal-line)" strokeDasharray="3 3" />
+                      <CartesianGrid stroke={SLEEP_CHART.grid} strokeDasharray="4 6" vertical={false} />
                       <XAxis
                         dataKey="labelShort"
-                        tick={{ fontSize: 11 }}
-                        stroke="var(--aal-muted)"
+                        tick={{ fontSize: 11, fill: 'var(--aal-muted)' }}
+                        stroke="transparent"
+                        tickLine={false}
                       />
-                      <YAxis tick={{ fontSize: 11 }} stroke="var(--aal-muted)" />
+                      <YAxis
+                        tick={{ fontSize: 11, fill: 'var(--aal-muted)' }}
+                        stroke="transparent"
+                        tickLine={false}
+                        axisLine={false}
+                      />
                       <Tooltip
-                        labelFormatter={(_, payload) => payload?.[0]?.payload?.date || _}
+                        cursor={{ stroke: SLEEP_CHART.duration, strokeWidth: 1, strokeDasharray: '4 4' }}
+                        content={
+                          <SleepTooltip
+                            labelFormatter={(_, payload) => payload?.[0]?.payload?.date || _}
+                            valueFormatter={(value, name) => [
+                              name === 'HRV'
+                                ? formatNumber(value, 0, ' ms')
+                                : formatNumber(value, 0, ' bpm'),
+                              name,
+                            ]}
+                          />
+                        }
                       />
                       <Line
                         type="monotone"
                         dataKey="hrv"
                         name="HRV"
-                        stroke="#6b9080"
-                        strokeWidth={2.2}
+                        stroke={SLEEP_CHART.hrv}
+                        strokeWidth={2.5}
                         dot={chartPoints.length <= 14}
+                        activeDot={{ r: 5, strokeWidth: 2, stroke: '#fff' }}
                         connectNulls
                       />
                       <Line
                         type="monotone"
                         dataKey="sleepHr"
                         name="Sleep HR"
-                        stroke="#6b9ac4"
-                        strokeWidth={2}
+                        stroke={SLEEP_CHART.sleepHr}
+                        strokeWidth={2.2}
                         dot={chartPoints.length <= 14}
+                        activeDot={{ r: 5, strokeWidth: 2, stroke: '#fff' }}
                         connectNulls
                       />
                     </LineChart>
@@ -765,40 +965,40 @@ export default function SleepPage() {
           {view === 'day' ? (
             <SectionCard
               title="Last 7 nights"
-              subtitle="How this night compares to recent sleep — score and duration."
+              subtitle="Total sleep duration vs recent nights."
             >
               <div className="h-64 w-full">
                 <ResponsiveContainer width="100%" height="100%">
-                  <BarChart data={compareNights}>
-                    <CartesianGrid stroke="var(--aal-line)" strokeDasharray="3 3" />
+                  <BarChart data={compareNights} barCategoryGap="28%">
+                    <CartesianGrid stroke={SLEEP_CHART.grid} strokeDasharray="4 6" vertical={false} />
                     <XAxis
                       dataKey="date"
-                      tick={{ fontSize: 11 }}
-                      stroke="var(--aal-muted)"
+                      tick={{ fontSize: 11, fill: 'var(--aal-muted)' }}
+                      stroke="transparent"
+                      tickLine={false}
                       tickFormatter={(value) => formatDayLabel(value, 'weekday')}
                     />
-                    <YAxis tick={{ fontSize: 11 }} stroke="var(--aal-muted)" />
-                    <Tooltip
-                      cursor={{ fill: 'transparent' }}
-                      labelFormatter={(value) => formatDayLabel(value, 'full')}
-                      formatter={(value, name) => [
-                        name === 'Duration' ? formatMinutes(value) : formatNumber(value, 0),
-                        name,
-                      ]}
+                    <YAxis
+                      tick={{ fontSize: 11, fill: 'var(--aal-muted)' }}
+                      stroke="transparent"
+                      tickLine={false}
+                      axisLine={false}
                     />
-                    <Bar
-                      dataKey="score"
-                      name="Score"
-                      fill="#6b9080"
-                      radius={[6, 6, 0, 0]}
-                      activeBar={BarActiveGlow}
+                    <Tooltip
+                      cursor={{ fill: SLEEP_CHART.cursor }}
+                      content={
+                        <SleepTooltip
+                          labelFormatter={(value) => formatDayLabel(value, 'full')}
+                          valueFormatter={(value) => [formatMinutes(value), 'Duration']}
+                        />
+                      }
                     />
                     <Bar
                       dataKey="duration"
                       name="Duration"
-                      fill="#6b9ac4"
-                      radius={[6, 6, 0, 0]}
-                      activeBar={BarActiveGlow}
+                      fill={SLEEP_CHART.duration}
+                      radius={[10, 10, 4, 4]}
+                      activeBar={SleepBarActive}
                     />
                   </BarChart>
                 </ResponsiveContainer>
@@ -810,54 +1010,53 @@ export default function SleepPage() {
                 title={view === 'year' ? 'Weekly sleep trends' : `${view} sleep trends`}
                 subtitle={
                   view === 'year'
-                    ? 'Weekly averages across the year (from first collected sample).'
-                    : `Daily score and duration for this ${view}.`
+                    ? 'Weekly average duration across the year.'
+                    : `Daily total sleep for this ${view}.`
                 }
               >
                 <div className="h-72 w-full">
                   <ResponsiveContainer width="100%" height="100%">
-                    <LineChart data={chartPoints}>
-                      <CartesianGrid stroke="var(--aal-line)" strokeDasharray="3 3" />
+                    <AreaChart data={chartPoints}>
+                      <defs>
+                        <linearGradient id="sleepDurationFill" x1="0" y1="0" x2="0" y2="1">
+                          <stop offset="0%" stopColor={SLEEP_CHART.duration} stopOpacity={0.35} />
+                          <stop offset="100%" stopColor={SLEEP_CHART.duration} stopOpacity={0.02} />
+                        </linearGradient>
+                      </defs>
+                      <CartesianGrid stroke={SLEEP_CHART.grid} strokeDasharray="4 6" vertical={false} />
                       <XAxis
                         dataKey="labelShort"
-                        tick={{ fontSize: 11 }}
-                        stroke="var(--aal-muted)"
+                        tick={{ fontSize: 11, fill: 'var(--aal-muted)' }}
+                        stroke="transparent"
+                        tickLine={false}
                       />
-                      <YAxis yAxisId="left" tick={{ fontSize: 11 }} stroke="var(--aal-muted)" />
                       <YAxis
-                        yAxisId="right"
-                        orientation="right"
-                        tick={{ fontSize: 11 }}
-                        stroke="var(--aal-muted)"
+                        tick={{ fontSize: 11, fill: 'var(--aal-muted)' }}
+                        stroke="transparent"
+                        tickLine={false}
+                        axisLine={false}
                       />
                       <Tooltip
-                        labelFormatter={(_, payload) => payload?.[0]?.payload?.date || _}
-                        formatter={(value, name) => [
-                          name === 'Duration' ? formatMinutes(value) : formatNumber(value, 0),
-                          name,
-                        ]}
+                        cursor={{ stroke: SLEEP_CHART.duration, strokeWidth: 1, strokeDasharray: '4 4' }}
+                        content={
+                          <SleepTooltip
+                            labelFormatter={(_, payload) => payload?.[0]?.payload?.date || _}
+                            valueFormatter={(value) => [formatMinutes(value), 'Duration']}
+                          />
+                        }
                       />
-                      <Line
-                        yAxisId="left"
-                        type="monotone"
-                        dataKey="score"
-                        name="Score"
-                        stroke="#6b9080"
-                        strokeWidth={2.5}
-                        dot={chartPoints.length <= 16}
-                        connectNulls
-                      />
-                      <Line
-                        yAxisId="right"
+                      <Area
                         type="monotone"
                         dataKey="duration"
                         name="Duration"
-                        stroke="#6b9ac4"
-                        strokeWidth={2}
+                        stroke={SLEEP_CHART.duration}
+                        fill="url(#sleepDurationFill)"
+                        strokeWidth={2.75}
                         dot={chartPoints.length <= 16}
+                        activeDot={{ r: 5, strokeWidth: 2, stroke: '#fff' }}
                         connectNulls
                       />
-                    </LineChart>
+                    </AreaChart>
                   </ResponsiveContainer>
                 </div>
               </SectionCard>
@@ -868,32 +1067,38 @@ export default function SleepPage() {
               >
                 <div className="h-72 w-full">
                   <ResponsiveContainer width="100%" height="100%">
-                    <BarChart data={chartPoints}>
-                      <CartesianGrid stroke="var(--aal-line)" strokeDasharray="3 3" />
+                    <BarChart data={chartPoints} barCategoryGap="18%">
+                      <CartesianGrid stroke={SLEEP_CHART.grid} strokeDasharray="4 6" vertical={false} />
                       <XAxis
                         dataKey="labelShort"
-                        tick={{ fontSize: 11 }}
-                        stroke="var(--aal-muted)"
+                        tick={{ fontSize: 11, fill: 'var(--aal-muted)' }}
+                        stroke="transparent"
+                        tickLine={false}
                       />
-                      <YAxis tick={{ fontSize: 11 }} stroke="var(--aal-muted)" />
+                      <YAxis
+                        tick={{ fontSize: 11, fill: 'var(--aal-muted)' }}
+                        stroke="transparent"
+                        tickLine={false}
+                        axisLine={false}
+                      />
                       <Tooltip
-                        cursor={{ fill: 'transparent' }}
-                        labelFormatter={(_, payload) => payload?.[0]?.payload?.date || _}
-                        formatter={(value, name) => [formatMinutes(value), name]}
+                        cursor={{ fill: SLEEP_CHART.cursor }}
+                        content={
+                          <SleepTooltip
+                            labelFormatter={(_, payload) => payload?.[0]?.payload?.date || _}
+                            valueFormatter={(value, name) => [formatMinutes(value), name]}
+                          />
+                        }
                       />
-                      <Bar dataKey="deepMin" name="Deep" stackId="stages" fill={STAGE_COLORS.deep} />
-                      <Bar
-                        dataKey="lightMin"
-                        name="Light"
-                        stackId="stages"
-                        fill={STAGE_COLORS.light}
-                      />
+                      <Bar dataKey="deepMin" name="Deep" stackId="stages" fill={STAGE_COLORS.deep} radius={[0, 0, 0, 0]} />
+                      <Bar dataKey="lightMin" name="Light" stackId="stages" fill={STAGE_COLORS.light} />
                       <Bar dataKey="remMin" name="REM" stackId="stages" fill={STAGE_COLORS.rem} />
                       <Bar
                         dataKey="awakeMin"
                         name="Awake"
                         stackId="stages"
                         fill={STAGE_COLORS.awake}
+                        radius={[6, 6, 0, 0]}
                       />
                     </BarChart>
                   </ResponsiveContainer>

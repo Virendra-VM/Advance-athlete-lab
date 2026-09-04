@@ -1,3 +1,4 @@
 1) 6 days a week and 60 mins per session is making AI think only 360 mins per week as it multiply the 6 Days by 60 mins per session, so many time a session can be longer session like around 120 mins to 240 mins, so AI is making the workout as per the maths 6 session X 60 mins = 360 mins total, so each session will only be of 60 mins and that's not possible as session can vary as per the type of workout it is! Right? 
 2) When ask anything to the AI the output is very limited like smallest output has 145 words, and largest output has 190 words, why is that can't it answer bigger and better?
 3) Is the AI answeing the person after going throught the data of the athlete, from strava coros and the aditional info that the Person gave?
+4) Now apply this sleep page color pannel to full system to all the pages.

@@ -148,13 +148,21 @@ def parse_training_load(text: str) -> dict[str, Any]:
 
 
 def _normalize_clock(value: str | None) -> str | None:
-    """Normalize HH:MM / H:MM am/pm style times to 24h HH:MM."""
+    """Normalize HH:MM / H:MM am/pm style times to 24h HH:MM.
+
+    Prefer times that appear after an ISO date (``YYYY-MM-DD HH:MM``) so the
+    date's ``MM-DD`` fragment is never mistaken for a clock (e.g. ``09:04``).
+    """
     if not value:
         return None
     text = value.strip()
-    # Extract first time token from strings like "23:12 - 06:45" or "11:12 PM"
-    match = re.search(
-        r"(\d{1,2}):(\d{2})\s*(am|pm)?",
+    after_date = re.search(
+        r"\d{4}-\d{2}-\d{2}[ T](\d{1,2}):(\d{2})(?:\s*(am|pm))?",
+        text,
+        re.I,
+    )
+    match = after_date or re.search(
+        r"(?<!\d)(\d{1,2}):(\d{2})\s*(am|pm)?",
         text,
         re.I,
     )
@@ -177,30 +185,41 @@ def _parse_sleep_window(labels: dict[str, str], chunk: str) -> tuple[str | None,
         labels.get("Bedtime")
         or labels.get("Sleep Start")
         or labels.get("Fall Asleep")
-        or labels.get("Sleep Time")
     )
     wake = _normalize_clock(
         labels.get("Wake Time")
-        or labels.get("Wake")
         or labels.get("Get Up")
         or labels.get("Wake Up")
     )
+    # Do NOT use bare key "Wake" — it can collide with "Awake …" labels.
     window = (
-        labels.get("Sleep Window")
+        labels.get("Main Sleep Window")
+        or labels.get("Sleep Window")
         or labels.get("Sleep Period")
-        or labels.get("Main Sleep Window")
     )
     if window and (not bedtime or not wake):
-        parts = re.split(r"\s*[-–—to]+\s*", window, maxsplit=1, flags=re.I)
-        if len(parts) == 2:
-            bedtime = bedtime or _normalize_clock(parts[0])
-            wake = wake or _normalize_clock(parts[1])
-    if not bedtime or not wake:
-        # Fallback: "23:12 - 06:45" anywhere in the chunk
+        # COROS format: "2026-09-04 01:00 - 2026-09-04 08:21"
+        # IMPORTANT: do not split on every "-" (ISO dates contain hyphens).
         span = re.search(
-            r"(\d{1,2}:\d{2}\s*(?:am|pm)?)\s*[-–—]\s*(\d{1,2}:\d{2}\s*(?:am|pm)?)",
+            r"(\d{4}-\d{2}-\d{2}[ T]\d{1,2}:\d{2})\s*[-–—]\s*(\d{4}-\d{2}-\d{2}[ T]\d{1,2}:\d{2})",
+            window,
+        )
+        if span:
+            bedtime = bedtime or _normalize_clock(span.group(1))
+            wake = wake or _normalize_clock(span.group(2))
+        else:
+            plain = re.search(
+                r"(?<!\d)(\d{1,2}:\d{2}\s*(?:am|pm)?)\s*[-–—]\s*(\d{1,2}:\d{2}\s*(?:am|pm)?)",
+                window,
+                re.I,
+            )
+            if plain:
+                bedtime = bedtime or _normalize_clock(plain.group(1))
+                wake = wake or _normalize_clock(plain.group(2))
+    if not bedtime or not wake:
+        span = re.search(
+            r"(\d{4}-\d{2}-\d{2}[ T]\d{1,2}:\d{2})\s*[-–—]\s*(\d{4}-\d{2}-\d{2}[ T]\d{1,2}:\d{2})",
             chunk,
-            re.I,
         )
         if span:
             bedtime = bedtime or _normalize_clock(span.group(1))
@@ -209,11 +228,26 @@ def _parse_sleep_window(labels: dict[str, str], chunk: str) -> tuple[str | None,
 
 
 def _parse_nap_minutes(labels: dict[str, str], chunk: str) -> float | None:
-    for key in ("Nap", "Naps", "Nap Duration", "Total Nap", "Nap Time"):
+    for key in (
+        "Naps Total",
+        "Nap Total",
+        "Nap",
+        "Naps",
+        "Nap Duration",
+        "Total Nap",
+        "Nap Time",
+    ):
         if key in labels:
             minutes = _parse_duration_to_minutes(labels[key])
             if minutes is not None:
                 return minutes
+    match = re.search(
+        r"Naps?\s*Total\s*[:：]\s*([^\n]+)",
+        chunk,
+        re.I,
+    )
+    if match:
+        return _parse_duration_to_minutes(match.group(1))
     match = re.search(
         r"Nap(?:s| Duration| Time)?\s*[:：]\s*([^\n]+)",
         chunk,
@@ -222,6 +256,25 @@ def _parse_nap_minutes(labels: dict[str, str], chunk: str) -> float | None:
     if match:
         return _parse_duration_to_minutes(match.group(1))
     return None
+
+
+def _ratio_pct(raw: str | None) -> float | None:
+    """Parse a sleep-stage ratio. Ignore duration strings like '1h 24min'."""
+    if not raw:
+        return None
+    text = str(raw).strip()
+    pct = re.search(r"([\d.]+)\s*%", text)
+    if pct:
+        return float(pct.group(1))
+    if re.search(r"\bh(?:ours?)?\b|\bmin(?:utes?)?\b|:", text, re.I):
+        return None
+    return _float_from(text)
+
+
+def _stage_minutes_from_ratio(duration_min: float | None, pct: float | None) -> float | None:
+    if duration_min is None or pct is None or duration_min <= 0:
+        return None
+    return round(duration_min * pct / 100.0, 1)
 
 
 def parse_sleep_data(text: str) -> list[dict[str, Any]]:
@@ -241,31 +294,40 @@ def parse_sleep_data(text: str) -> list[dict[str, Any]]:
         main_sleep = labels.get("Main Sleep") or labels.get("Total") or labels.get("Total Sleep")
         bedtime, wake_time = _parse_sleep_window(labels, chunk)
         nap_duration_min = _parse_nap_minutes(labels, chunk)
+        duration_min = _parse_duration_to_minutes(main_sleep or "")
+        deep_pct = _ratio_pct(labels.get("Deep Sleep Ratio") or labels.get("Deep Sleep"))
+        light_pct = _ratio_pct(labels.get("Light Sleep Ratio") or labels.get("Light Sleep"))
+        rem_pct = _ratio_pct(
+            labels.get("REM Ratio") or labels.get("REM Sleep") or labels.get("REM")
+        )
         rows.append(
             {
                 "metric_date": metric_date,
                 "sleep_score": _float_from(labels.get("Sleep Score")),
-                "sleep_duration_min": _parse_duration_to_minutes(main_sleep or ""),
-                "deep_sleep_pct": _float_from(
-                    (labels.get("Deep Sleep Ratio") or labels.get("Deep Sleep") or "").replace(
-                        "%", ""
-                    )
-                ),
-                "light_sleep_pct": _float_from(
-                    (labels.get("Light Sleep Ratio") or labels.get("Light Sleep") or "").replace(
-                        "%", ""
-                    )
-                ),
-                "rem_sleep_pct": _float_from(
-                    (labels.get("REM Ratio") or labels.get("REM Sleep") or labels.get("REM") or "")
-                    .replace("%", "")
-                ),
+                # Main Sleep = time asleep (COROS sleep detail). Prefer this over
+                # daily "Total" which includes awake minutes.
+                "sleep_duration_min": duration_min,
+                "deep_sleep_pct": deep_pct,
+                "light_sleep_pct": light_pct,
+                "rem_sleep_pct": rem_pct,
+                # Integer ratios are rounded — minutes derived here are fallback only.
+                "deep_sleep_min": _stage_minutes_from_ratio(duration_min, deep_pct),
+                "light_sleep_min": _stage_minutes_from_ratio(duration_min, light_pct),
+                "rem_sleep_min": _stage_minutes_from_ratio(duration_min, rem_pct),
                 "awake_min": _parse_duration_to_minutes(
                     labels.get("Awake Time") or labels.get("Wakefulness") or ""
+                ),
+                "awake_count": _float_from(
+                    labels.get("Awake Count (>5 min)")
+                    or labels.get("Awake Count")
+                    or labels.get("Interruptions")
                 ),
                 "bedtime": bedtime,
                 "wake_time": wake_time,
                 "nap_duration_min": nap_duration_min,
+                # Keep main overnight separate; Total Sleep in the COROS app = main + naps.
+                "main_sleep_min": duration_min,
+                "_source": "sleep",
             }
         )
     return rows
@@ -310,20 +372,32 @@ def parse_daily_health_data(text: str) -> list[dict[str, Any]]:
         sleep_hr_m = re.search(r"Sleep HR:\s*Avg\s*([\d.]+)", body)
         sleep_hr = _float_from(sleep_hr_m.group(1) if sleep_hr_m else None)
 
-        total_min = _parse_duration_to_minutes(total.group(1)) if total else None
+        # Daily "Total" is time-in-bed (asleep + awake). COROS Main Sleep / stage
+        # ratios use asleep time only.
+        time_in_bed_min = _parse_duration_to_minutes(total.group(1)) if total else None
         deep_min = _parse_duration_to_minutes(deep.group(1)) if deep else None
         light_min = _parse_duration_to_minutes(light.group(1)) if light else None
         rem_min = _parse_duration_to_minutes(rem.group(1)) if rem else None
         awake_min = _parse_duration_to_minutes(awake.group(1)) if awake else None
 
+        asleep_min = None
+        if deep_min is not None or light_min is not None or rem_min is not None:
+            asleep_min = (deep_min or 0) + (light_min or 0) + (rem_min or 0)
+            if asleep_min <= 0:
+                asleep_min = None
+        if asleep_min is None and time_in_bed_min is not None:
+            asleep_min = time_in_bed_min - (awake_min or 0)
+            if asleep_min <= 0:
+                asleep_min = time_in_bed_min
+
         deep_pct = light_pct = rem_pct = None
-        if total_min and total_min > 0:
+        if asleep_min and asleep_min > 0:
             if deep_min is not None:
-                deep_pct = round(100.0 * deep_min / total_min, 1)
+                deep_pct = round(100.0 * deep_min / asleep_min, 1)
             if light_min is not None:
-                light_pct = round(100.0 * light_min / total_min, 1)
+                light_pct = round(100.0 * light_min / asleep_min, 1)
             if rem_min is not None:
-                rem_pct = round(100.0 * rem_min / total_min, 1)
+                rem_pct = round(100.0 * rem_min / asleep_min, 1)
 
         rows.append(
             {
@@ -331,15 +405,20 @@ def parse_daily_health_data(text: str) -> list[dict[str, Any]]:
                 "steps": int(steps) if steps is not None else None,
                 "calories": calories,
                 "stress": stress,
-                "sleep_duration_min": total_min,
+                # Prefer asleep minutes; Main Sleep from querySleepData may overwrite.
+                "sleep_duration_min": asleep_min,
                 "deep_sleep_pct": deep_pct,
                 "light_sleep_pct": light_pct,
                 "rem_sleep_pct": rem_pct,
+                "deep_sleep_min": deep_min,
+                "light_sleep_min": light_min,
+                "rem_sleep_min": rem_min,
                 "awake_min": awake_min,
                 # Keep overnight HR separate so daily avg HR sync does not overwrite it.
                 "sleep_avg_hr": sleep_hr,
                 "resting_heart_rate": header_rhr,
                 "hrv": header_hrv,
+                "_source": "daily",
             }
         )
     return rows

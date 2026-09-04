@@ -115,8 +115,8 @@ def test_template_schedule_is_not_an_autopsy():
     assert "Coach's Secret Rule" in text
     assert "SPINE LOCK" in text
     assert "DO NOT" in text
-    assert "[THE SCIENCE]" in text
-    assert "[LOCKER ROOM LINGO]" in text
+    assert "THE SCIENCE" in text
+    assert "LOCKER ROOM LINGO" in text
     assert "lower-back" in text.lower() or "spine" in text.lower()
     assert "NP" not in text and "TSS" not in text
     assert reply["intent"] == SCHEDULE_UPDATE

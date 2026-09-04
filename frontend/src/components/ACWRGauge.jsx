@@ -30,14 +30,14 @@ function AnimatedAcwrValue({ acwr, className }) {
   return <span className={`text-4xl font-bold ${className}`}>{display}</span>
 }
 
-export default function ACWRGauge({ acwr }) {
+export default function ACWRGauge({ acwr, embedded = false, title = 'ACWR' }) {
   const zone = getAcwrZone(acwr)
   const dashLength = (gaugeAngle(acwr) / 180) * ARC_LENGTH
 
-  return (
-    <Card className="flex h-full flex-col items-center justify-center p-6">
+  const inner = (
+    <div className={`flex h-full flex-col items-center justify-center ${embedded ? 'p-2' : 'p-6'}`}>
       <p className="text-xs font-semibold uppercase tracking-widest text-slate-500 dark:text-slate-400">
-        ACWR
+        {title}
       </p>
       <div className="relative mt-4 h-28 w-48">
         <svg viewBox="0 0 200 110" className="h-full w-full">
@@ -67,6 +67,9 @@ export default function ACWRGauge({ acwr }) {
       <span className={`mt-3 rounded-full px-3 py-1 text-sm font-medium ${zone.badgeClass}`}>
         {zone.label}
       </span>
-    </Card>
+    </div>
   )
+
+  if (embedded) return inner
+  return <Card className="flex h-full flex-col items-center justify-center">{inner}</Card>
 }

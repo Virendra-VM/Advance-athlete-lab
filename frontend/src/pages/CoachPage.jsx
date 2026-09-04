@@ -57,11 +57,11 @@ export default function CoachPage() {
     navigate(location.pathname, { replace: true, state: {} })
   }, [location.pathname, location.state, navigate])
 
-  const loadAdvice = useCallback(async () => {
+  const loadAdvice = useCallback(async (force = false) => {
     setAdviceLoading(true)
     setAdviceError('')
     try {
-      setAdvice(await getDailyAdvice())
+      setAdvice(await getDailyAdvice({ refresh: Boolean(force) }))
     } catch (err) {
       setAdviceError(err.message || 'Could not load today’s advice.')
     } finally {
@@ -242,7 +242,7 @@ export default function CoachPage() {
                 advice={advice}
                 loading={adviceLoading && !advice}
                 error={adviceError}
-                onRefresh={loadAdvice}
+                onRefresh={() => loadAdvice(true)}
                 refreshing={adviceLoading}
                 health={context?.coros?.latest_health}
                 fitness={fitness}

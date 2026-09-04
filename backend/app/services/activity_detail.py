@@ -856,6 +856,12 @@ def enrich_activity_detail(
         strava_laps=strava_laps,
     )
 
+    # Preserve FIT-extracted exercises when MCP detail has none.
+    if not detail.get("exercises"):
+        existing = parse_activity_detail(target) or {}
+        if existing.get("exercises"):
+            detail["exercises"] = existing["exercises"]
+
     # Backfill summary HR onto the activity row when missing.
     summary = detail.get("summary") or {}
     if summary.get("avg_hr") and not target.average_heartrate:

@@ -48,7 +48,7 @@ export const METRIC_GUIDES = {
   hrv: {
     title: 'HRV',
     summary:
-      'Heart-rate variability reflects autonomic balance. Higher HRV (for you) usually signals better recovery readiness.',
+      'Heart-rate variability is overnight beat-to-beat change (milliseconds). This page compares last night with your 7-day usual — not someone else’s number, and not the ACWR load bands.',
     sections: [
       {
         heading: 'What it means',
@@ -67,7 +67,7 @@ export const METRIC_GUIDES = {
   stress: {
     title: 'Stress',
     summary:
-      'Daily stress averages how hard your body was working outside structured workouts — life load plus recovery debt.',
+      'Daily stress is COROS’s all-day average (life load plus training). This page compares today with your 7-day usual — higher is more loaded, and a 70+ day is a safety flag even if the ratio looks modest.',
     sections: [
       {
         heading: 'What it means',
@@ -86,7 +86,7 @@ export const METRIC_GUIDES = {
   rhr: {
     title: 'Resting HR',
     summary:
-      'Resting heart rate is a simple recovery marker. A rise above your baseline often means incomplete recovery or illness.',
+      'Resting HR is overnight beats per minute. This page compares last night with your 7-day usual — higher is more loaded, and a rise of about 5–7 bpm is a coaching flag even if the ratio looks modest.',
     sections: [
       {
         heading: 'What it means',
@@ -105,7 +105,7 @@ export const METRIC_GUIDES = {
   daily: {
     title: 'Daily Health',
     summary:
-      'Steps and calories show everyday movement outside workouts — useful context for total load and recovery.',
+      'Daily health is incidental movement: steps versus your 7-day usual, with calories and day-average HR as companions. Quiet and very-high days are both cautions — this is not GPS volume and not a 10,000-step target.',
     sections: [
       {
         heading: 'What it means',
@@ -136,10 +136,29 @@ export const METRIC_GUIDES = {
       },
     ],
   },
+  acwr: {
+    title: 'Volume & ACWR',
+    summary:
+      'Volume is distance. ACWR is this week’s kilometres divided by your usual week — a traffic light for whether you jumped too fast.',
+    sections: [
+      {
+        heading: 'What it means',
+        body: 'Acute load is the last 7 days. Chronic load is the last 28 days divided by 4 (a usual week). Their ratio near 0.8–1.3 is the typical productive zone; above 1.5 is a spike.',
+      },
+      {
+        heading: 'How to use it',
+        body: 'Progress one thing at a time (distance or intensity). After a spike, hold or deload so the 28-day average can catch up. Pair with sleep and how joints feel.',
+      },
+      {
+        heading: 'Data note',
+        body: 'This is GPS distance from synced activities, not COROS effort load. Indoor, swim, and strength sessions may look small if kilometres are low.',
+      },
+    ],
+  },
   load: {
     title: 'Training Load',
     summary:
-      'Training load compares short-term stress to longer-term fitness. The load ratio helps balance progression and recovery.',
+      'Training load is COROS effort — short-term stress versus your long-term fitness base. The ratio uses the same traffic-light bands as distance ACWR (about 0.8–1.3 productive, above 1.5 a spike).',
     sections: [
       {
         heading: 'What it means',

@@ -13,12 +13,15 @@ from app.services.ai_coach import (  # noqa: E402
     athlete_state_block,
     autopsy_task_for_modality,
     autopsy_task_for_packet,
+    chat_system_prompt,
+    chat_task,
     coach_modality,
     retrieval_query_for_modality,
     schedule_system_prompt,
     schedule_task,
     system_prompt_for_modality,
     template_autopsy,
+    template_general_chat,
     today_call_status,
     readiness_score,
 )
@@ -50,9 +53,13 @@ def test_system_prompts_are_sport_specific():
     assert "vagal" in yoga.lower()
     assert "parasympathetic" in yoga.lower()
     assert "not a clinician" in run.lower()
-    assert "no essays" in run.lower()
+    assert "no essays" in run.lower() or "ban essays" in run.lower()
+    assert "two consecutive sentences" in run.lower()
     assert "the biology" in run.lower()
     assert "⚡" in run or "BOTTOM LINE" in run
+    for prompt in (run, bike, swim, lift, yoga):
+        assert "two consecutive sentences" in prompt.lower()
+        assert "ban essays" in prompt.lower() or "no essays" in prompt.lower()
 
 
 def test_autopsy_tasks_keep_acwr_and_checkins():
@@ -210,6 +217,46 @@ def test_today_call_bands():
     assert score == 73 and source == "sleep_score"
 
 
+def test_chat_and_schedule_prompts_skip_autopsy_sections():
+    chat = chat_system_prompt()
+    schedule = schedule_system_prompt()
+    task = chat_task()
+    assert "THE BOTTOM LINE" in chat
+    assert "skip" in chat.lower()
+    assert "MECHANICAL PRECISION" in chat
+    assert "CARDIOVASCULAR COST" in chat
+    assert "two consecutive sentences" in chat.lower()
+    assert "REFRAME" in chat
+    assert "THE BOTTOM LINE" in schedule
+    assert "skip" in schedule.lower()
+    assert "two consecutive sentences" in schedule.lower()
+    assert "last synced" in task.lower() or "telemetry" in task.lower()
+    assert "BOTTOM LINE" in task
+
+
+def test_template_general_chat_is_bullets_not_an_autopsy():
+    calm = template_general_chat(
+        "What is ACWR?",
+        {"readiness": {"reason": "Sleep is adequate."}},
+        [],
+    )
+    text = calm["reply"]
+    assert "🧠 THE CALL" in text
+    assert "📌 ANSWER" in text
+    assert "THE BOTTOM LINE" not in text
+    assert "MECHANICAL PRECISION" not in text
+    assert "NP" not in text
+    emotional = template_general_chat(
+        "I failed. I cut the workout short and I feel guilty.",
+        {"readiness": {"reason": "Hold easy."}},
+        [],
+    )
+    reframe = emotional["reply"]
+    assert "💬 REFRAME" in reframe
+    assert "**" in reframe
+    assert "THE BOTTOM LINE" not in reframe
+
+
 def test_schedule_prompt_bypasses_autopsy():
     system = schedule_system_prompt()
     task = schedule_task()
@@ -219,12 +266,49 @@ def test_schedule_prompt_bypasses_autopsy():
     assert "LOCKER ROOM DIRECTIVE" in system
     assert "Coach's Secret Rule" in system
     assert "PRIMED" in system and "CAUTION" in system and "REST / RESTORE" in system
-    assert "[THE SCIENCE]" in system
-    assert "[LOCKER ROOM LINGO]" in system
+    assert "THE SCIENCE" in system
+    assert "LOCKER ROOM LINGO" in system
     assert "DO NOT" in system
     assert "ACWR" in task
     assert "autopsy" in task.lower()
     assert "Secret Rule" in task
+    assert "BOTTOM LINE" in task or "skip" in system.lower()
+
+
+def test_context_digest_strips_session_file_unless_audit():
+    from app.services.coach_ai import _context_digest, resolve_clock
+
+    clock = resolve_clock("UTC")
+    context = {
+        "profile": {},
+        "physiology": {},
+        "recent_activities": [
+            {
+                "name": "Colombia",
+                "sport": "VirtualRide",
+                "date": "2026-09-01",
+                "np": 203,
+                "pct_ftp": 88,
+                "avg_power": 180,
+                "laps": [{"index": 7, "avg_power": 262}],
+            }
+        ],
+        "focal_sessions": [
+            {
+                "name": "Colombia",
+                "date": "2026-09-01",
+                "laps": [{"index": 7, "avg_power": 262}],
+            }
+        ],
+        "coros": {},
+    }
+    chat_digest = _context_digest(context, clock, include_session_audit=False)
+    assert '"laps"' not in chat_digest
+    assert '"np"' not in chat_digest
+    assert "recent_key_sessions" not in chat_digest
+    audit_digest = _context_digest(context, clock, include_session_audit=True)
+    assert '"laps"' not in audit_digest
+    assert '"np"' in audit_digest
 
 
 def test_retrieval_query_tracks_modality():
@@ -273,7 +357,10 @@ def run() -> None:
         test_template_autopsy_run_is_not_a_bike_file,
         test_template_autopsy_uses_prescribed_overlay,
         test_today_call_bands,
+        test_chat_and_schedule_prompts_skip_autopsy_sections,
+        test_template_general_chat_is_bullets_not_an_autopsy,
         test_schedule_prompt_bypasses_autopsy,
+        test_context_digest_strips_session_file_unless_audit,
         test_retrieval_query_tracks_modality,
         test_intent_covers_non_bike_sessions,
         test_match_picks_named_sport_family,

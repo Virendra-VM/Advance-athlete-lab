@@ -28,6 +28,7 @@ from app.services.coach_ai import (
     coach_chat,
     confirm_baseline,
     generate_daily_advice,
+    generate_week_brief,
     generate_week_plan,
     get_active_plan,
     publish_plan_to_schedule,
@@ -146,12 +147,48 @@ def add_plan_to_schedule(
 @router.get("/advice", response_model=CoachAdviceResponse)
 def read_advice(
     timezone: str | None = Query(default=None),
+    refresh: bool = Query(default=False),
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
+    """Today's brief. Cached for the local day unless signals changed or refresh=true."""
     profile = _require_profile(current_user, db)
     _require_ai_consent(db, profile)
-    return CoachAdviceResponse(**generate_daily_advice(db, profile, timezone_name=timezone))
+    return CoachAdviceResponse(
+        **generate_daily_advice(db, profile, timezone_name=timezone, force=refresh)
+    )
+
+
+@router.get("/week-brief", response_model=CoachAdviceResponse)
+def read_week_brief(
+    timezone: str | None = Query(default=None),
+    refresh: bool = Query(default=False),
+    topic: str = Query(default="volume"),
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """This week's page brief. Cached per Monday week + topic unless signals changed or refresh=true."""
+    topic_key = (topic or "volume").strip().lower()
+    if topic_key not in {
+        "volume",
+        "load",
+        "hrv",
+        "stress",
+        "rhr",
+        "daily",
+        "sleep",
+    }:
+        raise HTTPException(
+            status_code=422,
+            detail="topic must be volume, load, hrv, stress, rhr, daily, or sleep",
+        )
+    profile = _require_profile(current_user, db)
+    _require_ai_consent(db, profile)
+    return CoachAdviceResponse(
+        **generate_week_brief(
+            db, profile, timezone_name=timezone, force=refresh, topic=topic_key
+        )
+    )
 
 
 @router.get("/chat", response_model=CoachChatHistoryResponse)

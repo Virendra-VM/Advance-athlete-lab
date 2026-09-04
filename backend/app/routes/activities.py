@@ -31,8 +31,41 @@ from app.services.activity_points import load_activity_points
 router = APIRouter(prefix="/activities", tags=["activities"])
 
 
-def _serialize_activity(activity: Activity, *, include_detail: bool = True) -> ActivityRead:
+def _serialize_activity(
+    activity: Activity,
+    *,
+    include_detail: bool = True,
+    db: Session | None = None,
+) -> ActivityRead:
     detail = parse_activity_detail(activity) if include_detail else None
+    # For Strava parents, prefer exercise breakdown from the matching COROS twin
+    # so a wrongly attached FIT on the parent cannot show another workout's sets.
+    if include_detail and db is not None and (activity.provider or "") == "strava":
+        from app.services.coros_fit import resolve_coros_fit_source
+
+        resolved = resolve_coros_fit_source(db, activity)
+        if resolved is not None:
+            _target, coros_external_id = resolved
+            twin = (
+                db.query(Activity)
+                .filter(
+                    Activity.athlete_profile_id == activity.athlete_profile_id,
+                    Activity.provider == "coros",
+                    Activity.external_activity_id == str(coros_external_id),
+                )
+                .first()
+            )
+            twin_detail = parse_activity_detail(twin) if twin is not None else None
+            if twin_detail and twin_detail.get("exercises"):
+                detail = dict(detail or {})
+                detail["exercises"] = twin_detail["exercises"]
+                if twin_detail.get("muscle_map"):
+                    detail["muscle_map"] = twin_detail["muscle_map"]
+                sources = list(detail.get("sources") or [])
+                if "coros_fit" not in sources:
+                    sources.append("coros_fit")
+                detail["sources"] = sources
+
     return ActivityRead(
         id=activity.id,
         athlete_profile_id=activity.athlete_profile_id,
@@ -195,7 +228,7 @@ def get_activity(activity_id: int, db: Session = Depends(get_db)):
             status_code=status.HTTP_404_NOT_FOUND,
             detail=f"Activity with id {activity_id} not found",
         )
-    return _serialize_activity(activity)
+    return _serialize_activity(activity, db=db)
 
 
 @router.post("/{activity_id}/enrich", response_model=ActivityEnrichResponse)
@@ -251,7 +284,7 @@ def enrich_activity(
         detail=result.get("detail") or parse_activity_detail(response_activity),
         errors=list(result.get("errors") or []),
         sources=list(result.get("sources") or []),
-        activity=_serialize_activity(response_activity),
+        activity=_serialize_activity(response_activity, db=db),
     )
 
 
@@ -300,7 +333,7 @@ def update_activity_notes(
             existing.updated_at = datetime.now(timezone.utc).replace(tzinfo=None)
     db.commit()
     db.refresh(activity)
-    return _serialize_activity(activity)
+    return _serialize_activity(activity, db=db)
 
 
 def _require_owned_activity(

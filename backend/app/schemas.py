@@ -213,7 +213,12 @@ class CorosHealthMetricRead(BaseModel):
     deep_sleep_pct: float | None = None
     light_sleep_pct: float | None = None
     rem_sleep_pct: float | None = None
+    deep_sleep_min: float | None = None
+    light_sleep_min: float | None = None
+    rem_sleep_min: float | None = None
     awake_min: float | None = None
+    awake_count: float | None = None
+    main_sleep_min: float | None = None
     bedtime: str | None = None
     wake_time: str | None = None
     nap_duration_min: float | None = None
@@ -432,6 +437,11 @@ class CoachAdviceResponse(BaseModel):
     advice: DailyAdviceRead
     citations: list[ScienceCitation] = []
     disclaimer: str | None = None
+    cached: bool = False
+    generated_at: datetime | None = None
+    scope: str = "today"
+    week_start: date | None = None
+    topic: str | None = None
 
 
 class CoachChatRequest(BaseModel):

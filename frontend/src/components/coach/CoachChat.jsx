@@ -146,7 +146,7 @@ function isSpineHeader(trimmed) {
 
 function isCoachSectionHeader(trimmed) {
   return (
-    /^(⚡|🔬|🫀|🧠|📅|🗓️|⚠️|🟢|🟡|🔴|🗣️|💡|🛡️)\s/.test(trimmed) ||
+    /^(⚡|🔬|🫀|🧠|📅|🗓️|⚠️|🟢|🟡|🔴|🗣️|💡|🛡️|💬|📌)\s/.test(trimmed) ||
     isTodayCallHeader(trimmed) ||
     isLockerHeader(trimmed) ||
     isSpineHeader(trimmed) ||

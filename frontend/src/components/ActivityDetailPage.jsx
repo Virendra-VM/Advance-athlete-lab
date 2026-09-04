@@ -427,6 +427,18 @@ export default function ActivityDetailPage() {
     ['Stream metrics', metrics.join(', ') || 'None'],
   ]
 
+  async function handlePullDetail() {
+    const fitResult = await backfillCorosFitForActivity(activityId)
+    // Re-fetch the activity so updated detail_json (exercises) is reflected.
+    try {
+      const refreshed = await getActivity(activityId)
+      setActivity(refreshed)
+    } catch (_) {
+      // ignore refresh errors; the pull result is still returned
+    }
+    return fitResult
+  }
+
   const bodyProps = {
     detail,
     metrics,
@@ -436,10 +448,11 @@ export default function ActivityDetailPage() {
     streamMessage,
     dataRows,
     notesPanel: <ActivityNotesPanel activityId={activityId} />,
+    onPullDetail: handlePullDetail,
   }
 
   const body =
-    family === 'strength' ? (
+    family === 'strength' || family === 'yoga' ? (
       <StrengthDetailBody {...bodyProps} />
     ) : family === 'run' || family === 'ride' ? (
       <EnduranceDetailBody family={family} {...bodyProps} />

@@ -198,9 +198,13 @@ def main() -> None:
         advice = generate_daily_advice(db, profile, timezone_name="Asia/Kolkata")
         print(
             f"advice readiness={advice['readiness']['action']} "
-            f"headline={advice['advice']['headline']!r}"
+            f"headline={advice['advice']['headline']!r} cached={advice.get('cached')}"
         )
         assert advice["readiness"]["action"] == "rest_or_mobility", "poor readiness not detected"
+        assert advice.get("cached") is False
+        cached = generate_daily_advice(db, profile, timezone_name="Asia/Kolkata")
+        assert cached.get("cached") is True, "today advice should be reused on reopen"
+        print("advice cache ok")
 
         normal = coach_chat(
             db, profile, "How should I pace my long run this week?", timezone_name="Asia/Kolkata"

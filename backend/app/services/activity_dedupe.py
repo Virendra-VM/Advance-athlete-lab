@@ -25,10 +25,14 @@ from app.models import Activity
 # Same-clock starts (after stripping tzinfo / comparing as naive clocks).
 TIME_WINDOW = timedelta(minutes=25)
 # How close a delta must be to a civil timezone offset to count as "skew".
-TZ_SKEW_TOLERANCE = timedelta(minutes=30)
-# Half-hour civil offsets commonly seen between UTC storage and local wall time.
+# Keep tight: with a 30-minute tolerance, the 0.5h offset wrongly treated two
+# gym sessions ~45 minutes apart as the same UTC↔local start.
+TZ_SKEW_TOLERANCE = timedelta(minutes=12)
+# Ignore tiny deltas here — those are handled by TIME_WINDOW, not "timezone".
+TZ_SKEW_MIN = timedelta(hours=1)
+# Civil timezone offsets commonly seen between UTC storage and local wall time.
+# Omit 0.5h — it collides with back-to-back indoor sessions on the same evening.
 _COMMON_TZ_OFFSET_HOURS = (
-    0.5,
     1.0,
     1.5,
     2.0,
@@ -131,7 +135,7 @@ def _rel_close(a: float, b: float, tol: float) -> bool:
 def _is_timezone_skew(delta: timedelta) -> bool:
     """True when |delta| is within tolerance of a common UTC↔local offset."""
     seconds = abs(delta.total_seconds())
-    if seconds < TIME_WINDOW.total_seconds():
+    if seconds < TZ_SKEW_MIN.total_seconds():
         return False
     tol = TZ_SKEW_TOLERANCE.total_seconds()
     for hours in _COMMON_TZ_OFFSET_HOURS:
@@ -191,15 +195,17 @@ def _metrics_support_match(
             return True
         return False
 
-    # same_day / weak time — require sport agreement for indoor gym sessions.
+    # same_day / weak time — outdoor needs distance; indoor must NOT match on
+    # duration alone across a whole day (two gym sessions can share duration).
     if distance_tight and duration_loose:
         return True
     if distance_tight and not has_duration:
         return True
     if distance_ok and duration_tight:
         return True
-    if indoor and sports_ok and duration_indoor:
-        return True
+    # Indoor gym: refuse same-day-only matches. Two Strength sessions on one
+    # evening often have similar duration; without start alignment they are
+    # different workouts. Aligned branch above still covers true twins.
     return False
 
 
@@ -308,6 +314,42 @@ def link_duplicate(db: Session, canonical: Activity, duplicate: Activity) -> boo
     return changed
 
 
+def match_quality_score(
+    *,
+    date_a: datetime,
+    distance_a: float,
+    duration_a: int,
+    date_b: datetime,
+    distance_b: float,
+    duration_b: int,
+    sport_a: str | None = None,
+    sport_b: str | None = None,
+) -> tuple[float, float, float] | None:
+    """Lower is better. Returns None when fingerprints do not match."""
+    if not fingerprint_match(
+        date_a=date_a,
+        distance_a=distance_a,
+        duration_a=duration_a,
+        date_b=date_b,
+        distance_b=distance_b,
+        duration_b=duration_b,
+        sport_a=sport_a,
+        sport_b=sport_b,
+    ):
+        return None
+    da = _naive(date_a)
+    db_ = _naive(date_b)
+    delta_s = abs((da - db_).total_seconds())
+    dist_err = abs(float(distance_a or 0.0) - float(distance_b or 0.0))
+    dur_err = abs(float(duration_a or 0.0) - float(duration_b or 0.0))
+    align_penalty = delta_s
+    if _is_timezone_skew(timedelta(seconds=delta_s)):
+        align_penalty = 0.0
+    elif delta_s <= TIME_WINDOW.total_seconds():
+        align_penalty = 0.0
+    return (align_penalty, dist_err, dur_err)
+
+
 def find_cross_provider_match(
     db: Session,
     *,
@@ -318,8 +360,15 @@ def find_cross_provider_match(
     other_provider: str,
     sport_type: str | None = None,
     exclude_id: int | None = None,
+    allow_already_linked: bool = False,
+    for_activity_id: int | None = None,
 ) -> Activity | None:
-    """Find the best matching activity from the other provider."""
+    """Find the best matching activity from the other provider.
+
+    By default skips candidates already linked to a *different* activity so a
+    later Strava import cannot leave a COROS twin stuck on the wrong parent,
+    and a same-day gym twin cannot steal another session's peer.
+    """
     if activity_date is None:
         return None
     day = activity_date.date() if hasattr(activity_date, "date") else activity_date
@@ -342,6 +391,19 @@ def find_cross_provider_match(
     best: Activity | None = None
     best_score: tuple[float, float, float] | None = None
     for candidate in candidates:
+        # One COROS ↔ one Strava. Do not reuse a twin already claimed elsewhere
+        # unless the caller explicitly allows reclaim scoring.
+        if not allow_already_linked:
+            linked_to = candidate.canonical_activity_id
+            if linked_to is not None and for_activity_id is not None and linked_to != for_activity_id:
+                continue
+            if linked_to is not None and for_activity_id is None:
+                # Candidate already owned by someone else.
+                continue
+            # If we are matching FROM a duplicate row, also skip when the
+            # candidate (Strava) already has a different COROS twin that is a
+            # better time-aligned owner — handled in reclaim path.
+
         if not fingerprint_match(
             date_a=activity_date,
             distance_a=float(distance_m or 0.0),
@@ -353,24 +415,37 @@ def find_cross_provider_match(
             sport_b=candidate.sport_type,
         ):
             continue
-        da = _naive(activity_date)
-        db_ = _naive(candidate.activity_date)
-        delta_s = abs((da - db_).total_seconds())
-        dist_err = abs(float(distance_m or 0.0) - float(candidate.distance_m or 0.0))
-        dur_err = abs(float(moving_time_s or 0) - float(candidate.moving_time_s or 0))
-        # Collapse common TZ offsets so 5.5h IST skew scores like "aligned".
-        align_penalty = delta_s
-        if _is_timezone_skew(timedelta(seconds=delta_s)):
-            align_penalty = 0.0
-        elif delta_s <= TIME_WINDOW.total_seconds():
-            align_penalty = 0.0
-        # Prefer aligned starts, then closer distance, then closer duration
-        # (important when several WeightTraining rows exist on one day).
-        score = (align_penalty, dist_err, dur_err)
+        score = match_quality_score(
+            date_a=activity_date,
+            distance_a=float(distance_m or 0.0),
+            duration_a=int(moving_time_s or 0),
+            date_b=candidate.activity_date,
+            distance_b=float(candidate.distance_m or 0.0),
+            duration_b=int(candidate.moving_time_s or 0),
+            sport_a=sport_type,
+            sport_b=candidate.sport_type,
+        )
+        if score is None:
+            continue
         if best is None or best_score is None or score < best_score:
             best = candidate
             best_score = score
     return best
+
+
+def _existing_owner_score(
+    db: Session, owner: Activity, peer: Activity
+) -> tuple[float, float, float] | None:
+    return match_quality_score(
+        date_a=owner.activity_date,
+        distance_a=float(owner.distance_m or 0.0),
+        duration_a=int(owner.moving_time_s or 0),
+        date_b=peer.activity_date,
+        distance_b=float(peer.distance_m or 0.0),
+        duration_b=int(peer.moving_time_s or 0),
+        sport_a=owner.sport_type,
+        sport_b=peer.sport_type,
+    )
 
 
 def link_new_activity_to_peer(db: Session, activity: Activity) -> Activity | None:
@@ -379,6 +454,7 @@ def link_new_activity_to_peer(db: Session, activity: Activity) -> Activity | Non
     Returns the peer if linked, else None.
     """
     other = "coros" if activity.provider == "strava" else "strava"
+    # First try unclaimed peers only.
     peer = find_cross_provider_match(
         db,
         athlete_profile_id=activity.athlete_profile_id,
@@ -388,7 +464,43 @@ def link_new_activity_to_peer(db: Session, activity: Activity) -> Activity | Non
         other_provider=other,
         sport_type=activity.sport_type,
         exclude_id=activity.id,
+        allow_already_linked=False,
+        for_activity_id=activity.id,
     )
+    # Reclaim a wrongly linked peer when we are a clearly better match
+    # (typically same start time vs a same-day duration collision).
+    if peer is None:
+        peer = find_cross_provider_match(
+            db,
+            athlete_profile_id=activity.athlete_profile_id,
+            activity_date=activity.activity_date,
+            distance_m=float(activity.distance_m or 0.0),
+            moving_time_s=int(activity.moving_time_s or 0),
+            other_provider=other,
+            sport_type=activity.sport_type,
+            exclude_id=activity.id,
+            allow_already_linked=True,
+            for_activity_id=activity.id,
+        )
+        if peer is not None and peer.canonical_activity_id not in (None, activity.id):
+            owner = (
+                db.query(Activity)
+                .filter(Activity.id == peer.canonical_activity_id)
+                .first()
+            )
+            my_score = match_quality_score(
+                date_a=activity.activity_date,
+                distance_a=float(activity.distance_m or 0.0),
+                duration_a=int(activity.moving_time_s or 0),
+                date_b=peer.activity_date,
+                distance_b=float(peer.distance_m or 0.0),
+                duration_b=int(peer.moving_time_s or 0),
+                sport_a=activity.sport_type,
+                sport_b=peer.sport_type,
+            )
+            owner_score = _existing_owner_score(db, owner, peer) if owner else None
+            if my_score is None or (owner_score is not None and not (my_score < owner_score)):
+                return None
     if peer is None:
         return None
     canonical, duplicate = choose_canonical(activity, peer)
@@ -402,6 +514,7 @@ def backfill_athlete_duplicates(db: Session, athlete_profile_id: int) -> dict[st
 
     Prefer matching longer Strava sessions first so a short WeightTraining
     fragment does not steal the COROS Strength twin from the real gym workout.
+    Also reclaim peers that were wrongly linked to a worse Strava parent.
     """
     strava_rows = (
         db.query(Activity)
@@ -413,9 +526,11 @@ def backfill_athlete_duplicates(db: Session, athlete_profile_id: int) -> dict[st
         .all()
     )
     linked = 0
+    reclaimed = 0
     scanned = 0
     for strava in strava_rows:
         scanned += 1
+        # Prefer an unclaimed COROS twin.
         peer = find_cross_provider_match(
             db,
             athlete_profile_id=athlete_profile_id,
@@ -425,14 +540,49 @@ def backfill_athlete_duplicates(db: Session, athlete_profile_id: int) -> dict[st
             other_provider="coros",
             sport_type=strava.sport_type,
             exclude_id=strava.id,
+            allow_already_linked=False,
+            for_activity_id=strava.id,
         )
+        reclaim = False
+        if peer is None:
+            peer = find_cross_provider_match(
+                db,
+                athlete_profile_id=athlete_profile_id,
+                activity_date=strava.activity_date,
+                distance_m=float(strava.distance_m or 0.0),
+                moving_time_s=int(strava.moving_time_s or 0),
+                other_provider="coros",
+                sport_type=strava.sport_type,
+                exclude_id=strava.id,
+                allow_already_linked=True,
+                for_activity_id=strava.id,
+            )
+            if peer is not None and peer.canonical_activity_id not in (None, strava.id):
+                owner = (
+                    db.query(Activity)
+                    .filter(Activity.id == peer.canonical_activity_id)
+                    .first()
+                )
+                my_score = match_quality_score(
+                    date_a=strava.activity_date,
+                    distance_a=float(strava.distance_m or 0.0),
+                    duration_a=int(strava.moving_time_s or 0),
+                    date_b=peer.activity_date,
+                    distance_b=float(peer.distance_m or 0.0),
+                    duration_b=int(peer.moving_time_s or 0),
+                    sport_a=strava.sport_type,
+                    sport_b=peer.sport_type,
+                )
+                owner_score = _existing_owner_score(db, owner, peer) if owner else None
+                if my_score is None or (
+                    owner_score is not None and not (my_score < owner_score)
+                ):
+                    continue
+                reclaim = True
         if peer is None:
             continue
         # Skip if already correctly linked either way.
         if peer.canonical_activity_id == strava.id or strava.canonical_activity_id == peer.id:
-            continue
-        # If peer already linked to a different activity, skip (avoid stealing).
-        if peer.canonical_activity_id is not None and peer.canonical_activity_id != strava.id:
             continue
         if strava.canonical_activity_id is not None and strava.canonical_activity_id != peer.id:
             continue
@@ -440,7 +590,9 @@ def backfill_athlete_duplicates(db: Session, athlete_profile_id: int) -> dict[st
         canonical, duplicate = choose_canonical(strava, peer)
         if link_duplicate(db, canonical, duplicate):
             linked += 1
+            if reclaim:
+                reclaimed += 1
 
     if linked:
         db.commit()
-    return {"scanned_strava": scanned, "linked": linked}
+    return {"scanned_strava": scanned, "linked": linked, "reclaimed": reclaimed}

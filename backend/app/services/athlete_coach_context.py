@@ -223,10 +223,19 @@ def build_athlete_coach_context(db: Session, athlete_profile_id: int) -> dict:
                 "metric_date": health_rows[0].metric_date.isoformat(),
                 "sleep_score": health_rows[0].sleep_score,
                 "sleep_duration_min": health_rows[0].sleep_duration_min,
+                "deep_sleep_pct": health_rows[0].deep_sleep_pct,
+                "rem_sleep_pct": health_rows[0].rem_sleep_pct,
+                "light_sleep_pct": health_rows[0].light_sleep_pct,
+                "nap_duration_min": health_rows[0].nap_duration_min,
+                "bedtime": health_rows[0].bedtime,
+                "wake_time": health_rows[0].wake_time,
                 "hrv": health_rows[0].hrv,
                 "hrv_assessment": health_rows[0].hrv_assessment,
                 "stress": health_rows[0].stress,
                 "resting_heart_rate": health_rows[0].resting_heart_rate,
+                "steps": health_rows[0].steps,
+                "calories": health_rows[0].calories,
+                "avg_heart_rate": health_rows[0].avg_heart_rate,
             }
             if health_rows
             else None,
@@ -234,9 +243,15 @@ def build_athlete_coach_context(db: Session, athlete_profile_id: int) -> dict:
                 {
                     "metric_date": row.metric_date.isoformat(),
                     "sleep_score": row.sleep_score,
+                    "sleep_duration_min": row.sleep_duration_min,
+                    "deep_sleep_pct": row.deep_sleep_pct,
+                    "rem_sleep_pct": row.rem_sleep_pct,
                     "hrv": row.hrv,
                     "stress": row.stress,
                     "resting_heart_rate": row.resting_heart_rate,
+                    "steps": row.steps,
+                    "calories": row.calories,
+                    "avg_heart_rate": row.avg_heart_rate,
                 }
                 for row in health_rows
             ],

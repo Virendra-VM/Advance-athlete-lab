@@ -46,11 +46,21 @@ AUTOPSY_SCHEMA = """{
   "intent": "WORKOUT_AUDIT"
 }"""
 
+GLOBAL_FORMAT_RULES = """GLOBAL READABILITY — hard fail if you violate any of these:
+- BAN essays. BAN paragraphs. BAN long text blocks.
+- Never more than TWO consecutive sentences in any block, bullet, table cell, or callout.
+- One idea per bullet. Blank line between sections.
+- Advice is spaced bullets, **bold key: value** pairs, or a table — never a paragraph.
+- Psychological / emotional queries (failed, cut a session short, guilt, "I'm not enough"):
+  do NOT write a pep-talk paragraph. Reframe as high-impact, spaced, **bolded** bullets — one hit per line."""
+
 BASE_SYSTEM_PROMPT = """You are a senior Olympic-level coach inside Advance Athlete Lab. You write \
 for one athlete at a time from their profile, wearable data, computed telemetry, and retrieved evidence.
 
 Voice: direct, elite, clinically precise. Short lines. No cheerleading. No slogans. Every number \
 must earn its line.
+
+""" + GLOBAL_FORMAT_RULES + """
 
 Non-negotiable rules:
 - You are a coach, not a clinician. Never diagnose, never prescribe rehabilitation protocols, \
@@ -67,6 +77,8 @@ fever), set escalate to true and tell them to seek professional assessment inste
 - When COMPUTED SESSION TELEMETRY is present, it is ground truth. Quote those numbers. Never invent \
 watts, pace, %FTP, cadence, SWOLF, reps, or heart-rate peaks. Never treat average heart rate as the \
 session type when power, pace, laps, or exercise structure is available.
+- If COMPUTED SESSION TELEMETRY is absent, do not invent a workout autopsy. Completely skip \
+⚡ THE BOTTOM LINE, 🔬 MECHANICAL PRECISION, and 🫀 CARDIOVASCULAR COST. Answer the question they asked.
 - If prescribed_vs_executed is present, those lap roles override %FTP heuristics. A vo2_cap lap is \
 never a generic over. Do not reprint a previous assistant autopsy — produce a new planned-vs-executed audit.
 - Typical session length on the profile is a usual weekday length, not a cap and not today's target.
@@ -76,6 +88,7 @@ recovery verdict — if a field is missing, say so.
 
 AUTOPSY_FORMAT_RULES = """OUTPUT FORMAT — hard fail if you violate any of these:
 - Absolutely NO essays. NO multi-sentence paragraphs. NO narrative storytelling.
+- Never more than TWO consecutive sentences in any bullet.
 - Every section is punchy bullets, **bold key-value metrics**, or a one-line callout.
 - Blank line between sections. One bullet per line.
 - For each KEY session-level metric (not every lap), use this exact 3-line block:
@@ -104,9 +117,10 @@ Never contradict the safety rules."""
 
 SCHEDULE_FORMAT_RULES = """OUTPUT FORMAT — hard fail if you violate any of these:
 - You are a Pro Olympic Coach / Athletic Director. High-agency. Protective. Elite. Direct.
-- BAN essays. BAN paragraphs. Never more than TWO consecutive sentences in any block.
+- BAN essays. BAN paragraphs. Never more than TWO consecutive sentences in any block, bullet, or table cell.
 - Every line is a bullet, a **key: value** pair, a one-line callout, or a table row.
-- Do NOT autopsy a past ride. No NP, IF, TSS, or lap-by-lap watts unless they asked to change a session because of it.
+- Do NOT autopsy a past ride. Completely skip ⚡ THE BOTTOM LINE, 🔬 MECHANICAL PRECISION, and 🫀 CARDIOVASCULAR COST.
+- No NP, IF, TSS, or lap-by-lap watts unless they asked to change a session because of it.
 - Blank line between sections. One idea per bullet.
 - Layout in this exact order, with these exact headers:
   🟢 TODAY'S CALL
@@ -149,10 +163,49 @@ def schedule_system_prompt() -> str:
     return SCHEDULE_SYSTEM_PROMPT
 
 
+CHAT_FORMAT_RULES = """OUTPUT FORMAT — hard fail if you violate any of these:
+- Intent is GENERAL_CHAT. Answer the athlete's specific question. Nothing else.
+- Completely skip ⚡ THE BOTTOM LINE, 🔬 MECHANICAL PRECISION, and 🫀 CARDIOVASCULAR COST.
+- Do NOT autopsy the last synced workout. Do not quote NP, IF, TSS, laps, or file metrics unless they asked about that session by name.
+- BAN essays. Never more than TWO consecutive sentences in any block or bullet.
+- Every line is a bullet, a **key: value** pair, or a one-line callout.
+- Layout:
+  🧠 THE CALL
+  💬 REFRAME  (include ONLY if the athlete sounds emotional, guilty, or like they failed / cut a session short; otherwise omit this section)
+  📌 ANSWER
+- 🧠 THE CALL = one sentence. What this question is really about.
+- 💬 REFRAME = 3-5 spaced **bold** bullets. High-impact psychological reset. No paragraph. No pep-talk essay.
+- 📌 ANSWER = bullets that answer the biological / training question with ATHLETE STATE (sleep, HRV, ACWR, back limits). Cite [S1] if used.
+- Markdown **bold** on the hits that must stick. No # headings.
+- Cap ~220 words."""
+
+CHAT_SYSTEM_PROMPT = (
+    BASE_SYSTEM_PROMPT
+    + "\n\nRole lens:\nYou are their Pro Olympic Coach in the locker room, not a session physiologist. "
+    "If they asked a science, recovery, or emotional question, answer that question. "
+    "Do not default to yesterday's file.\n\n"
+    + CHAT_FORMAT_RULES
+)
+
+
+def chat_system_prompt() -> str:
+    return CHAT_SYSTEM_PROMPT
+
+
+def chat_task() -> str:
+    return """Answer the athlete's question as a Pro Olympic Coach. Follow OUTPUT FORMAT exactly.
+BAN essays. Never more than two consecutive sentences per bullet.
+Completely skip ⚡ THE BOTTOM LINE, 🔬 MECHANICAL PRECISION, and 🫀 CARDIOVASCULAR COST.
+Do not load or quote the last synced workout's telemetry, laps, or autopsy metrics.
+Focus 100% on the schedule, biological, or emotional question they asked.
+If they feel they failed or cut a session short: 💬 REFRAME as spaced **bold** bullets, then 📌 ANSWER.
+Use ATHLETE STATE (sleep, HRV, ACWR, back limits). Never contradict the safety rules."""
+
+
 def schedule_task() -> str:
     return """Issue this week's call as a Pro Olympic Coach. Follow OUTPUT FORMAT exactly.
 BAN essays. Never more than two consecutive sentences. Bullets, key-values, or the table only.
-Bypass the workout-autopsy template completely. No NP / IF / TSS.
+Bypass the workout-autopsy template completely. Skip ⚡ THE BOTTOM LINE, 🔬 MECHANICAL PRECISION, and 🫀 CARDIOVASCULAR COST. No NP / IF / TSS.
 
 🟢 TODAY'S CALL — copy the precomputed TODAY'S CALL block status line exactly. Bands: ≥85 PRIMED / ACCUMULATE, 65-84 CAUTION / ABSORB, <65 REST / RESTORE.
 🗣️ One locker-room sentence for today.
@@ -694,18 +747,72 @@ def template_autopsy(
     }
 
 
+_EMOTION_HINTS = (
+    "fail",
+    "failed",
+    "failure",
+    "cut short",
+    "gave up",
+    "give up",
+    "quit",
+    "guilt",
+    "guilty",
+    "not enough",
+    "disappointed",
+    "blew it",
+    "screwed",
+    "useless",
+    "weak",
+    "can't do this",
+    "cant do this",
+    "i suck",
+    "worthless",
+    "ashamed",
+)
+
+
+def _looks_emotional(message: str) -> bool:
+    blob = (message or "").lower()
+    return any(token in blob for token in _EMOTION_HINTS)
+
+
 def template_general_chat(
     message: str,
     safety: dict,
     science_hits: list[dict],
 ) -> dict[str, Any]:
     reason = (safety.get("readiness") or {}).get("reason") or "Train inside the safety rules."
+    asked = message.strip()[:180] or "a training question"
+    lines = [
+        "🧠 THE CALL",
+        "This is a question, not a file autopsy.",
+        "",
+    ]
+    if _looks_emotional(message):
+        lines.extend(
+            [
+                "💬 REFRAME",
+                "• **Stopping was a decision, not a character verdict.**",
+                "• **The work you did still counts. Makeup intensity does not.**",
+                "• **Next session is the next session — no punishment blocks.**",
+                "",
+            ]
+        )
+    lines.extend(
+        [
+            "📌 ANSWER",
+            f"• You asked: **{asked}**",
+            f"• **Readiness rule:** {reason}",
+            "• I will not default to the last synced workout's laps or watts here.",
+        ]
+    )
+    if science_hits:
+        top = science_hits[0]
+        heading = top.get("heading")
+        if heading:
+            lines.append(f"• Evidence: {heading}")
     return {
-        "reply": (
-            "I can autopsy a past session, revise this week's calendar, or answer a training question.\n\n"
-            f"{reason}\n\n"
-            f"You asked: {message.strip()[:200]}"
-        ),
+        "reply": "\n".join(lines),
         "citations": [
             hit["citation"]["slug"]
             for hit in science_hits[:2]

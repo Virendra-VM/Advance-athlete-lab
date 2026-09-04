@@ -7,7 +7,12 @@ templates, so the product always works.
 
 from __future__ import annotations
 
-from app.config import AI_FALLBACK_PROVIDER, AI_PROVIDER
+from app.config import (
+    AI_FALLBACK_PROVIDER,
+    AI_PROVIDER,
+    CURSOR_FALLBACK_MODEL,
+    CURSOR_MODEL,
+)
 from app.services.ai.base import (
     CoachProvider,
     ProviderError,
@@ -53,15 +58,38 @@ def build_provider(name: str, model: str | None = None, api_key: str | None = No
 
 
 def provider_chain() -> list:
-    """Primary then fallback, filtered to providers that actually have credentials."""
+    """Primary then fallback, filtered to providers that actually have credentials.
+
+    For Cursor, ``CURSOR_FALLBACK_MODEL`` adds a second attempt with the same
+    API key (e.g. auto → composer-2.5) before any other AI_FALLBACK_PROVIDER.
+    """
     chain = []
-    for name in (AI_PROVIDER, AI_FALLBACK_PROVIDER):
-        if not name:
-            continue
-        provider = build_provider(name)
-        if provider is not None and provider.is_configured():
-            if all(existing.name != provider.name for existing in chain):
-                chain.append(provider)
+
+    def _append(provider) -> None:
+        if provider is None or not provider.is_configured():
+            return
+        # Allow the same provider twice when the model differs (Cursor model chain).
+        if any(
+            existing.name == provider.name and existing.model == provider.model
+            for existing in chain
+        ):
+            return
+        chain.append(provider)
+
+    primary = build_provider(AI_PROVIDER)
+    _append(primary)
+
+    if (
+        primary is not None
+        and primary.name == "cursor"
+        and CURSOR_FALLBACK_MODEL
+        and CURSOR_FALLBACK_MODEL != (primary.model or CURSOR_MODEL)
+    ):
+        _append(CursorProvider(model=CURSOR_FALLBACK_MODEL))
+
+    if AI_FALLBACK_PROVIDER and AI_FALLBACK_PROVIDER != AI_PROVIDER:
+        _append(build_provider(AI_FALLBACK_PROVIDER))
+
     return chain
 
 
