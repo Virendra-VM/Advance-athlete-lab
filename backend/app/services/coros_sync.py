@@ -27,6 +27,7 @@ from app.models import (
     TrainingLoadSnapshot,
 )
 from app.services.coros_mcp import CorosMcpClient, CorosMcpError, _load_persisted_client_id
+from app.services.biometric_sync import patch_today_readiness, sync_biometrics_from_health
 from app.services.coros_text_parsers import (
     parse_daily_health_data,
     parse_fitness_assessment,
@@ -433,6 +434,7 @@ def sync_health_metrics(
             raw_by_date.get(metric_date, {}),
         )
         imported += 1
+    sync_biometrics_from_health(db, athlete_profile_id)
     db.commit()
     return imported
 
@@ -538,6 +540,8 @@ def sync_fitness_and_recovery(
     )[:20000]
     db.commit()
     db.refresh(row)
+    patch_today_readiness(db, athlete_profile_id, row.recovery_pct)
+    db.commit()
     return row
 
 

@@ -1,4 +1,4 @@
-from datetime import date, datetime, timezone
+from datetime import date as Date, datetime, timezone
 
 from pydantic import BaseModel, ConfigDict, Field, field_serializer
 
@@ -161,6 +161,10 @@ class AthleteStatsResponse(BaseModel):
     acute_load_km: float
     chronic_load_km: float
     acwr: float | None
+    acute_load: float | None = None
+    chronic_load: float | None = None
+    load_acwr: float | None = None
+    acwr_source: str | None = None
     weekly_volume_history: list[WeeklyVolumeBucket]
 
 
@@ -207,7 +211,7 @@ class CorosConnectionRead(BaseModel):
 
 
 class CorosHealthMetricRead(BaseModel):
-    metric_date: date
+    metric_date: Date
     sleep_score: float | None = None
     sleep_duration_min: float | None = None
     deep_sleep_pct: float | None = None
@@ -253,7 +257,7 @@ class CorosTrainingLoadRead(BaseModel):
 
 class CorosScheduleItemRead(BaseModel):
     external_id: str
-    schedule_date: date
+    schedule_date: Date
     title: str | None = None
     sport_type: str | None = None
     duration_min: float | None = None
@@ -288,8 +292,8 @@ class MetricPoint(BaseModel):
 
 class MetricSeriesResponse(BaseModel):
     metric: str
-    from_date: date | None = None
-    to_date: date | None = None
+    from_date: Date | None = None
+    to_date: Date | None = None
     points: list[MetricPoint]
     latest: dict = {}
     source: str = "cache"
@@ -307,6 +311,29 @@ class CorosHistoryBackfillRequest(BaseModel):
     range: str = "3m"
 
 
+class AutoregWarning(BaseModel):
+    code: str
+    message: str
+    severity: str = "warn"
+    link: str | None = None
+
+
+class TodaysCallResponse(BaseModel):
+    date: str
+    call_level: str
+    label: str
+    color: str
+    base_level: str | None = None
+    base_source: str | None = None
+    directive: str | None = None
+    downgrade_reasons: list[str] = []
+    warnings: list[AutoregWarning] = []
+    metrics: dict = {}
+    baselines: dict = {}
+    acwr: dict = {}
+    max_hard_sessions_today: int = 0
+
+
 class CoachContextResponse(BaseModel):
     athlete_profile_id: int
     generated_at: datetime
@@ -317,6 +344,8 @@ class CoachContextResponse(BaseModel):
     safety: dict = {}
     physiology: dict = {}
     focal_sessions: list[dict] = []
+    season: dict | None = None
+    todays_call: dict | None = None
 
 
 class ScienceCitation(BaseModel):
@@ -372,7 +401,7 @@ class SafetyIssue(BaseModel):
 
 class PlanWorkoutRead(BaseModel):
     id: int | None = None
-    date: date
+    date: Date
     sport: str | None = None
     title: str | None = None
     session_type: str | None = None
@@ -388,7 +417,7 @@ class WeekPlanRead(BaseModel):
     title: str | None = None
     summary: str | None = None
     focus: str | None = None
-    week_start: date | None = None
+    week_start: Date | None = None
     workouts: list[PlanWorkoutRead] = []
     coach_notes: str | None = None
     citations: list[str] = []
@@ -398,7 +427,7 @@ class CoachPlanResponse(BaseModel):
     plan_id: int | None = None
     provider: str
     model: str
-    week_start: date
+    week_start: Date
     plan: WeekPlanRead
     safety_issues: list[SafetyIssue] = []
     generation_notes: list[str] = []
@@ -409,7 +438,7 @@ class CoachPlanResponse(BaseModel):
 
 
 class PlanGenerateRequest(BaseModel):
-    week_start: date | None = None
+    week_start: Date | None = None
     timezone: str | None = Field(default=None, max_length=64)
 
 
@@ -432,7 +461,7 @@ class DailyAdviceRead(BaseModel):
 class CoachAdviceResponse(BaseModel):
     provider: str
     model: str
-    date: date
+    date: Date
     readiness: ReadinessDirective
     advice: DailyAdviceRead
     citations: list[ScienceCitation] = []
@@ -440,7 +469,7 @@ class CoachAdviceResponse(BaseModel):
     cached: bool = False
     generated_at: datetime | None = None
     scope: str = "today"
-    week_start: date | None = None
+    week_start: Date | None = None
     topic: str | None = None
 
 
@@ -497,7 +526,7 @@ class CoachPlannedWorkoutRead(BaseModel):
     """
 
     external_id: str
-    schedule_date: date
+    schedule_date: Date
     title: str | None = None
     sport_type: str | None = None
     duration_min: float | None = None
@@ -527,3 +556,140 @@ class CoachStatusResponse(BaseModel):
     science_chunks: int = 0
     has_active_plan: bool = False
     ai_debug: dict | None = None
+
+
+class AthleteEventCreate(BaseModel):
+    name: str = Field(min_length=1, max_length=255)
+    date: Date
+    priority: str = Field(default="E", pattern="^[ABCDE]$")
+    sport_type: str = Field(default="run", max_length=32)
+    target_metric: str | None = Field(default=None, max_length=255)
+    notes: str | None = Field(default=None, max_length=2000)
+
+
+class AthleteEventUpdate(BaseModel):
+    name: str | None = Field(default=None, min_length=1, max_length=255)
+    date: Date | None = None
+    priority: str | None = Field(default=None, pattern="^[ABCDE]$")
+    sport_type: str | None = Field(default=None, max_length=32)
+    target_metric: str | None = Field(default=None, max_length=255)
+    status: str | None = Field(default=None, max_length=32)
+    result_metric: str | None = Field(default=None, max_length=255)
+    notes: str | None = Field(default=None, max_length=2000)
+
+
+class AthleteEventRead(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    name: str
+    date: Date
+    priority: str
+    sport_type: str
+    target_metric: str | None = None
+    status: str
+    result_metric: str | None = None
+    notes: str | None = None
+
+
+class SeasonPhaseRead(BaseModel):
+    id: int
+    phase_type: str
+    start_date: Date
+    end_date: Date
+    week_count: int
+    intent: str | None = None
+    volume_bias: float | None = None
+    intensity_bias: str | None = None
+    long_session_allowed_min: int | None = None
+    sort_order: int
+
+
+class SeasonPlanRead(BaseModel):
+    id: int
+    start_date: Date
+    end_date: Date
+    status: str
+    template_key: str | None = None
+    warnings: list[str] = []
+    a_race: AthleteEventRead | None = None
+    current_phase: SeasonPhaseRead | None = None
+    week_in_phase: int | None = None
+    week_intent: dict | None = None
+    phases: list[SeasonPhaseRead] = []
+    upcoming_events: list[AthleteEventRead] = []
+
+
+class SeasonGenerateResponse(BaseModel):
+    plan: SeasonPlanRead
+    message: str = "Season plan generated."
+
+
+class CyclePeriodLogCreate(BaseModel):
+    period_start_date: Date
+
+
+class CycleContextResponse(BaseModel):
+    enabled: bool = False
+    available: bool = False
+    on_date: str | None = None
+    last_period_start: str | None = None
+    cycle_length: int | None = None
+    day_in_cycle: int | None = None
+    phase: str | None = None
+    days_to_next_period: int | None = None
+    late_luteal: bool = False
+    training_note: str | None = None
+    message: str | None = None
+
+
+class EventCompleteRequest(BaseModel):
+    ftp_watts: float | None = Field(default=None, ge=50, le=500)
+    lthr_bpm: float | None = Field(default=None, ge=90, le=230)
+    result_metric: str | None = Field(default=None, max_length=255)
+
+
+class EventCompleteResponse(BaseModel):
+    event_id: int
+    status: str
+    result_metric: str | None = None
+    zones_updated: dict = {}
+    protocol: dict = {}
+    calibration: dict = {}
+
+
+class ManualBiometricRequest(BaseModel):
+    metric_date: Date
+    resting_heart_rate: int | None = Field(default=None, ge=30, le=120)
+    heart_rate_variability: float | None = Field(default=None, ge=0, le=300)
+    sleep_hours: float | None = Field(default=None, ge=0, le=24)
+    sleep_score: float | None = Field(default=None, ge=0, le=100)
+    readiness_score: float | None = Field(default=None, ge=0, le=100)
+    stress_score: float | None = Field(default=None, ge=0, le=100)
+
+
+class ManualBiometricResponse(BaseModel):
+    metric_date: str
+    source_device: str
+    merged: dict = {}
+
+
+class SeasonReplanRequest(BaseModel):
+    force: bool = False
+    reason: str | None = Field(default=None, max_length=500)
+    new_bc_race: bool = False
+
+
+class SeasonReplanTrigger(BaseModel):
+    code: str
+    message: str
+    severity: str = "info"
+
+
+class SeasonReplanResponse(BaseModel):
+    replanned: bool
+    message: str
+    plan: SeasonPlanRead | None = None
+    triggers: list[SeasonReplanTrigger] = []
+    diff: list[dict] = []
+    reason: str | None = None

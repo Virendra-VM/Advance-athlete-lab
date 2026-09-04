@@ -187,10 +187,42 @@ export default function VolumePage() {
             <SectionCard
               className="xl:col-span-3"
               title="The ratio"
-              subtitle="This week’s kilometres divided by the week your body is used to."
+              subtitle={
+                stats.acwr_source === 'load'
+                  ? 'Unified training load (run + bike + strength) — acute ÷ chronic.'
+                  : 'This week’s kilometres divided by the week your body is used to.'
+              }
             >
               <LoadEquation
-                mobileHint="This week ÷ usual week = ACWR"
+                mobileHint={
+                  stats.acwr_source === 'load'
+                    ? 'Unified multi-sport load ACWR'
+                    : 'This week ÷ usual week = ACWR'
+                }
+                cells={
+                  stats.acwr_source === 'load'
+                    ? [
+                        {
+                          hint: 'Acute · last 7 days',
+                          label: 'Recent load',
+                          value: `${Number(stats.acute_load || 0).toFixed(0)}`,
+                          unit: 'pts',
+                        },
+                        {
+                          hint: 'Chronic · 28 days ÷ 4',
+                          label: 'Base load',
+                          value: `${Number(stats.chronic_load || 0).toFixed(0)}`,
+                          unit: 'pts',
+                        },
+                        {
+                          hint: 'Unified ACWR',
+                          label: 'Ratio',
+                          value: stats.acwr == null ? '—' : Number(stats.acwr).toFixed(2),
+                          unit: '',
+                        },
+                      ]
+                    : undefined
+                }
                 acuteKm={stats.acute_load_km}
                 chronicKm={stats.chronic_load_km}
                 acwr={stats.acwr}

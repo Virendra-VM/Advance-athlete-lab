@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
+import { Link } from 'react-router-dom'
 import { AlertTriangle, MoonStar, RefreshCw, Zap } from 'lucide-react'
 import LoadingDots from '../ui/LoadingDots'
 
@@ -218,6 +219,29 @@ function AdjustmentNote({ text, title = 'Today’s session' }) {
   )
 }
 
+function WarningChip({ warning }) {
+  const content = (
+    <span
+      className={`inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-[11px] font-semibold ${
+        warning.severity === 'critical'
+          ? 'bg-red-500/15 text-danger-muted'
+          : 'bg-amber-500/15 text-amber-status'
+      }`}
+    >
+      <AlertTriangle className="h-3 w-3 shrink-0" />
+      {warning.message}
+    </span>
+  )
+  if (warning.link) {
+    return (
+      <Link to={warning.link} className="transition hover:opacity-80">
+        {content}
+      </Link>
+    )
+  }
+  return content
+}
+
 function SignalChip({ label, value }) {
   if (value == null || value === '') return null
   return (
@@ -226,6 +250,29 @@ function SignalChip({ label, value }) {
         {label}
       </p>
       <p className="mt-0.5 text-sm font-semibold tabular-nums text-[var(--aal-ink)]">{value}</p>
+    </div>
+  )
+}
+
+function CallWarnings({ warnings, label, directive }) {
+  if (!warnings?.length && !label && !directive) return null
+  return (
+    <div className="mt-3 space-y-2 border-t border-[var(--aal-line)]/70 pt-3">
+      {label ? (
+        <p className="text-xs font-semibold uppercase tracking-[0.14em] text-[var(--aal-muted)]">
+          Today&apos;s call · {label}
+        </p>
+      ) : null}
+      {directive ? (
+        <p className="text-sm leading-relaxed text-[var(--aal-ink)]/90">{directive}</p>
+      ) : null}
+      {warnings?.length ? (
+        <div className="flex flex-wrap gap-2">
+          {warnings.map((warning) => (
+            <WarningChip key={warning.code || warning.message} warning={warning} />
+          ))}
+        </div>
+      ) : null}
     </div>
   )
 }
@@ -306,6 +353,9 @@ export default function TodayAdvice({
   loadChips = null,
   scope = 'today',
   topic = null,
+  callWarnings = null,
+  callLabel = null,
+  callDirective = null,
 }) {
   const isWeek = scope === 'week'
   const metricOnly = isWeek && HEALTH_WEEK_TOPICS.has(topic)
@@ -451,6 +501,8 @@ export default function TodayAdvice({
 
         <AdjustmentNote text={body.session_adjustment} title={adjustmentTitle} />
 
+        <CallWarnings warnings={callWarnings} label={callLabel} directive={callDirective} />
+
         {metricOnly ? null : advice.readiness?.reason ? (
           <p className="mt-2 text-xs text-[var(--aal-muted)]">Why: {advice.readiness.reason}</p>
         ) : null}
@@ -505,6 +557,8 @@ export default function TodayAdvice({
 
       <AdjustmentNote text={body.session_adjustment} title={adjustmentTitle} />
 
+      <CallWarnings warnings={callWarnings} label={callLabel} directive={callDirective} />
+
       {compact ? null : body.rationale ? (
         <p className="mt-3 text-sm text-[var(--aal-muted)]">
           <MarkdownInline text={body.rationale} />
@@ -543,6 +597,9 @@ export function TodayAlertButton({
   loadChips = null,
   scope = 'today',
   topic = null,
+  callWarnings = null,
+  callLabel = null,
+  callDirective = null,
 }) {
   const [open, setOpen] = useState(false)
   const rootRef = useRef(null)
@@ -616,6 +673,9 @@ export function TodayAlertButton({
               loadChips={loadChips}
               scope={scope}
               topic={topic}
+              callWarnings={callWarnings}
+              callLabel={callLabel}
+              callDirective={callDirective}
             />
           </div>
         </div>

@@ -4,58 +4,58 @@ overview: Transform Advance Athlete Lab from a static weekly coach into a hardwa
 todos:
   - id: phase-a-events-schema
     content: "Phase A.1: Event + SeasonPlan + SeasonPhase DB models, migrations, API CRUD"
-    status: pending
+    status: completed
   - id: phase-a-periodization-service
     content: "Phase A.2: Retrograde PeriodizationService (Base/Build/Peak/Taper/Restore + race adapters)"
-    status: pending
+    status: completed
   - id: phase-a-season-ui
     content: "Phase A.3: Profile events UI + Season timeline page"
-    status: pending
+    status: completed
   - id: phase-a-coach-integration
     content: "Phase A.4: Inject current phase + upcoming races into coach context and weekly AI prompts"
-    status: pending
+    status: completed
   - id: phase-a-session-budget
     content: "Phase A.5: Fix weekly minute budget — typical session ≠ hard cap; phase-aware long days"
-    status: pending
+    status: completed
   - id: phase-b-biometrics-schema
     content: "Phase B.1: AthleteBiometrics daily table + COROS sync normalization"
-    status: pending
+    status: completed
   - id: phase-b-hrv-baseline
     content: "Phase B.2: Rolling 28-day HRV/RHR/sleep baselines per athlete"
-    status: pending
+    status: completed
   - id: phase-b-autoregulation
     content: "Phase B.3: AutoregulationEngine — Today's Call tiers, downgrade rules, warning flags"
-    status: pending
+    status: completed
   - id: phase-b-today-ui
     content: "Phase B.4: Today's Call + warning badges on Coach and Dashboard"
-    status: pending
+    status: completed
   - id: phase-b-session-veto
     content: "Phase B.5: Hard-session veto when ACWR > 1.5 or readiness red"
-    status: pending
+    status: completed
   - id: phase-c-menstrual-engine
     content: "Phase C.1: MenstrualEngine — cycle detection, 4-phase rules, opt-in profile fields"
-    status: pending
+    status: completed
   - id: phase-c-d-race-zones
     content: "Phase C.2: D-race (FTP/LTHR test) event type + auto zone recalibration flow"
-    status: pending
+    status: completed
   - id: phase-c-unified-load
     content: "Phase C.3: Unified TSS/effort ACWR across multi-sport activities"
-    status: pending
+    status: completed
   - id: phase-c-spine-lock
     content: "Phase C.4: Orthopedic Spine Lock — exercise blacklist + impact stacking validator"
-    status: pending
+    status: completed
   - id: phase-d-garmin-ingest
     content: "Phase D.1: Garmin / webhook ingestion layer (optional provider adapters)"
-    status: pending
+    status: completed
   - id: phase-d-replan-engine
     content: "Phase D.2: Dynamic replan — missed weeks, new B-race, injury pause"
-    status: pending
+    status: completed
   - id: phase-d-b-race-calibration
     content: "Phase D.3: B-race result → A-race pace calibration"
-    status: pending
+    status: completed
   - id: phase-d-science-kb
     content: "Phase D.4: Extend science corpus — periodization, autoregulation, female physiology chunks"
-    status: pending
+    status: completed
 isProject: true
 ---
 

@@ -13,6 +13,7 @@ import StravaCallback from './components/StravaCallback'
 import ActivitiesPage from './pages/ActivitiesPage'
 import CoachPage from './pages/CoachPage'
 import SchedulePage from './pages/SchedulePage'
+import SeasonPage from './pages/SeasonPage'
 import VerifyEmailPage from './pages/VerifyEmailPage'
 import VolumePage from './pages/VolumePage'
 import {
@@ -148,6 +149,14 @@ const router = createBrowserRouter([
         element: (
           <ProtectedRoute>
             <SchedulePage />
+          </ProtectedRoute>
+        ),
+      },
+      {
+        path: '/training/season',
+        element: (
+          <ProtectedRoute>
+            <SeasonPage />
           </ProtectedRoute>
         ),
       },
