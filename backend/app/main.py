@@ -11,10 +11,13 @@ from app.routes import (
     athlete,
     athletes,
     auth,
+    biometrics,
     coach,
     coros,
+    cycle,
     import_history,
     science,
+    season,
     strava,
     strava_webhook,
 )
@@ -59,6 +62,9 @@ app.include_router(athlete.router, prefix="/api")
 app.include_router(strava.router, prefix="/api")
 app.include_router(coros.router, prefix="/api")
 app.include_router(coach.router, prefix="/api")
+app.include_router(season.router, prefix="/api")
+app.include_router(biometrics.router, prefix="/api")
+app.include_router(cycle.router, prefix="/api")
 app.include_router(science.router, prefix="/api")
 app.include_router(import_history.router, prefix="/api")
 app.include_router(activities.router, prefix="/api")

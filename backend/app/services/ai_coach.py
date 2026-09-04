@@ -419,6 +419,26 @@ def today_call_status(score: int | None) -> tuple[str, str]:
 
 def today_call_prompt_block(context: dict | None, safety: dict | None) -> str:
     """Precomputed traffic-light call the model must copy, not reinterpret."""
+    auto = (safety or {}).get("autoregulation") or (safety or {}).get("todays_call")
+    if auto:
+        metrics = auto.get("metrics") or {}
+        warnings = auto.get("warnings") or []
+        warn_line = (
+            "Warnings: " + ", ".join(w["code"] for w in warnings if w.get("code"))
+            if warnings
+            else "None"
+        )
+        return f"""TODAY'S CALL (precomputed — copy the status line exactly; do not invent a different band)
+- Status: {auto.get("label")}
+- Call level: {auto.get("call_level")}
+- Readiness: {metrics.get("readiness_score") if metrics.get("readiness_score") is not None else "Missing"}
+- Sleep: {metrics.get("sleep_hours") if metrics.get("sleep_hours") is not None else "Missing"} h
+- HRV: {metrics.get("hrv") if metrics.get("hrv") is not None else "Missing"} ({metrics.get("hrv_delta_pct")}% vs baseline)
+- ACWR: {metrics.get("acwr") if metrics.get("acwr") is not None else "Missing"}
+- {warn_line}
+- Directive: {auto.get("directive")}
+"""
+
     health = ((context or {}).get("coros") or {}).get("latest_health") or {}
     load = (safety or {}).get("load") or {}
     score, source = readiness_score(health, safety)

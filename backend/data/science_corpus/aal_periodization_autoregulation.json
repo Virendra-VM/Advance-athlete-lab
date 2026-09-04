@@ -1,0 +1,60 @@
+{
+  "slug": "aal-periodization-autoregulation",
+  "title": "Advance Athlete Lab Periodization, Taper, and Autoregulation Playbook",
+  "authors": "Advance Athlete Lab coaching team",
+  "year": 2026,
+  "publisher": "Advance Athlete Lab",
+  "license": "Owned content — cleared for AI retrieval",
+  "url": null,
+  "source_type": "playbook",
+  "chunks": [
+    {
+      "key": "macro-block-ratios",
+      "heading": "Macro block ratios and recovery weeks",
+      "audience": "shared",
+      "sport_tags": ["run", "ride", "swim", "general"],
+      "topic_tags": ["periodization", "macro-cycle", "recovery-week"],
+      "body": "For a typical 12–20 week runway to an A-race, allocate roughly 40% base, 30% build, 20% peak, and 10% taper before the event. Insert a recovery week (roughly 60–70% of prior week's load, no new intensity) every third or fourth build week, or after a B-race mini-block. Short seasons under six weeks compress base and may skip a dedicated peak — never skip taper entirely. Recovery weeks are absorption, not detraining: keep frequency, cut duration and intensity."
+    },
+    {
+      "key": "taper-physiology",
+      "heading": "Taper physiology and session selection",
+      "audience": "shared",
+      "sport_tags": ["run", "ride", "swim", "general"],
+      "topic_tags": ["taper", "race-prep", "periodization"],
+      "body": "Effective tapers reduce volume 40–60% over the final 7–14 days while maintaining short race-pace touches to preserve neuromuscular sharpness. Fitness is largely built; the goal is shedding fatigue without losing feel. Avoid introducing new exercises, big gear changes, or long novel efforts in taper. Sleep, hydration, and carbohydrate availability matter more than squeezing extra quality. If the athlete arrives overreached, a sharper volume cut beats maintaining intensity."
+    },
+    {
+      "key": "acwr-sweet-spot",
+      "heading": "ACWR sweet spot and limitations",
+      "audience": "shared",
+      "sport_tags": ["run", "ride", "swim", "general"],
+      "topic_tags": ["acwr", "load-management", "injury-prevention"],
+      "body": "Acute:chronic workload ratio near 0.8–1.3 often reflects sustainable progression when load is measured consistently. Sustained values above ~1.5 suggest a spike relative to recent conditioning; below ~0.8 for multiple weeks may indicate detraining or incomplete return from break. ACWR is a planning signal, not a diagnosis — interpret alongside pain, sleep, HRV trend, and whether the spike was intentional (race week, camp). Do not chase a low ratio with extra load if readiness markers are poor."
+    },
+    {
+      "key": "menstrual-cycle-training",
+      "heading": "Menstrual cycle and training (non-prescriptive)",
+      "audience": "shared",
+      "sport_tags": ["run", "ride", "swim", "strength", "general"],
+      "topic_tags": ["menstrual-cycle", "female-athlete", "recovery"],
+      "body": "Cycle phase may shift perceived effort, sleep, and recovery speed — individual response varies widely. Early follicular days often tolerate standard load; late luteal phase may warrant slightly reduced intensity or shorter intervals if the athlete reports heavy legs, poor sleep, or elevated resting heart rate. Track patterns over several cycles before hard rules. This is autoregulation support, not medical advice; athletes with severe symptoms should consult a clinician. Never prescribe restrictive nutrition or weight targets tied to cycle phase."
+    },
+    {
+      "key": "hrv-autoregulation",
+      "heading": "HRV-guided autoregulation",
+      "audience": "shared",
+      "sport_tags": ["run", "ride", "swim", "general"],
+      "topic_tags": ["hrv", "autoregulation", "readiness"],
+      "body": "Compare today's HRV and resting heart rate to the athlete's rolling baseline, not population norms. A single suppressed day: downgrade hard sessions to easy aerobic at the same duration. Two or more days suppressed alongside poor sleep or high stress: cut volume ~30% and avoid stacked intensity. When HRV is elevated and the athlete feels good during a build or peak phase, proceed with planned quality — autoregulation also means not holding back when readiness supports the session. Re-test baselines after illness, travel, or large load blocks."
+    },
+    {
+      "key": "dynamic-replan",
+      "heading": "When to replan a season block",
+      "audience": "shared",
+      "sport_tags": ["general", "run", "ride"],
+      "topic_tags": ["periodization", "replan", "injury", "missed-sessions"],
+      "body": "Replan remaining macro phases — not the A-race date — when two or more key sessions are missed in a week, a new B/C race is added mid-season, an active injury requires load reduction, or ACWR stays in the caution zone for consecutive weeks. Preserve the A-race anchor but insert recovery or absorb weeks, then redistribute build and peak time. Communicate the diff clearly: what shifted, why, and what the next two weeks emphasize."
+    }
+  ]
+}

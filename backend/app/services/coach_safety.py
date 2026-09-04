@@ -30,9 +30,30 @@ INJURY_RULES: dict[str, dict] = {
         "prefer": ["cycling", "swimming", "hip-dominant strength"],
     },
     "lower back": {
-        "avoid_keywords": ["deadlift", "good morning", "sit-up", "crunch", "loaded twist", "back squat"],
+        "avoid_keywords": [
+            "deadlift",
+            "good morning",
+            "sit-up",
+            "situp",
+            "crunch",
+            "loaded twist",
+            "back squat",
+            "barbell squat",
+            "toe touch",
+            "superman",
+            "good-morning",
+        ],
         "avoid_session_types": [],
-        "prefer": ["walking", "swimming", "anti-extension core work"],
+        "prefer": [
+            "dead bug",
+            "bird dog",
+            "plank",
+            "side plank",
+            "unilateral leg work",
+            "walking",
+            "swimming",
+            "anti-extension core work",
+        ],
     },
     "ankle": {
         "avoid_keywords": ["jump", "plyometric", "trail", "sprint"],
@@ -100,6 +121,66 @@ RED_FLAG_PATTERNS = [
     r"sharp (bone|shin) pain",
     r"\bswollen joint\b",
 ]
+
+
+SPINE_FORBIDDEN_KEYWORDS = [
+    "back squat",
+    "barbell squat",
+    "deadlift",
+    "romanian deadlift",
+    "good morning",
+    "good-morning",
+    "crunch",
+    "sit-up",
+    "situp",
+    "loaded twist",
+    "toe touch",
+    "superman",
+    "jefferson curl",
+]
+
+STRENGTH_SESSION_TYPES = {"strength", "gym", "weights", "power", "lift", "crossfit"}
+LOWER_BODY_KEYWORDS = {
+    "squat",
+    "deadlift",
+    "lunge",
+    "leg press",
+    "rdl",
+    "hip thrust",
+    "lower body",
+    "lower-body",
+    "glute",
+}
+
+
+def has_spine_lock(injuries: dict) -> bool:
+    return any(
+        "back" in str(item).lower() or "spine" in str(item).lower()
+        for item in injuries.get("active") or []
+    )
+
+
+def spine_forbidden_hit(text: str) -> str | None:
+    haystack = _text(text)
+    return next((keyword for keyword in SPINE_FORBIDDEN_KEYWORDS if keyword in haystack), None)
+
+
+def _is_heavy_lower_strength(workout: dict) -> bool:
+    text = _session_text(workout)
+    session_type = _text(workout.get("session_type"))
+    if session_type not in STRENGTH_SESSION_TYPES and "strength" not in text:
+        return False
+    return any(keyword in text for keyword in LOWER_BODY_KEYWORDS)
+
+
+def _is_high_impact(workout: dict) -> bool:
+    text = _session_text(workout)
+    if _is_hard(workout):
+        return True
+    return any(
+        token in text
+        for token in ("run", "running", "sprint", "plyometric", "jump", "trail", "box jump")
+    )
 
 
 def _text(value) -> str:
@@ -356,6 +437,7 @@ def compose_safety_profile(
         "readiness": directive,
         "load": load,
         "latest_health_date": latest_health_date,
+        "spine_lock": has_spine_lock(injuries),
         "disclaimer": (
             "Training guidance only — not medical advice. Stop and seek professional "
             "assessment for chest pain, faintness, new neurological symptoms, or acute injury."
@@ -470,6 +552,26 @@ def validate_plan(plan: dict, safety: dict) -> dict:
                 + "."
             )
 
+    # 2b. Spine lock — explicit forbidden lifts when lower back is active.
+    if has_spine_lock(safety["injuries"]):
+        for workout in workouts:
+            text = _session_text(workout)
+            hit = spine_forbidden_hit(text)
+            if not hit:
+                continue
+            add(
+                "adjusted",
+                "spine_lock",
+                f"{workout.get('title') or 'Session'} removed '{hit}' — spine-safe alternatives only.",
+            )
+            workout["session_type"] = "strength"
+            workout["intensity"] = "Spine-safe / easy"
+            workout["title"] = workout.get("title") or "Spine-safe strength"
+            workout["description"] = (
+                "Auto-replaced for active lower-back protection. Allowed: dead bug, bird dog, "
+                "plank, side plank, unilateral leg work. No loaded spinal flexion or hinging."
+            )
+
     # 3. Hard-session budget.
     max_hard = safety["max_hard_sessions"]
     hard_indexes = [index for index, workout in enumerate(workouts) if _is_hard(workout)]
@@ -503,6 +605,40 @@ def validate_plan(plan: dict, safety: dict) -> dict:
                 workout["intensity"] = "Easy / conversational"
                 continue
             previous_hard_date = current or previous_hard_date
+
+    # 4b. Spine lock impact stacking — no hard run day after heavy lower strength.
+    if has_spine_lock(safety["injuries"]):
+        by_date: dict[str, dict] = {}
+        for workout in workouts:
+            day_key = str(workout.get("date") or "")[:10]
+            if day_key:
+                by_date[day_key] = workout
+        previous_impact_date: date | None = None
+        for workout in workouts:
+            if not _is_high_impact(workout):
+                continue
+            current = _parse_date(workout.get("date"))
+            if current:
+                prev_key = (current - timedelta(days=1)).isoformat()
+                if prev_key in by_date and _is_heavy_lower_strength(by_date[prev_key]):
+                    add(
+                        "adjusted",
+                        "spine_impact_stack",
+                        f"{workout.get('title') or 'Session'} downgraded — no high-impact work "
+                        "within 24h of heavy lower-body strength while lower back is active.",
+                    )
+                    workout["session_type"] = "easy"
+                    workout["intensity"] = "Easy / conversational"
+            if previous_impact_date and current and (current - previous_impact_date).days <= 1:
+                add(
+                    "adjusted",
+                    "spine_consecutive_impact",
+                    f"{workout.get('title') or 'Session'} downgraded — back-to-back high-impact "
+                    "days blocked while lower back is active.",
+                )
+                workout["session_type"] = "easy"
+                workout["intensity"] = "Easy / conversational"
+            previous_impact_date = current or previous_impact_date
 
     # 5. Weekly volume ceiling.
     total_minutes = sum(
@@ -554,6 +690,56 @@ def validate_plan(plan: dict, safety: dict) -> dict:
             )
             first["session_type"] = "rest" if directive["action"] == "rest_or_mobility" else "easy"
             first["intensity"] = "Recovery"
+
+    # 10. Autoregulation — today's plan must match Today's Call.
+    auto = safety.get("autoregulation") or safety.get("todays_call") or {}
+    call_level = auto.get("call_level")
+    today_iso = date.today().isoformat()
+    if call_level:
+        for workout in workouts:
+            if str(workout.get("date") or "")[:10] != today_iso:
+                continue
+            if call_level == "rest" and not _is_rest(workout):
+                add(
+                    "adjusted",
+                    "autoregulation_veto",
+                    f"{workout.get('title') or 'Session'} swapped — Today's Call is REST.",
+                )
+                workout["session_type"] = "rest"
+                workout["intensity"] = "Recovery"
+                workout["autoregulation_note"] = auto.get("directive")
+            elif call_level in ("rest", "easy") and _is_hard(workout):
+                add(
+                    "adjusted",
+                    "autoregulation_veto",
+                    f"{workout.get('title') or 'Session'} downgraded — Today's Call is {call_level.upper()}.",
+                )
+                workout["session_type"] = "easy"
+                workout["intensity"] = "Easy / conversational"
+                workout["autoregulation_note"] = auto.get("directive")
+            elif call_level == "moderate" and _is_hard(workout):
+                add(
+                    "adjusted",
+                    "autoregulation_veto",
+                    f"{workout.get('title') or 'Session'} downgraded — moderate day only.",
+                )
+                workout["session_type"] = "easy"
+                workout["intensity"] = "Easy / conversational"
+                workout["autoregulation_note"] = auto.get("directive")
+
+    load = safety.get("load") or {}
+    acwr = load.get("minutes_acwr")
+    if isinstance(acwr, (int, float)) and acwr > 1.5:
+        for workout in workouts:
+            if _is_hard(workout):
+                add(
+                    "adjusted",
+                    "acwr_veto",
+                    f"{workout.get('title') or 'Session'} downgraded — ACWR {acwr:.2f} > 1.5.",
+                )
+                workout["session_type"] = "easy"
+                workout["intensity"] = "Easy / conversational"
+                workout["autoregulation_note"] = "ACWR spike — quality work vetoed this week."
 
     # 9. Blocking conditions — the plan must not be shown as-is.
     blocked = False
@@ -614,6 +800,12 @@ def safety_prompt_rules(safety: dict, weekday_index: int | None = None) -> str:
             f"Avoid: {', '.join(injuries['avoid_keywords']) or 'high-impact loading'}. "
             f"Prefer: {', '.join(injuries['prefer']) or 'low-impact aerobic work'}."
         )
+    if safety.get("spine_lock"):
+        lines.append(
+            "- SPINE LOCK active: no deadlift, back squat, crunch, sit-up, good morning, or loaded "
+            "spinal flexion. Use dead bug, bird dog, plank, side plank, unilateral leg work. "
+            "No hard run within 24h of heavy lower-body strength."
+        )
     if injuries["past"]:
         lines.append(f"- Past injuries to respect: {', '.join(injuries['past'])}.")
     readiness = safety["readiness"]
@@ -638,6 +830,17 @@ def safety_prompt_rules(safety: dict, weekday_index: int | None = None) -> str:
             f"- Recent load: {load['acute_minutes']} min last 7 days vs "
             f"{load['chronic_minutes']} min/week 28-day average"
             + (f" (ratio {load['minutes_acwr']})." if load["minutes_acwr"] else ".")
+        )
+    if safety.get("season_phase"):
+        lines.append(
+            f"- Season phase: {safety['season_phase']}. Long endurance sessions may run up to "
+            f"{safety.get('long_session_allowed_min', safety['max_session_minutes'])} minutes when the phase allows."
+        )
+    auto = safety.get("autoregulation") or safety.get("todays_call") or {}
+    if auto.get("call_level"):
+        lines.append(
+            f"- Today's Call: {auto.get('label')} ({auto.get('call_level')}). "
+            f"{auto.get('directive') or 'Respect this cap for today.'}"
         )
     lines.append(
         "- Never diagnose, prescribe rehabilitation, or claim medical authority. Refer to a "

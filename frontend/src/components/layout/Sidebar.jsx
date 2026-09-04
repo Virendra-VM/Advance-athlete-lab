@@ -4,6 +4,7 @@ import {
   BedDouble,
   Bike,
   CalendarDays,
+  Flag,
   Gauge,
   HeartPulse,
   Home,
@@ -46,6 +47,7 @@ const NAV = [
       { to: "/training/volume", label: "Volume & ACWR", icon: Bike },
       { to: "/training/fitness", label: "Fitness", icon: Watch },
       { to: "/training/schedule", label: "Schedule", icon: CalendarDays },
+      { to: "/training/season", label: "Season", icon: Flag },
     ],
   },
   {

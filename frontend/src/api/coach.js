@@ -78,6 +78,13 @@ export async function applyChatWeek(
   return handleResponse(response)
 }
 
+export async function getTodaysCall(token = getStoredToken()) {
+  const response = await fetch(`${API_BASE_URL}/api/coach/todays-call`, {
+    headers: authHeaders(token),
+  })
+  return handleResponse(response)
+}
+
 export async function getDailyAdvice(options = {}, token = getStoredToken()) {
   if (typeof options === 'string') {
     token = options
