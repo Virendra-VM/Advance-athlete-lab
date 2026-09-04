@@ -624,7 +624,7 @@ export default function SleepPage() {
               }}
             />
             <div className="relative flex flex-col gap-3 lg:flex-row lg:items-center lg:gap-4">
-              <div className="flex shrink-0 items-center gap-3 lg:w-[15.5rem] xl:w-[17rem]">
+              <div className="flex shrink-0 items-center gap-3">
                 <div className="shrink-0 rounded-xl bg-indigo-600/15 p-2 text-indigo-600 dark:text-indigo-300">
                   <Moon className="h-[18px] w-[18px]" />
                 </div>
@@ -632,33 +632,33 @@ export default function SleepPage() {
                   <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-indigo-500 dark:text-indigo-300">
                     {viewEyebrow}
                   </p>
-                  <div className="mt-0.5 flex flex-wrap items-center gap-1.5">
+                  <div className="mt-0.5 flex flex-nowrap items-center gap-1.5">
                     {view === 'day' ? (
                       <>
                         <button
                           type="button"
                           disabled={!canPrevDay}
                           onClick={() => setDayOffset((v) => v + 1)}
-                          className="rounded-md border border-[var(--aal-line)] bg-[var(--aal-card)]/80 p-1 transition hover:border-indigo-300 disabled:opacity-40"
+                          className="shrink-0 rounded-md border border-[var(--aal-line)] bg-[var(--aal-card)]/80 p-1 transition hover:border-indigo-300 disabled:opacity-40"
                           aria-label="Previous night"
                         >
                           <ChevronLeft className="h-3.5 w-3.5" />
                         </button>
-                        <h2 className="text-lg font-bold leading-tight text-[var(--aal-ink)] sm:text-xl">
+                        <h2 className="whitespace-nowrap text-lg font-bold leading-tight text-[var(--aal-ink)] sm:text-xl">
                           {periodTitle(view, summary, dayNight)}
                         </h2>
                         <button
                           type="button"
                           disabled={!canNextDay}
                           onClick={() => setDayOffset((v) => Math.max(0, v - 1))}
-                          className="rounded-md border border-[var(--aal-line)] bg-[var(--aal-card)]/80 p-1 transition hover:border-indigo-300 disabled:opacity-40"
+                          className="shrink-0 rounded-md border border-[var(--aal-line)] bg-[var(--aal-card)]/80 p-1 transition hover:border-indigo-300 disabled:opacity-40"
                           aria-label="Next night"
                         >
                           <ChevronRight className="h-3.5 w-3.5" />
                         </button>
                       </>
                     ) : (
-                      <h2 className="text-lg font-bold leading-tight text-[var(--aal-ink)] sm:text-xl">
+                      <h2 className="whitespace-nowrap text-lg font-bold leading-tight text-[var(--aal-ink)] sm:text-xl">
                         {periodTitle(view, summary, dayNight)}
                       </h2>
                     )}
@@ -668,10 +668,10 @@ export default function SleepPage() {
                       <>
                         {formatClock(dayNight?.bedtime)} → {formatClock(dayNight?.wake)}
                         {dayNight?.mainSleep != null
-                          ? ` · Main ${formatMinutes(dayNight.mainSleep)}`
+                          ? ``
                           : ''}
                         {dayNight?.nap != null
-                          ? ` · Total nap ${formatMinutes(dayNight.nap)}`
+                          ? ``
                           : ''}
                       </>
                     ) : (
