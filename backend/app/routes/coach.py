@@ -17,7 +17,9 @@ from app.schemas import (
     CoachPlanResponse,
     CoachStatusResponse,
     PlanGenerateRequest,
+    TodaysCallResponse,
 )
+from app.services.autoregulation import compute_todays_call
 from app.services.ai import configured_providers, describe_ai_runtime
 from app.services.athlete_coach_context import build_athlete_coach_context
 from app.services.athlete_profile import get_profile_consent
@@ -69,6 +71,15 @@ def get_coach_context(
     profile = _require_profile(current_user, db)
     context = build_athlete_coach_context(db, profile.id)
     return CoachContextResponse(**context)
+
+
+@router.get("/todays-call", response_model=TodaysCallResponse)
+def get_todays_call(
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    profile = _require_profile(current_user, db)
+    return compute_todays_call(db, profile.id, profile=profile)
 
 
 @router.get("/status", response_model=CoachStatusResponse)

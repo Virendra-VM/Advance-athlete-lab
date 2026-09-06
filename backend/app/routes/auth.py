@@ -189,6 +189,8 @@ SCALAR_V2_FIELDS = (
     "ftp_watts",
     "lthr_bpm",
     "max_hr_bpm",
+    "cycle_tracking_enabled",
+    "cycle_length_manual",
 )
 
 GOAL_MIRROR_FIELDS = (
@@ -257,6 +259,11 @@ def update_profile(
         profile.fitness_goals = profile.primary_goal
         profile.medical_history = profile.injuries_limitations
 
+    if any(key in updates for key in ("goal_event_name", "goal_event_date", "goal_metric")):
+        from app.services.periodization import sync_a_race_from_profile
+
+        sync_a_race_from_profile(db, profile)
+
     db.commit()
     db.refresh(profile)
     return build_user_response(current_user, db)
@@ -295,6 +302,10 @@ def submit_onboarding(
     profile.fitness_goals = profile.primary_goal
     profile.medical_history = profile.injuries_limitations
     profile.onboarding_completed = True
+
+    from app.services.periodization import sync_a_race_from_profile
+
+    sync_a_race_from_profile(db, profile)
 
     db.commit()
     db.refresh(profile)

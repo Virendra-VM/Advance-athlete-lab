@@ -90,6 +90,10 @@ class AthleteProfile(Base):
     ftp_estimated_watts = Column(Float, nullable=True)
     ftp_estimated_at = Column(DateTime, nullable=True)
 
+    # --- Cycle tracking (opt-in, female physiology) ---
+    cycle_tracking_enabled = Column(Boolean, nullable=False, default=False)
+    cycle_length_manual = Column(Integer, nullable=True)
+
 
 class AthleteInjury(Base):
     """Structured injury history so plan generation can filter contraindications."""
@@ -409,6 +413,27 @@ class CorosCycleSnapshot(Base):
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
 
 
+class CyclePeriodLog(Base):
+    """Manual or imported period-start tags for cycle detection."""
+
+    __tablename__ = "cycle_period_logs"
+    __table_args__ = (
+        UniqueConstraint(
+            "athlete_profile_id",
+            "period_start_date",
+            name="uq_cycle_period_start",
+        ),
+    )
+
+    id = Column(Integer, primary_key=True, index=True, autoincrement=True)
+    athlete_profile_id = Column(
+        Integer, ForeignKey("athlete_profiles.id"), nullable=False, index=True
+    )
+    period_start_date = Column(Date, nullable=False, index=True)
+    source = Column(String(32), nullable=False, default="manual")
+    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+
+
 class ScienceSource(Base):
     """Citable provenance for every knowledge chunk fed to the AI coach."""
 
@@ -569,5 +594,97 @@ class WeeklyAdviceSnapshot(Base):
     payload_json = Column(Text, nullable=False)
     provider = Column(String(32), nullable=True)
     model = Column(String(128), nullable=True)
+    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+
+class AthleteEvent(Base):
+    """Scheduled race or checkpoint (A/B/C/D/E priority)."""
+
+    __tablename__ = "athlete_events"
+
+    id = Column(Integer, primary_key=True, index=True, autoincrement=True)
+    athlete_profile_id = Column(
+        Integer, ForeignKey("athlete_profiles.id"), nullable=False, index=True
+    )
+    name = Column(String(255), nullable=False)
+    event_date = Column(Date, nullable=False, index=True)
+    priority = Column(String(1), nullable=False, default="E")  # A|B|C|D|E
+    sport_type = Column(String(32), nullable=False, default="run")
+    target_metric = Column(String(255), nullable=True)
+    status = Column(String(32), nullable=False, default="planned")  # planned|completed|cancelled
+    result_metric = Column(String(255), nullable=True)
+    notes = Column(Text, nullable=True)
+    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+
+class SeasonPlan(Base):
+    """Retrograde season anchored on an A-race."""
+
+    __tablename__ = "season_plans"
+
+    id = Column(Integer, primary_key=True, index=True, autoincrement=True)
+    athlete_profile_id = Column(
+        Integer, ForeignKey("athlete_profiles.id"), nullable=False, index=True
+    )
+    a_race_event_id = Column(Integer, ForeignKey("athlete_events.id"), nullable=True)
+    start_date = Column(Date, nullable=False)
+    end_date = Column(Date, nullable=False)
+    status = Column(String(32), nullable=False, default="active")  # draft|active|completed|archived
+    template_key = Column(String(64), nullable=True)
+    warnings_json = Column(Text, nullable=True)
+    last_replan_at = Column(DateTime, nullable=True)
+    last_replan_triggers_json = Column(Text, nullable=True)
+    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+
+class SeasonPhase(Base):
+    """One macro block inside a season plan."""
+
+    __tablename__ = "season_phases"
+
+    id = Column(Integer, primary_key=True, index=True, autoincrement=True)
+    season_plan_id = Column(
+        Integer, ForeignKey("season_plans.id"), nullable=False, index=True
+    )
+    phase_type = Column(String(32), nullable=False)  # base|build|peak|taper|restore|recovery_week
+    start_date = Column(Date, nullable=False)
+    end_date = Column(Date, nullable=False)
+    week_count = Column(Integer, nullable=False, default=1)
+    intent = Column(Text, nullable=True)
+    volume_bias = Column(Float, nullable=True)
+    intensity_bias = Column(String(32), nullable=True)
+    sort_order = Column(Integer, nullable=False, default=0)
+    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+
+
+class AthleteBiometric(Base):
+    """Normalized daily biometrics for autoregulation (hardware-agnostic)."""
+
+    __tablename__ = "athlete_biometrics"
+    __table_args__ = (
+        UniqueConstraint(
+            "athlete_profile_id",
+            "metric_date",
+            name="uq_athlete_biometric_date",
+        ),
+    )
+
+    id = Column(Integer, primary_key=True, index=True, autoincrement=True)
+    athlete_profile_id = Column(
+        Integer, ForeignKey("athlete_profiles.id"), nullable=False, index=True
+    )
+    metric_date = Column(Date, nullable=False, index=True)
+    resting_heart_rate = Column(Integer, nullable=True)
+    heart_rate_variability = Column(Float, nullable=True)
+    sleep_seconds = Column(Integer, nullable=True)
+    sleep_score = Column(Float, nullable=True)
+    readiness_score = Column(Float, nullable=True)
+    stress_score = Column(Float, nullable=True)
+    temperature_deviation = Column(Float, nullable=True)
+    source_device = Column(String(32), nullable=False, default="coros")
+    raw_json = Column(Text, nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
