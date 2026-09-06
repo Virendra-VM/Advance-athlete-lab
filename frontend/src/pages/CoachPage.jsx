@@ -8,6 +8,7 @@ import {
   getChatHistory,
   getCoachStatus,
   getDailyAdvice,
+  getTodaysCall,
   getWeekPlan,
   sendChatMessage,
 } from '../api/coach'
@@ -15,6 +16,7 @@ import { getCoachContext } from '../api/coros'
 import { useAuth } from '../context/AuthContext'
 import CoachChat from '../components/coach/CoachChat'
 import { TodayAlertButton } from '../components/coach/TodayAdvice'
+import CyclePhaseChip from '../components/coach/CyclePhaseChip'
 import { PlanActions } from '../components/coach/WeekPlan'
 import AppShell from '../components/layout/AppShell'
 import EmptyState from '../components/ui/EmptyState'
@@ -38,6 +40,7 @@ export default function CoachPage() {
   const weekStart = mondayOf(toISODateLocal())
   const [plan, setPlan] = useState(null)
   const [advice, setAdvice] = useState(null)
+  const [todaysCall, setTodaysCall] = useState(null)
   const [messages, setMessages] = useState([])
   const [loading, setLoading] = useState(true)
   const [adviceLoading, setAdviceLoading] = useState(false)
@@ -83,13 +86,15 @@ export default function CoachPage() {
         setStatus(statusResult)
         setContext(contextResult)
         if (statusResult.ai_consent) {
-          const [planResult, historyResult] = await Promise.all([
+          const [planResult, historyResult, callResult] = await Promise.all([
             getWeekPlan(weekStart).catch(() => null),
             getChatHistory().catch(() => ({ messages: [] })),
+            getTodaysCall().catch(() => null),
           ])
           if (cancelled) return
           setPlan(planResult)
           setMessages(historyResult?.messages || [])
+          setTodaysCall(callResult)
           loadAdvice()
         }
       } catch (err) {
@@ -230,6 +235,7 @@ export default function CoachPage() {
               ) : null}
             </div>
             <div className="flex flex-wrap items-center justify-end gap-2">
+              <CyclePhaseChip compact />
               <PlanActions
                 plan={plan}
                 generating={generating}
@@ -246,6 +252,9 @@ export default function CoachPage() {
                 refreshing={adviceLoading}
                 health={context?.coros?.latest_health}
                 fitness={fitness}
+                callWarnings={todaysCall?.warnings}
+                callLabel={todaysCall?.label}
+                callDirective={todaysCall?.directive}
               />
             </div>
           </header>

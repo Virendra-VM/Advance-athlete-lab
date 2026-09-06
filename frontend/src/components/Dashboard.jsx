@@ -29,6 +29,7 @@ import PageHeader from './ui/PageHeader'
 import SectionCard from './ui/SectionCard'
 import StatTile from './ui/StatTile'
 import SyncResultModal, { buildSyncResult } from './ui/SyncResultModal'
+import TodaysCall from './coach/TodaysCall'
 
 function fmt(value, digits = 0, suffix = '') {
   if (value == null || Number.isNaN(Number(value))) return '—'
@@ -211,6 +212,10 @@ export default function Dashboard() {
       />
 
       {error && <p className="mb-4 text-sm text-danger-muted">{error}</p>}
+
+      <div className="mb-4">
+        <TodaysCall compact />
+      </div>
 
       {loading ? (
         <LoadingDots label="Loading dashboard…" />

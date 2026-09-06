@@ -463,110 +463,124 @@ export function IdentityEditFields({ form, onChange, nameClass, children }) {
   )
 }
 
-export function TrainingView({ form }) {
+export function TrainingView({ form, middleContent = null }) {
+  const leadingGroups = [
+    {
+      key: 'goals',
+      title: 'Goals',
+      factors: [
+        <FactorItem key="primary" label="Primary goal" wide>
+          <TextBulletPoints text={form.primary_goal} />
+        </FactorItem>,
+        <FactorItem key="secondary" label="Secondary goal" wide>
+          <TextBulletPoints text={form.secondary_goal} />
+        </FactorItem>,
+      ],
+    },
+    {
+      key: 'event',
+      title: 'Event & target',
+      factors: [
+        <FactorItem key="event" label="Event">
+          <DisplayValue>
+            {formatEventValue(form.goal_event_name, formatDate(form.goal_event_date))}
+          </DisplayValue>
+        </FactorItem>,
+        <FactorItem key="target" label="Target">
+          <DisplayValue>{form.goal_metric}</DisplayValue>
+        </FactorItem>,
+      ],
+    },
+    {
+      key: 'fitness',
+      title: 'Fitness & history',
+      factors: [
+        <FactorItem key="fitness" label="Fitness">
+          <DisplayValue>{form.fitness_level}</DisplayValue>
+        </FactorItem>,
+        <FactorItem key="history" label="Training history">
+          <DisplayValue>{historyLabel(form.training_history_months)}</DisplayValue>
+        </FactorItem>,
+      ],
+    },
+  ]
+
+  const trailingGroups = [
+    {
+      key: 'load',
+      title: 'Current load',
+      subtitle: 'What you are doing now — the coach calibrates from here.',
+      factors: [
+        <FactorItem key="volume" label="Weekly volume" wide>
+          <WeeklyVolumePoints volume={form.current_weekly_volume} sports={form.sports} />
+        </FactorItem>,
+        <FactorItem key="longest" label="Longest recent session" wide>
+          <DisplayValue>{form.longest_recent_session}</DisplayValue>
+        </FactorItem>,
+        <FactorItem key="prs" label="Recent results / PRs" wide>
+          <DisplayValue>{form.race_prs}</DisplayValue>
+        </FactorItem>,
+      ],
+    },
+    {
+      key: 'physiology',
+      title: 'Physiology',
+      subtitle: 'Used to judge watts and heart rate against your own thresholds.',
+      factors: [
+        <FactorItem key="ftp" label="FTP">
+          <DisplayValue>
+            {form.ftp_watts != null
+              ? `${form.ftp_watts} W`
+              : form.ftp_estimated_watts != null
+                ? `Estimated ${form.ftp_estimated_watts} W`
+                : null}
+          </DisplayValue>
+        </FactorItem>,
+        <FactorItem key="lthr" label="LT2 / LTHR">
+          <DisplayValue>{form.lthr_bpm != null ? `${form.lthr_bpm} bpm` : null}</DisplayValue>
+        </FactorItem>,
+        <FactorItem key="maxhr" label="Max HR">
+          <DisplayValue>{form.max_hr_bpm != null ? `${form.max_hr_bpm} bpm` : null}</DisplayValue>
+        </FactorItem>,
+      ],
+    },
+    {
+      key: 'schedule',
+      title: 'Weekly schedule',
+      factors: [
+        <FactorItem key="days" label="Days per week">
+          <DisplayValue>
+            {form.days_per_week != null ? String(form.days_per_week) : null}
+          </DisplayValue>
+        </FactorItem>,
+        <FactorItem key="session" label="Typical session">
+          <DisplayValue>{durationLabel(form.workout_duration_minutes)}</DisplayValue>
+        </FactorItem>,
+        <FactorItem key="minutes" label="Weekly minutes">
+          <DisplayValue>
+            {form.weekly_minutes_budget != null ? `${form.weekly_minutes_budget} min` : null}
+          </DisplayValue>
+        </FactorItem>,
+        <FactorItem key="time" label="Preferred time">
+          <DisplayValue>{form.preferred_workout_time}</DisplayValue>
+        </FactorItem>,
+      ],
+    },
+  ]
+
   return (
-    <FactorSections
-      groups={[
-        {
-          key: 'goals',
-          title: 'Goals',
-          factors: [
-            <FactorItem key="primary" label="Primary goal" wide>
-              <TextBulletPoints text={form.primary_goal} />
-            </FactorItem>,
-            <FactorItem key="secondary" label="Secondary goal" wide>
-              <TextBulletPoints text={form.secondary_goal} />
-            </FactorItem>,
-          ],
-        },
-        {
-          key: 'event',
-          title: 'Event & target',
-          factors: [
-            <FactorItem key="event" label="Event">
-              <DisplayValue>
-                {formatEventValue(form.goal_event_name, formatDate(form.goal_event_date))}
-              </DisplayValue>
-            </FactorItem>,
-            <FactorItem key="target" label="Target">
-              <DisplayValue>{form.goal_metric}</DisplayValue>
-            </FactorItem>,
-          ],
-        },
-        {
-          key: 'fitness',
-          title: 'Fitness & history',
-          factors: [
-            <FactorItem key="fitness" label="Fitness">
-              <DisplayValue>{form.fitness_level}</DisplayValue>
-            </FactorItem>,
-            <FactorItem key="history" label="Training history">
-              <DisplayValue>{historyLabel(form.training_history_months)}</DisplayValue>
-            </FactorItem>,
-          ],
-        },
-        {
-          key: 'load',
-          title: 'Current load',
-          subtitle: 'What you are doing now — the coach calibrates from here.',
-          factors: [
-            <FactorItem key="volume" label="Weekly volume" wide>
-              <WeeklyVolumePoints volume={form.current_weekly_volume} sports={form.sports} />
-            </FactorItem>,
-            <FactorItem key="longest" label="Longest recent session" wide>
-              <DisplayValue>{form.longest_recent_session}</DisplayValue>
-            </FactorItem>,
-            <FactorItem key="prs" label="Recent results / PRs" wide>
-              <DisplayValue>{form.race_prs}</DisplayValue>
-            </FactorItem>,
-          ],
-        },
-        {
-          key: 'physiology',
-          title: 'Physiology',
-          subtitle: 'Used to judge watts and heart rate against your own thresholds.',
-          factors: [
-            <FactorItem key="ftp" label="FTP">
-              <DisplayValue>
-                {form.ftp_watts != null
-                  ? `${form.ftp_watts} W`
-                  : form.ftp_estimated_watts != null
-                    ? `Estimated ${form.ftp_estimated_watts} W`
-                    : null}
-              </DisplayValue>
-            </FactorItem>,
-            <FactorItem key="lthr" label="LT2 / LTHR">
-              <DisplayValue>{form.lthr_bpm != null ? `${form.lthr_bpm} bpm` : null}</DisplayValue>
-            </FactorItem>,
-            <FactorItem key="maxhr" label="Max HR">
-              <DisplayValue>{form.max_hr_bpm != null ? `${form.max_hr_bpm} bpm` : null}</DisplayValue>
-            </FactorItem>,
-          ],
-        },
-        {
-          key: 'schedule',
-          title: 'Weekly schedule',
-          factors: [
-            <FactorItem key="days" label="Days per week">
-              <DisplayValue>
-                {form.days_per_week != null ? String(form.days_per_week) : null}
-              </DisplayValue>
-            </FactorItem>,
-            <FactorItem key="session" label="Typical session">
-              <DisplayValue>{durationLabel(form.workout_duration_minutes)}</DisplayValue>
-            </FactorItem>,
-            <FactorItem key="minutes" label="Weekly minutes">
-              <DisplayValue>
-                {form.weekly_minutes_budget != null ? `${form.weekly_minutes_budget} min` : null}
-              </DisplayValue>
-            </FactorItem>,
-            <FactorItem key="time" label="Preferred time">
-              <DisplayValue>{form.preferred_workout_time}</DisplayValue>
-            </FactorItem>,
-          ],
-        },
-      ]}
-    />
+    <div>
+      <FactorSections groups={leadingGroups} />
+      {middleContent ? (
+        <>
+          <div className="my-6 border-t border-[var(--aal-line)]" role="separator" />
+          {middleContent}
+        </>
+      ) : null}
+      <div className="my-6 border-t border-[var(--aal-line)] pt-6">
+        <FactorSections groups={trailingGroups} />
+      </div>
+    </div>
   )
 }
 

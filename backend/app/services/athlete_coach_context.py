@@ -23,6 +23,11 @@ from app.services.athlete_profile import (
     load_json_column,
 )
 from app.services.coach_safety import build_safety_profile, readiness_flags_from_signals
+from app.services.periodization import (
+    apply_season_to_safety,
+    build_season_context,
+)
+from app.services.autoregulation import apply_autoregulation_to_safety, compute_todays_call
 from app.services.coros_sync import get_coros_connection
 from app.services.activity_detail import parse_activity_detail
 from app.services.session_telemetry import (
@@ -117,11 +122,25 @@ def build_athlete_coach_context(db: Session, athlete_profile_id: int) -> dict:
 
     sports = get_profile_sports(db, athlete_profile_id)
     consent = get_profile_consent(db, athlete_profile_id)
-    safety = build_safety_profile(db, profile, readiness_flags)
+    season = build_season_context(db, profile)
 
     resting_hr = health_rows[0].resting_heart_rate if health_rows else None
     physiology = resolve_physiology(profile, activities, resting_hr=resting_hr)
     persist_physiology_estimate(profile, physiology)
+
+    safety = build_safety_profile(db, profile, readiness_flags)
+    todays_call = compute_todays_call(
+        db,
+        athlete_profile_id,
+        profile=profile,
+        physiology=physiology,
+    )
+    safety = apply_autoregulation_to_safety(safety, todays_call)
+    safety = apply_season_to_safety(safety, season)
+
+    from app.services.menstrual_engine import build_cycle_context_for_athlete
+
+    cycle_context = build_cycle_context_for_athlete(db, profile)
 
     note_rows = []
     if activities:
@@ -212,6 +231,9 @@ def build_athlete_coach_context(db: Session, athlete_profile_id: int) -> dict:
         "physiology": physiology,
         "readiness_flags": readiness_flags,
         "safety": safety,
+        "season": season,
+        "todays_call": todays_call,
+        "cycle": cycle_context,
         "recent_activities": compact_rows,
         "focal_sessions": focal_sessions,
         "coros": {

@@ -75,7 +75,7 @@ from app.services.coach_intent import (
     normalize_intent,
 )
 from app.services.session_plan import build_session_plan_overlay
-from app.services.week_from_chat import coerce_week_plan, parse_week_plan_from_text
+from app.services.periodization import season_prompt_block
 from app.services.session_telemetry import (
     analyze_activity,
     laps_are_uninformative,
@@ -426,6 +426,7 @@ def _context_digest(
         "fitness": coros.get("fitness"),
         "training_load": coros.get("training_load"),
         "upcoming_schedule": coros.get("schedule") or [],
+        "season": context.get("season"),
     }
     return json.dumps(digest, indent=2, default=str)
 
@@ -525,6 +526,8 @@ def build_week_plan_prompt(
 ATHLETE CONTEXT
 {_context_digest(context, clock)}
 
+{season_prompt_block(context.get("season"))}
+
 SAFETY RULES (hard limits)
 {safety_prompt_rules(safety, weekday_index=clock["weekday_index"])}
 
@@ -544,7 +547,10 @@ Respond with JSON matching exactly this shape:
 
 def plan_retrieval_query(context: dict, profile: AthleteProfile) -> str:
     goal = context["profile"].get("primary_goal") or "general fitness"
-    return f"weekly training structure for {goal} {' '.join(sports_for_retrieval(profile))}"
+    season = context.get("season") or {}
+    phase = (season.get("current_phase") or {}).get("phase_type")
+    phase_bit = f" {phase} phase periodization" if phase else ""
+    return f"weekly training structure for {goal}{phase_bit} {' '.join(sports_for_retrieval(profile))}"
 
 
 def generate_week_plan(

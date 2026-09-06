@@ -8,6 +8,9 @@ import PageHeader from './ui/PageHeader'
 import SectionCard from './ui/SectionCard'
 import UserAvatar from './UserAvatar'
 import OnboardingField from './onboarding/OnboardingFields'
+import ProfileEventsPanel from './season/ProfileEventsPanel'
+import CycleTrackingFields, { CycleTrackingView } from './profile/CycleTrackingPanel'
+import { getCycleContext } from '../api/cycle'
 import {
   BodyView,
   FactStrip,
@@ -211,6 +214,7 @@ export default function ProfilePage() {
   const [saving, setSaving] = useState(false)
   const [message, setMessage] = useState('')
   const [error, setError] = useState('')
+  const [cycleContext, setCycleContext] = useState(null)
 
   const form = draft ?? savedForm
   const dirty = Boolean(draft && savedForm && !formsEqual(draft, savedForm))
@@ -220,6 +224,21 @@ export default function ProfilePage() {
     ({ currentLocation, nextLocation }) =>
       dirty && currentLocation.pathname !== nextLocation.pathname,
   )
+
+  useEffect(() => {
+    if (!savedForm?.cycle_tracking_enabled) return undefined
+    let cancelled = false
+    getCycleContext()
+      .then((result) => {
+        if (!cancelled) setCycleContext(result)
+      })
+      .catch(() => {
+        if (!cancelled) setCycleContext(null)
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [savedForm?.cycle_tracking_enabled])
 
   useEffect(() => {
     if (!dirty) return undefined
@@ -485,7 +504,10 @@ export default function ProfilePage() {
                 </div>
               </div>
             ) : (
-              <TrainingView form={form} />
+              <TrainingView
+                form={form}
+                middleContent={<ProfileEventsPanel inTraining />}
+              />
             )}
           </SectionCard>
         </motion.div>
@@ -542,9 +564,19 @@ export default function ProfilePage() {
                   onChange={(value) => updateField('injuries_limitations', value)}
                 />
               </div>
+              <CycleTrackingFields
+                form={form}
+                onChange={updateField}
+                onCycleUpdate={setCycleContext}
+              />
             </div>
           ) : (
-            <HealthView form={form} />
+            <>
+              <HealthView form={form} />
+              <div className="mt-6">
+                <CycleTrackingView form={form} cycleContext={cycleContext} />
+              </div>
+            </>
           )}
         </SectionCard>
 

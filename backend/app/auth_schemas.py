@@ -193,6 +193,8 @@ class ProfileUpdateRequest(BaseModel):
     ftp_watts: float | None = Field(default=None, ge=50, le=500)
     lthr_bpm: float | None = Field(default=None, ge=90, le=230)
     max_hr_bpm: float | None = Field(default=None, ge=120, le=230)
+    cycle_tracking_enabled: bool | None = None
+    cycle_length_manual: int | None = Field(default=None, ge=18, le=45)
 
     @field_validator("sex")
     @classmethod
@@ -256,6 +258,8 @@ class AthleteProfileResponse(BaseModel):
     max_hr_bpm: float | None = None
     ftp_source: str | None = None
     ftp_estimated_watts: float | None = None
+    cycle_tracking_enabled: bool = False
+    cycle_length_manual: int | None = None
 
     sports: list[SportRead] = []
     injuries: list[InjuryRead] = []

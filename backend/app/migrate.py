@@ -82,6 +82,8 @@ def run_migrations() -> None:
                 ("ftp_source", "VARCHAR(32)"),
                 ("ftp_estimated_watts", "DOUBLE PRECISION"),
                 ("ftp_estimated_at", "TIMESTAMP"),
+                ("cycle_tracking_enabled", "BOOLEAN NOT NULL DEFAULT FALSE"),
+                ("cycle_length_manual", "INTEGER"),
             ]
             for column_name, column_type in additions:
                 if column_name not in profile_columns:
@@ -538,4 +540,170 @@ def run_migrations() -> None:
                         UNIQUE (athlete_profile_id, week_start, topic)
                         """
                     )
+                )
+
+        inspector = inspect(conn)
+        tables = set(inspector.get_table_names())
+        if "athlete_events" not in tables:
+            conn.execute(
+                text(
+                    """
+                    CREATE TABLE athlete_events (
+                        id SERIAL PRIMARY KEY,
+                        athlete_profile_id INTEGER NOT NULL REFERENCES athlete_profiles(id),
+                        name VARCHAR(255) NOT NULL,
+                        event_date DATE NOT NULL,
+                        priority VARCHAR(1) NOT NULL DEFAULT 'E',
+                        sport_type VARCHAR(32) NOT NULL DEFAULT 'run',
+                        target_metric VARCHAR(255),
+                        status VARCHAR(32) NOT NULL DEFAULT 'planned',
+                        result_metric VARCHAR(255),
+                        notes TEXT,
+                        created_at TIMESTAMP NOT NULL DEFAULT NOW(),
+                        updated_at TIMESTAMP NOT NULL DEFAULT NOW()
+                    )
+                    """
+                )
+            )
+            conn.execute(
+                text(
+                    "CREATE INDEX IF NOT EXISTS ix_athlete_events_profile "
+                    "ON athlete_events (athlete_profile_id)"
+                )
+            )
+            conn.execute(
+                text(
+                    "CREATE INDEX IF NOT EXISTS ix_athlete_events_date "
+                    "ON athlete_events (event_date)"
+                )
+            )
+
+        inspector = inspect(conn)
+        tables = set(inspector.get_table_names())
+        if "season_plans" not in tables:
+            conn.execute(
+                text(
+                    """
+                    CREATE TABLE season_plans (
+                        id SERIAL PRIMARY KEY,
+                        athlete_profile_id INTEGER NOT NULL REFERENCES athlete_profiles(id),
+                        a_race_event_id INTEGER REFERENCES athlete_events(id),
+                        start_date DATE NOT NULL,
+                        end_date DATE NOT NULL,
+                        status VARCHAR(32) NOT NULL DEFAULT 'active',
+                        template_key VARCHAR(64),
+                        warnings_json TEXT,
+                        created_at TIMESTAMP NOT NULL DEFAULT NOW(),
+                        updated_at TIMESTAMP NOT NULL DEFAULT NOW()
+                    )
+                    """
+                )
+            )
+            conn.execute(
+                text(
+                    "CREATE INDEX IF NOT EXISTS ix_season_plans_profile "
+                    "ON season_plans (athlete_profile_id)"
+                )
+            )
+
+        inspector = inspect(conn)
+        tables = set(inspector.get_table_names())
+        if "season_phases" not in tables:
+            conn.execute(
+                text(
+                    """
+                    CREATE TABLE season_phases (
+                        id SERIAL PRIMARY KEY,
+                        season_plan_id INTEGER NOT NULL REFERENCES season_plans(id) ON DELETE CASCADE,
+                        phase_type VARCHAR(32) NOT NULL,
+                        start_date DATE NOT NULL,
+                        end_date DATE NOT NULL,
+                        week_count INTEGER NOT NULL DEFAULT 1,
+                        intent TEXT,
+                        volume_bias DOUBLE PRECISION,
+                        intensity_bias VARCHAR(32),
+                        sort_order INTEGER NOT NULL DEFAULT 0,
+                        created_at TIMESTAMP NOT NULL DEFAULT NOW()
+                    )
+                    """
+                )
+            )
+            conn.execute(
+                text(
+                    "CREATE INDEX IF NOT EXISTS ix_season_phases_plan "
+                    "ON season_phases (season_plan_id)"
+                )
+            )
+
+        inspector = inspect(conn)
+        tables = set(inspector.get_table_names())
+        if "athlete_biometrics" not in tables:
+            conn.execute(
+                text(
+                    """
+                    CREATE TABLE athlete_biometrics (
+                        id SERIAL PRIMARY KEY,
+                        athlete_profile_id INTEGER NOT NULL REFERENCES athlete_profiles(id),
+                        metric_date DATE NOT NULL,
+                        resting_heart_rate INTEGER,
+                        heart_rate_variability DOUBLE PRECISION,
+                        sleep_seconds INTEGER,
+                        sleep_score DOUBLE PRECISION,
+                        readiness_score DOUBLE PRECISION,
+                        stress_score DOUBLE PRECISION,
+                        temperature_deviation DOUBLE PRECISION,
+                        source_device VARCHAR(32) NOT NULL DEFAULT 'coros',
+                        raw_json TEXT,
+                        created_at TIMESTAMP NOT NULL DEFAULT NOW(),
+                        updated_at TIMESTAMP NOT NULL DEFAULT NOW(),
+                        CONSTRAINT uq_athlete_biometric_date UNIQUE (athlete_profile_id, metric_date)
+                    )
+                    """
+                )
+            )
+            conn.execute(
+                text(
+                    "CREATE INDEX IF NOT EXISTS ix_athlete_biometrics_profile "
+                    "ON athlete_biometrics (athlete_profile_id)"
+                )
+            )
+            conn.execute(
+                text(
+                    "CREATE INDEX IF NOT EXISTS ix_athlete_biometrics_date "
+                    "ON athlete_biometrics (metric_date)"
+                )
+            )
+
+        inspector = inspect(conn)
+        tables = set(inspector.get_table_names())
+        if "cycle_period_logs" not in tables:
+            conn.execute(
+                text(
+                    """
+                    CREATE TABLE cycle_period_logs (
+                        id SERIAL PRIMARY KEY,
+                        athlete_profile_id INTEGER NOT NULL REFERENCES athlete_profiles(id),
+                        period_start_date DATE NOT NULL,
+                        source VARCHAR(32) NOT NULL DEFAULT 'manual',
+                        created_at TIMESTAMP NOT NULL DEFAULT NOW(),
+                        CONSTRAINT uq_cycle_period_start UNIQUE (athlete_profile_id, period_start_date)
+                    )
+                    """
+                )
+            )
+            conn.execute(
+                text(
+                    "CREATE INDEX IF NOT EXISTS ix_cycle_period_logs_profile "
+                    "ON cycle_period_logs (athlete_profile_id)"
+                )
+            )
+
+        inspector = inspect(conn)
+        if "season_plans" in inspector.get_table_names():
+            season_plan_cols = {col["name"] for col in inspector.get_columns("season_plans")}
+            if "last_replan_at" not in season_plan_cols:
+                conn.execute(text("ALTER TABLE season_plans ADD COLUMN last_replan_at TIMESTAMP"))
+            if "last_replan_triggers_json" not in season_plan_cols:
+                conn.execute(
+                    text("ALTER TABLE season_plans ADD COLUMN last_replan_triggers_json TEXT")
                 )
