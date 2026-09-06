@@ -176,16 +176,20 @@ def replan_season_route(
             force=payload.force,
             new_bc_race=payload.new_bc_race,
         )
+        db.commit()
     except ValueError as exc:
         db.rollback()
         raise HTTPException(status_code=400, detail=str(exc)) from exc
 
+    db.expire_all()
+    plan = get_active_season_plan(db, profile.id)
+    triggers_after = detect_replan_triggers(db, profile, plan=plan)
     plan_read = _season_read(db, profile) if result.get("replanned") else None
     return SeasonReplanResponse(
         replanned=result.get("replanned", False),
         message=result.get("message", ""),
         plan=plan_read,
-        triggers=[SeasonReplanTrigger(**trigger) for trigger in result.get("triggers") or []],
+        triggers=[SeasonReplanTrigger(**trigger) for trigger in triggers_after],
         diff=result.get("diff") or [],
         reason=result.get("reason"),
     )

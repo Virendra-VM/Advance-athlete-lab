@@ -85,15 +85,11 @@ export default function SeasonPage() {
       const data = await replanSeason({ force })
       if (data.replanned && data.plan) {
         setSeason(data.plan)
-        setReplanMessage(
-          data.diff?.length
-            ? data.message || 'Season replanned.'
-            : data.message || 'Season updated — phases already matched the replan.',
-        )
+        setReplanMessage(data.message || 'Season replanned.')
       } else {
         setReplanMessage(data.message || 'No replan needed.')
       }
-      const triggers = await getReplanTriggers().catch(() => [])
+      const triggers = data.triggers ?? (await getReplanTriggers().catch(() => []))
       setReplanTriggers(triggers || [])
     } catch (err) {
       setError(err.message || 'Failed to replan season.')
@@ -105,9 +101,12 @@ export default function SeasonPage() {
   async function handleGenerate() {
     setGenerating(true)
     setError('')
+    setReplanMessage('')
     try {
       const data = await generateSeason()
       setSeason(data.plan)
+      const triggers = await getReplanTriggers().catch(() => [])
+      setReplanTriggers(triggers || [])
     } catch (err) {
       setError(err.message || 'Failed to generate season plan.')
     } finally {
@@ -176,6 +175,10 @@ export default function SeasonPage() {
       {replanTriggers.length > 0 ? (
         <SectionCard className="mb-4">
           <p className="text-sm font-semibold text-[var(--aal-ink)]">Replan suggested</p>
+          <p className="mt-1 text-xs text-[var(--aal-muted)]">
+            Replan adjusts remaining weeks for injury, races, or load. Rebuild season resets the full
+            timeline from scratch (and applies current context when rebuilding).
+          </p>
           <ul className="mt-2 space-y-1 text-sm text-[var(--aal-muted)]">
             {replanTriggers.map((trigger) => (
               <li key={trigger.code}>• {trigger.message}</li>

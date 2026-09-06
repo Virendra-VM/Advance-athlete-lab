@@ -23,6 +23,9 @@ from app.services.periodization import (
 )
 from app.services.training_load import _round_load, _sum_session_load
 
+REPLAN_META_PREFIX = "__REPLAN_META__:"
+REPLAN_ACK_DAYS = 7
+
 HARD_SESSION_TYPES = {"intervals", "vo2", "threshold", "tempo", "race", "hills", "speed", "hard"}
 
 
@@ -32,6 +35,128 @@ def _week_start(value: date) -> date:
 
 def _serialize_phases(phases: list[SeasonPhase]) -> list[dict[str, Any]]:
     return [serialize_phase(phase) for phase in phases]
+
+
+def _parse_warnings(plan: SeasonPlan | None) -> tuple[list[str], dict[str, Any] | None]:
+    if plan is None or not plan.warnings_json:
+        return [], None
+    try:
+        payload = json.loads(plan.warnings_json)
+    except json.JSONDecodeError:
+        return [], None
+
+    if isinstance(payload, dict):
+        warnings = [str(item) for item in payload.get("warnings") or []]
+        meta = payload.get("replan")
+        return warnings, meta if isinstance(meta, dict) else None
+
+    if not isinstance(payload, list):
+        return [], None
+
+    warnings: list[str] = []
+    meta: dict[str, Any] | None = None
+    for item in payload:
+        text = str(item)
+        if text.startswith(REPLAN_META_PREFIX):
+            try:
+                meta = json.loads(text[len(REPLAN_META_PREFIX) :])
+            except json.JSONDecodeError:
+                continue
+            continue
+        warnings.append(text)
+    return warnings, meta
+
+
+def _load_replan_meta(plan: SeasonPlan | None) -> dict[str, Any] | None:
+    if plan is None:
+        return None
+
+    warnings, warning_meta = _parse_warnings(plan)
+    column_meta: dict[str, Any] | None = None
+    if plan.last_replan_at is not None:
+        codes: list[str] = []
+        ack_until: str | None = None
+        if plan.last_replan_triggers_json:
+            try:
+                payload = json.loads(plan.last_replan_triggers_json)
+                if isinstance(payload, list):
+                    codes = payload
+                elif isinstance(payload, dict):
+                    codes = list(payload.get("codes") or [])
+                    ack_until = payload.get("ack_until")
+            except json.JSONDecodeError:
+                codes = []
+        column_meta = {
+            "at": plan.last_replan_at.isoformat(),
+            "codes": codes,
+            "ack_until": ack_until,
+        }
+
+    if column_meta and warning_meta:
+        # Prefer the most recent acknowledgment.
+        try:
+            column_at = datetime.fromisoformat(str(column_meta.get("at")))
+            warning_at = datetime.fromisoformat(str(warning_meta.get("at")))
+            return column_meta if column_at >= warning_at else warning_meta
+        except ValueError:
+            return column_meta
+    return column_meta or warning_meta
+
+
+def _save_replan_meta(
+    plan: SeasonPlan,
+    *,
+    codes: list[str],
+    replanned_at: datetime,
+    as_of: date,
+    replan_note: str,
+) -> list[str]:
+    ack_until = (as_of + timedelta(days=REPLAN_ACK_DAYS)).isoformat()
+    meta = {
+        "at": replanned_at.isoformat(),
+        "codes": codes,
+        "ack_until": ack_until,
+    }
+    warnings, _old_meta = _parse_warnings(plan)
+    warnings = [line for line in warnings if not line.startswith("Replanned on")]
+    warnings.append(f"Replanned on {as_of.isoformat()}: {replan_note}")
+    warnings.append(REPLAN_META_PREFIX + json.dumps(meta))
+
+    plan.last_replan_at = replanned_at
+    plan.last_replan_triggers_json = json.dumps({"codes": codes, "ack_until": ack_until})
+    plan.warnings_json = json.dumps(warnings)
+    plan.updated_at = replanned_at
+    return warnings
+
+
+def _meta_replanned_at(meta: dict[str, Any] | None) -> datetime | None:
+    if not meta or not meta.get("at"):
+        return None
+    try:
+        return datetime.fromisoformat(str(meta["at"]))
+    except ValueError:
+        return None
+
+
+def _meta_ack_until(meta: dict[str, Any] | None, as_of: date) -> date | None:
+    if not meta:
+        return None
+    raw = meta.get("ack_until")
+    if raw:
+        try:
+            return date.fromisoformat(str(raw))
+        except ValueError:
+            pass
+    replanned_at = _meta_replanned_at(meta)
+    if replanned_at is None:
+        return None
+    return replanned_at.date() + timedelta(days=REPLAN_ACK_DAYS)
+
+
+def _meta_codes(meta: dict[str, Any] | None) -> set[str]:
+    if not meta:
+        return set()
+    return {str(code) for code in meta.get("codes") or []}
 
 
 def count_missed_key_sessions(
@@ -113,129 +238,14 @@ def consecutive_caution_acwr_weeks(
     return caution_weeks
 
 
-def _replan_codes(plan: SeasonPlan | None) -> list[str]:
-    if plan is None or not plan.last_replan_triggers_json:
-        return []
-    try:
-        payload = json.loads(plan.last_replan_triggers_json)
-        if isinstance(payload, list):
-            return payload
-        return list(payload.get("codes") or [])
-    except json.JSONDecodeError:
-        return []
-
-
-def _replan_at(plan: SeasonPlan | None) -> datetime | None:
-    if plan is None or plan.last_replan_at is None:
-        return None
-    return plan.last_replan_at
-
-
-def _trigger_still_actionable(
+def _collect_raw_triggers(
     db: Session,
     profile: AthleteProfile,
+    *,
+    as_of: date,
+    new_bc_race: bool,
     plan: SeasonPlan | None,
-    code: str,
-    *,
-    as_of: date,
-) -> bool:
-    """Hide triggers already handled by the most recent replan until conditions change."""
-    replanned_at = _replan_at(plan)
-    if replanned_at is None:
-        return True
-    if code not in _replan_codes(plan):
-        return True
-
-    replan_date = replanned_at.date()
-
-    if code == "new_bc_race":
-        newer = (
-            db.query(AthleteEvent)
-            .filter(
-                AthleteEvent.athlete_profile_id == profile.id,
-                AthleteEvent.priority.in_(["B", "C"]),
-                AthleteEvent.status == "planned",
-                AthleteEvent.created_at > replanned_at,
-            )
-            .count()
-        )
-        return newer > 0
-
-    if code == "missed_key_sessions":
-        return monday_of(replan_date) < monday_of(as_of)
-
-    if code == "active_injury":
-        injury = (
-            db.query(AthleteInjury)
-            .filter(
-                AthleteInjury.athlete_profile_id == profile.id,
-                AthleteInjury.status == "active",
-            )
-            .order_by(AthleteInjury.updated_at.desc())
-            .first()
-        )
-        if injury is None:
-            return False
-        if injury.updated_at and injury.updated_at > replanned_at:
-            return True
-        if injury.created_at and injury.created_at > replanned_at:
-            return True
-        return False
-
-    if code == "sustained_high_acwr":
-        return (as_of - replan_date).days >= 14
-
-    return (as_of - replan_date).days >= 7
-
-
-def _annotate_phases_for_bc_races(
-    payloads: list[dict[str, Any]],
-    events: list[AthleteEvent],
-    *,
-    as_of: date,
 ) -> list[dict[str, Any]]:
-    """Apply visible B-race mini-taper adjustments to remaining macro phases."""
-    b_races = [
-        event
-        for event in events
-        if event.priority == "B"
-        and event.status == "planned"
-        and event.event_date >= as_of
-    ]
-    if not b_races:
-        return payloads
-
-    adjusted: list[dict[str, Any]] = []
-    for payload in payloads:
-        row = dict(payload)
-        if row["end_date"] < as_of or row["phase_type"] == "restore":
-            adjusted.append(row)
-            continue
-        notes: list[str] = []
-        for event in b_races:
-            if row["start_date"] <= event.event_date <= row["end_date"]:
-                notes.append(
-                    f"B-race '{event.name}' on {event.event_date.isoformat()} — "
-                    "3-day mini-taper before, 3-day active recovery after."
-                )
-                row["volume_bias"] = round(float(row.get("volume_bias") or 1.0) * 0.88, 2)
-        if notes:
-            base_intent = row.get("intent") or ""
-            row["intent"] = f"{base_intent} {' '.join(notes)}".strip()
-        adjusted.append(row)
-    return adjusted
-
-
-def detect_replan_triggers(
-    db: Session,
-    profile: AthleteProfile,
-    *,
-    as_of: date | None = None,
-    new_bc_race: bool = False,
-    plan: SeasonPlan | None = None,
-) -> list[dict[str, Any]]:
-    as_of = as_of or date.today()
-    plan = plan or get_active_season_plan(db, profile.id)
     triggers: list[dict[str, Any]] = []
 
     week_start = _week_start(as_of)
@@ -298,11 +308,140 @@ def detect_replan_triggers(
             }
         )
 
-    return [
-        trigger
-        for trigger in triggers
-        if _trigger_still_actionable(db, profile, plan, trigger["code"], as_of=as_of)
+    return triggers
+
+
+def _trigger_escalated_after_replan(
+    db: Session,
+    profile: AthleteProfile,
+    code: str,
+    *,
+    as_of: date,
+    replanned_at: datetime,
+    addressed_codes: set[str],
+) -> bool:
+    """Return True when a previously-addressed trigger should fire again."""
+    if code not in addressed_codes:
+        return True
+
+    if code == "new_bc_race":
+        newer = (
+            db.query(AthleteEvent)
+            .filter(
+                AthleteEvent.athlete_profile_id == profile.id,
+                AthleteEvent.priority.in_(["B", "C"]),
+                AthleteEvent.status == "planned",
+                AthleteEvent.created_at > replanned_at,
+            )
+            .count()
+        )
+        return newer > 0
+
+    if code == "missed_key_sessions":
+        return monday_of(replanned_at.date()) < monday_of(as_of)
+
+    if code == "active_injury":
+        injury = (
+            db.query(AthleteInjury)
+            .filter(
+                AthleteInjury.athlete_profile_id == profile.id,
+                AthleteInjury.status == "active",
+            )
+            .order_by(AthleteInjury.updated_at.desc())
+            .first()
+        )
+        if injury is None:
+            return False
+        if injury.updated_at and injury.updated_at > replanned_at:
+            return True
+        if injury.created_at and injury.created_at > replanned_at:
+            return True
+        return False
+
+    if code == "sustained_high_acwr":
+        return (as_of - replanned_at.date()).days >= REPLAN_ACK_DAYS
+
+    return (as_of - replanned_at.date()).days >= REPLAN_ACK_DAYS
+
+
+def acknowledge_season_triggers(
+    plan: SeasonPlan,
+    *,
+    codes: list[str],
+    replan_note: str,
+    as_of: date | None = None,
+) -> list[str]:
+    """Record that current replan triggers were addressed on this plan."""
+    as_of = as_of or date.today()
+    replanned_at = datetime.utcnow()
+    return _save_replan_meta(
+        plan,
+        codes=codes,
+        replanned_at=replanned_at,
+        as_of=as_of,
+        replan_note=replan_note,
+    )
+
+
+def acknowledge_current_season_triggers(
+    db: Session,
+    profile: AthleteProfile,
+    plan: SeasonPlan,
+    *,
+    replan_note: str,
+    as_of: date | None = None,
+) -> list[str]:
+    """Acknowledge whatever replan triggers apply right now."""
+    as_of = as_of or date.today()
+    codes = [
+        trigger["code"]
+        for trigger in _collect_raw_triggers(
+            db, profile, as_of=as_of, new_bc_race=False, plan=plan
+        )
     ]
+    return acknowledge_season_triggers(
+        plan, codes=codes, replan_note=replan_note, as_of=as_of
+    )
+
+
+def detect_replan_triggers(
+    db: Session,
+    profile: AthleteProfile,
+    *,
+    as_of: date | None = None,
+    new_bc_race: bool = False,
+    plan: SeasonPlan | None = None,
+) -> list[dict[str, Any]]:
+    as_of = as_of or date.today()
+    plan = plan or get_active_season_plan(db, profile.id)
+    raw = _collect_raw_triggers(db, profile, as_of=as_of, new_bc_race=new_bc_race, plan=plan)
+    if not raw:
+        return []
+
+    meta = _load_replan_meta(plan)
+    if meta is None:
+        return raw
+
+    ack_until = _meta_ack_until(meta, as_of)
+    if ack_until is not None and as_of <= ack_until:
+        replanned_at = _meta_replanned_at(meta)
+        addressed = _meta_codes(meta)
+        if replanned_at is None:
+            return raw
+        return [
+            trigger
+            for trigger in raw
+            if _trigger_escalated_after_replan(
+                db,
+                profile,
+                trigger["code"],
+                as_of=as_of,
+                replanned_at=replanned_at,
+                addressed_codes=addressed,
+            )
+        ]
+
+    return raw
 
 
 def _phase_diff(before: list[dict[str, Any]], after: list[dict[str, Any]]) -> list[dict[str, Any]]:
@@ -319,10 +458,13 @@ def _phase_diff(before: list[dict[str, Any]], after: list[dict[str, Any]]) -> li
                 }
             )
             continue
-        if (
-            row["start_date"] != replacement["start_date"]
-            or row["end_date"] != replacement["end_date"]
-        ):
+        before_dates = (row["start_date"], row["end_date"])
+        after_dates = (replacement["start_date"], replacement["end_date"])
+        before_intent = row.get("intent")
+        after_intent = replacement.get("intent")
+        before_volume = row.get("volume_bias")
+        after_volume = replacement.get("volume_bias")
+        if before_dates != after_dates or before_intent != after_intent or before_volume != after_volume:
             diff.append(
                 {
                     "phase_type": row["phase_type"],
@@ -341,6 +483,155 @@ def _phase_diff(before: list[dict[str, Any]], after: list[dict[str, Any]]) -> li
                 }
             )
     return diff
+
+
+def _build_future_payloads(
+    profile: AthleteProfile,
+    events: list[AthleteEvent],
+    *,
+    as_of: date,
+    a_race_date: date,
+    triggers: list[dict[str, Any]],
+    past_phase_count: int,
+) -> list[dict[str, Any]]:
+    remaining_weeks = weeks_between_inclusive(as_of, a_race_date)
+    extra_recovery = any(
+        trigger["code"] in {"missed_key_sessions", "active_injury", "sustained_high_acwr"}
+        for trigger in triggers
+    )
+    has_bc_trigger = any(trigger["code"] == "new_bc_race" for trigger in triggers)
+
+    future_payloads = build_phase_blocks(profile, as_of, a_race_date)
+    if has_bc_trigger:
+        future_payloads = _annotate_phases_for_bc_races(future_payloads, events, as_of=as_of)
+    if extra_recovery and remaining_weeks >= 3:
+        recovery_defaults = PHASE_DEFAULTS["recovery_week"]
+        recovery_end = as_of + timedelta(days=6)
+        future_payloads.insert(
+            0,
+            {
+                "phase_type": "recovery_week",
+                "start_date": as_of,
+                "end_date": recovery_end,
+                "week_count": 1,
+                "intent": recovery_defaults["intent"],
+                "volume_bias": recovery_defaults["volume_bias"],
+                "intensity_bias": recovery_defaults["intensity_bias"],
+                "long_session_allowed_min": recovery_defaults["long_session_allowed_min"],
+                "sort_order": past_phase_count,
+            },
+        )
+        shift_days = 7
+        adjusted: list[dict[str, Any]] = []
+        for payload in future_payloads[1:]:
+            if payload["phase_type"] == "recovery_week":
+                adjusted.append(payload)
+                continue
+            adjusted.append(
+                {
+                    **payload,
+                    "start_date": payload["start_date"] + timedelta(days=shift_days),
+                    "end_date": payload["end_date"] + timedelta(days=shift_days),
+                }
+            )
+        future_payloads = [future_payloads[0], *adjusted]
+        future_payloads = [
+            payload for payload in future_payloads if payload["start_date"] <= a_race_date
+        ]
+    return future_payloads
+
+
+def _annotate_phases_for_bc_races(
+    payloads: list[dict[str, Any]],
+    events: list[AthleteEvent],
+    *,
+    as_of: date,
+) -> list[dict[str, Any]]:
+    """Apply visible B-race mini-taper adjustments to remaining macro phases."""
+    b_races = [
+        event
+        for event in events
+        if event.priority == "B"
+        and event.status == "planned"
+        and event.event_date >= as_of
+    ]
+    if not b_races:
+        return payloads
+
+    adjusted: list[dict[str, Any]] = []
+    for payload in payloads:
+        row = dict(payload)
+        if row["end_date"] < as_of or row["phase_type"] == "restore":
+            adjusted.append(row)
+            continue
+        notes: list[str] = []
+        for event in b_races:
+            if row["start_date"] <= event.event_date <= row["end_date"]:
+                notes.append(
+                    f"B-race '{event.name}' on {event.event_date.isoformat()} — "
+                    "3-day mini-taper before, 3-day active recovery after."
+                )
+                row["volume_bias"] = round(float(row.get("volume_bias") or 1.0) * 0.88, 2)
+        if notes:
+            base_intent = row.get("intent") or ""
+            marker = notes[0]
+            if marker not in base_intent:
+                row["intent"] = f"{base_intent} {marker}".strip()
+        adjusted.append(row)
+    return adjusted
+
+
+def _snapshot_from_payloads(
+    payloads: list[dict[str, Any]],
+    *,
+    as_of: date,
+) -> list[dict[str, Any]]:
+    rows: list[dict[str, Any]] = []
+    for payload in payloads:
+        if payload["end_date"] < as_of and payload["phase_type"] != "restore":
+            continue
+        rows.append(
+            {
+                "phase_type": payload["phase_type"],
+                "start_date": payload["start_date"].isoformat()
+                if isinstance(payload["start_date"], date)
+                else payload["start_date"],
+                "end_date": payload["end_date"].isoformat()
+                if isinstance(payload["end_date"], date)
+                else payload["end_date"],
+                "intent": payload.get("intent"),
+                "volume_bias": payload.get("volume_bias"),
+            }
+        )
+    return rows
+
+
+def _payloads_to_phase_rows(
+    plan: SeasonPlan,
+    payloads: list[dict[str, Any]],
+    *,
+    as_of: date,
+    sort_order_start: int,
+) -> list[SeasonPhase]:
+    rows: list[SeasonPhase] = []
+    sort_order = sort_order_start
+    for payload in payloads:
+        if payload["end_date"] < as_of and payload["phase_type"] != "restore":
+            continue
+        row = SeasonPhase(
+            season_plan_id=plan.id,
+            phase_type=payload["phase_type"],
+            start_date=payload["start_date"],
+            end_date=payload["end_date"],
+            week_count=payload["week_count"],
+            intent=payload["intent"],
+            volume_bias=payload["volume_bias"],
+            intensity_bias=payload["intensity_bias"],
+            sort_order=sort_order,
+        )
+        rows.append(row)
+        sort_order += 1
+    return rows
 
 
 def replan_season(
@@ -374,105 +665,67 @@ def replan_season(
         }
 
     addressed_codes = [trigger["code"] for trigger in triggers]
-    if not force and plan.last_replan_at is not None:
-        last_date = plan.last_replan_at.date()
-        last_codes = set(_replan_codes(plan))
-        if last_date == as_of and last_codes == set(addressed_codes):
-            return {
-                "replanned": False,
-                "message": "Season already replanned today for these conditions.",
-                "triggers": [],
-            }
-
+    events = list_planned_events(db, profile.id)
     phases = get_phases_for_plan(db, plan.id)
     past_phases = [phase for phase in phases if phase.end_date < as_of]
     future_before = [phase for phase in phases if phase.end_date >= as_of]
     before_snapshot = _serialize_phases(future_before)
 
-    for phase in future_before:
-        db.delete(phase)
-
-    remaining_weeks = weeks_between_inclusive(as_of, a_race.event_date)
-    extra_recovery = any(
-        trigger["code"] in {"missed_key_sessions", "active_injury", "sustained_high_acwr"}
-        for trigger in triggers
+    future_payloads = _build_future_payloads(
+        profile,
+        events,
+        as_of=as_of,
+        a_race_date=a_race.event_date,
+        triggers=triggers,
+        past_phase_count=len(past_phases),
     )
-    has_bc_trigger = any(trigger["code"] == "new_bc_race" for trigger in triggers)
-
-    events = list_planned_events(db, profile.id)
-    future_payloads = build_phase_blocks(profile, as_of, a_race.event_date)
-    if has_bc_trigger:
-        future_payloads = _annotate_phases_for_bc_races(future_payloads, events, as_of=as_of)
-    if extra_recovery and remaining_weeks >= 3:
-        recovery_defaults = PHASE_DEFAULTS["recovery_week"]
-        recovery_end = as_of + timedelta(days=6)
-        future_payloads.insert(
-            0,
-            {
-                "phase_type": "recovery_week",
-                "start_date": as_of,
-                "end_date": recovery_end,
-                "week_count": 1,
-                "intent": recovery_defaults["intent"],
-                "volume_bias": recovery_defaults["volume_bias"],
-                "intensity_bias": recovery_defaults["intensity_bias"],
-                "long_session_allowed_min": recovery_defaults["long_session_allowed_min"],
-                "sort_order": len(past_phases),
-            },
-        )
-        shift_days = 7
-        adjusted: list[dict[str, Any]] = []
-        for payload in future_payloads[1:]:
-            if payload["phase_type"] == "recovery_week":
-                adjusted.append(payload)
-                continue
-            adjusted.append(
-                {
-                    **payload,
-                    "start_date": payload["start_date"] + timedelta(days=shift_days),
-                    "end_date": payload["end_date"] + timedelta(days=shift_days),
-                }
-            )
-        future_payloads = [future_payloads[0], *adjusted]
-        future_payloads = [payload for payload in future_payloads if payload["start_date"] <= a_race.event_date]
-
-    sort_order = len(past_phases)
-    new_phase_rows: list[SeasonPhase] = []
-    for payload in future_payloads:
-        if payload["end_date"] < as_of and payload["phase_type"] != "restore":
-            continue
-        row = SeasonPhase(
-            season_plan_id=plan.id,
-            phase_type=payload["phase_type"],
-            start_date=payload["start_date"],
-            end_date=payload["end_date"],
-            week_count=payload["week_count"],
-            intent=payload["intent"],
-            volume_bias=payload["volume_bias"],
-            intensity_bias=payload["intensity_bias"],
-            sort_order=sort_order,
-        )
-        db.add(row)
-        new_phase_rows.append(row)
-        sort_order += 1
-
-    warnings = validate_events(events, a_race)
-    replan_note = reason or "; ".join(trigger["message"] for trigger in triggers) or "Manual replan"
-    warnings.append(f"Replanned on {as_of.isoformat()}: {replan_note}")
-    plan.warnings_json = json.dumps(warnings)
-    plan.last_replan_at = datetime.utcnow()
-    plan.last_replan_triggers_json = json.dumps({"codes": addressed_codes})
-    plan.updated_at = datetime.utcnow()
-
-    db.flush()
-    after_snapshot = _serialize_phases(new_phase_rows)
+    after_snapshot = _snapshot_from_payloads(future_payloads, as_of=as_of)
     diff = _phase_diff(before_snapshot, after_snapshot)
 
-    db.commit()
+    meta = _load_replan_meta(plan)
+    replanned_at = _meta_replanned_at(meta)
+    if (
+        not force
+        and not diff
+        and replanned_at is not None
+        and replanned_at.date() == as_of
+        and _meta_codes(meta) == set(addressed_codes)
+    ):
+        return {
+            "replanned": False,
+            "message": "Season already replanned today for these conditions.",
+            "triggers": [],
+            "diff": [],
+        }
+
+    if diff:
+        for phase in future_before:
+            db.delete(phase)
+        for row in _payloads_to_phase_rows(
+            plan,
+            future_payloads,
+            as_of=as_of,
+            sort_order_start=len(past_phases),
+        ):
+            db.add(row)
+
+    replanned_at = datetime.utcnow()
+    replan_note = reason or "; ".join(trigger["message"] for trigger in triggers) or "Manual replan"
+    warnings = _save_replan_meta(
+        plan,
+        codes=addressed_codes,
+        replanned_at=replanned_at,
+        as_of=as_of,
+        replan_note=replan_note,
+    )
+
+    db.flush()
+    db.refresh(plan)
+
     return {
         "replanned": True,
         "plan_id": plan.id,
-        "triggers": triggers,
+        "triggers": [],
         "reason": replan_note,
         "diff": diff,
         "warnings": warnings,
@@ -481,5 +734,7 @@ def replan_season(
         "message": (
             f"Season replanned from {as_of.isoformat()} with A-race fixed on "
             f"{a_race.event_date.isoformat()}."
+            if diff
+            else "Replan acknowledged — your current phase timeline already matches these conditions."
         ),
     }

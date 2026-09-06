@@ -408,7 +408,27 @@ def generate_season_plan(
     ):
         old.status = "archived"
 
-    phase_payloads = build_phase_blocks(profile, today, a_race.event_date)
+    # Lazy import avoids circular dependency (season_replan imports periodization).
+    from app.services.season_replan import (
+        _build_future_payloads,
+        _collect_raw_triggers,
+        acknowledge_current_season_triggers,
+    )
+
+    context_triggers = _collect_raw_triggers(
+        db, profile, as_of=today, new_bc_race=False, plan=None
+    )
+    if context_triggers:
+        phase_payloads = _build_future_payloads(
+            profile,
+            events,
+            as_of=today,
+            a_race_date=a_race.event_date,
+            triggers=context_triggers,
+            past_phase_count=0,
+        )
+    else:
+        phase_payloads = build_phase_blocks(profile, today, a_race.event_date)
     restore_end = phase_payloads[-1]["end_date"] if phase_payloads else a_race.event_date
 
     plan = SeasonPlan(
@@ -423,7 +443,7 @@ def generate_season_plan(
     db.add(plan)
     db.flush()
 
-    for payload in phase_payloads:
+    for sort_order, payload in enumerate(phase_payloads):
         db.add(
             SeasonPhase(
                 season_plan_id=plan.id,
@@ -434,9 +454,17 @@ def generate_season_plan(
                 intent=payload["intent"],
                 volume_bias=payload["volume_bias"],
                 intensity_bias=payload["intensity_bias"],
-                sort_order=payload["sort_order"],
+                sort_order=payload.get("sort_order", sort_order),
             )
         )
+
+    acknowledge_current_season_triggers(
+        db,
+        profile,
+        plan,
+        replan_note="Season rebuilt from template",
+        as_of=today,
+    )
     db.flush()
     return plan
 
@@ -597,7 +625,13 @@ def build_season_context(
     warnings: list[str] = []
     if plan.warnings_json:
         try:
-            warnings = json.loads(plan.warnings_json)
+            loaded = json.loads(plan.warnings_json)
+            if isinstance(loaded, list):
+                warnings = [
+                    str(item)
+                    for item in loaded
+                    if not str(item).startswith("__REPLAN_META__:")
+                ]
         except json.JSONDecodeError:
             warnings = []
 
