@@ -16,15 +16,36 @@ logger = logging.getLogger(__name__)
 
 WORKOUT_AUDIT = "WORKOUT_AUDIT"
 SCHEDULE_UPDATE = "SCHEDULE_UPDATE"
+WEEK_REVIEW = "WEEK_REVIEW"
+WEEK_PLAN_REVIEW = "WEEK_PLAN_REVIEW"
+SCIENCE_LOOKUP = "SCIENCE_LOOKUP"
+CLINICAL_VETO = "CLINICAL_VETO"
+OFF_TOPIC = "OFF_TOPIC"
 GENERAL_CHAT = "GENERAL_CHAT"
 
-INTENTS = (WORKOUT_AUDIT, SCHEDULE_UPDATE, GENERAL_CHAT)
+INTENTS = (
+    WORKOUT_AUDIT,
+    SCHEDULE_UPDATE,
+    WEEK_REVIEW,
+    WEEK_PLAN_REVIEW,
+    SCIENCE_LOOKUP,
+    CLINICAL_VETO,
+    OFF_TOPIC,
+    GENERAL_CHAT,
+)
 
 # Stored on older replies / eval harnesses.
 LEGACY_INTENT = {
     "session_analysis": WORKOUT_AUDIT,
     "chat": GENERAL_CHAT,
     "schedule": SCHEDULE_UPDATE,
+    "week_review": WEEK_REVIEW,
+    "week_recap": WEEK_REVIEW,
+    "science": SCIENCE_LOOKUP,
+    "science_rag_lookup": SCIENCE_LOOKUP,
+    "clinical_safety_veto": CLINICAL_VETO,
+    "clinical": CLINICAL_VETO,
+    "off_topic": OFF_TOPIC,
 }
 
 POWER_PASTE_RE = re.compile(
@@ -39,9 +60,14 @@ LAP_RE = re.compile(r"\blaps?\s+\d+", re.IGNORECASE)
 
 AUDIT_HINTS = (
     "how was today",
-    "how was this",
-    "how did i do",
-    "how did i perform",
+    "how was this ride",
+    "how was this run",
+    "how was this session",
+    "how was this workout",
+    "how was this swim",
+    "how did i do today",
+    "how did i perform today",
+    "how did i do on",
     "today's ride",
     "todays ride",
     "today's session",
@@ -58,6 +84,8 @@ AUDIT_HINTS = (
     "analyze the workout",
     "analyse this ride",
     "analyze this ride",
+    "analyse this",
+    "analyze this",
     "autopsy",
     "telemetry",
     "normalized power",
@@ -68,6 +96,110 @@ AUDIT_HINTS = (
     "main set",
     "repeat this set",
     "match my workout",
+)
+
+WEEK_REVIEW_HINTS = (
+    "how did i do this week",
+    "how did i do last week",
+    "how did i do the week",
+    "how was my week",
+    "how was this week",
+    "how was last week",
+    "how was the week",
+    "how did the week go",
+    "how did this week go",
+    "how did last week go",
+    "done with the week",
+    "finished the week",
+    "finish the week",
+    "week recap",
+    "recap my week",
+    "recap the week",
+    "review my week",
+    "review the week",
+    "look at my week",
+    "take a look at my week",
+    "look at the week",
+    "grade my week",
+    "score my week",
+    "week in review",
+    "debrief my week",
+    "debrief the week",
+    "how did we do this week",
+    "analyse this week",
+    "analyze this week",
+    "analyse my week",
+    "analyze my week",
+)
+
+WEEK_SCOPE_RE = re.compile(
+    r"\b(this week|last week|the week|my week|weekly recap|week recap)\b",
+    re.IGNORECASE,
+)
+FORWARD_PLAN_RE = re.compile(
+    r"\b(adjust|change|modify|update|revise|rewrite|plan my|build my|"
+    r"what should i do|schedule)\b",
+    re.IGNORECASE,
+)
+RETROSPECT_RE = re.compile(
+    r"\b(how did i do|how did i perform|how was|how did .{0,20} go|"
+    r"recap|review|debrief|grade|look at|take a look|done with)\b",
+    re.IGNORECASE,
+)
+SESSION_SCOPE_RE = re.compile(
+    r"\b(today|yesterday|this morning|this afternoon|this ride|this run|"
+    r"this swim|this session|this workout|ride|run|swim|session|workout|"
+    r"trainer|whoosh|lift|gym|yoga|mobility)\b",
+    re.IGNORECASE,
+)
+
+SCIENCE_HINTS = (
+    "what is acwr",
+    "what is ftp",
+    "what is hrv",
+    "what is lthr",
+    "what is tss",
+    "what is zone 2",
+    "what is polarized",
+    "blood flow restriction",
+    "heat acclimation",
+    "heat acclimat",
+    "latest research",
+    "peer review",
+    "peer-reviewed",
+    "how does acwr",
+    "why does acwr",
+    "explain acwr",
+    "mitochondrial",
+    "lactate threshold",
+    "periodization",
+)
+
+SCIENCE_QUESTION_RE = re.compile(
+    r"\b(what is|what's|whats|how does|why does|explain|latest research|"
+    r"peer[- ]?reviewed|blood flow restriction|heat acclim)\b",
+    re.IGNORECASE,
+)
+
+OFF_TOPIC_HINTS = (
+    "what stock",
+    "which stock",
+    "stock should i buy",
+    "crypto",
+    "bitcoin",
+    "nft",
+    "who should i vote",
+    "election",
+    "write me python",
+    "do my homework",
+    "recipe for lasagna",
+    "best tv show",
+)
+
+OFF_TOPIC_RE = re.compile(
+    r"\b(stock|stocks|crypto|bitcoin|ethereum|nft|portfolio|who (won|should i vote)|"
+    r"election|homework|lasagna|netflix)\b",
+    re.IGNORECASE,
 )
 
 SCHEDULE_HINTS = (
@@ -89,6 +221,7 @@ SCHEDULE_HINTS = (
     "update my week",
     "update my schedule",
     "change my plan",
+    "adjust my plan",
     "modify my plan",
     "move the long",
     "swap my",
@@ -100,12 +233,19 @@ SCHEDULE_HINTS = (
 
 CLASSIFIER_SYSTEM = """You classify athlete coach-chat messages. Reply with JSON only.
 Choose exactly one intent:
-- WORKOUT_AUDIT: asking about a specific past session's performance, laps, watts, or "how was today".
-- SCHEDULE_UPDATE: proposing, asking to see, or asking to change this week's training plan.
-- GENERAL_CHAT: sports science, recovery questions, casual chat. Default here if unsure.
-Never pick WORKOUT_AUDIT just because the athlete trains or mentions a bike."""
+- WORKOUT_AUDIT: one named or implied session (today's ride, this run, laps, watts, "how was yoga").
+- WEEK_REVIEW: recap of a completed or current training week ("how did I do this week", "look at my week").
+- SCHEDULE_UPDATE: proposing, asking to see, or asking to change this week's training plan going forward.
+- CLINICAL_VETO: sharp/tissue pain, injury diagnosis requests, or asking the coach to prescribe medication.
+- OFF_TOPIC: stocks, politics, generic homework, anything outside athletic performance / recovery / sports science.
+- SCIENCE_LOOKUP: asking what a training concept is, or how a method works (ACWR, heat acclimation, zones, HRV).
+- GENERAL_CHAT: emotional support, missed sessions, casual coach chat. Default here if unsure.
+Never pick WORKOUT_AUDIT just because a ride exists or they said "how did I do".
+If they said "this week" / "my week" / "the week" and want a recap, pick WEEK_REVIEW, not WORKOUT_AUDIT.
+Never pick SCHEDULE_UPDATE for a retrospective week recap.
+Never invent a paper. CLINICAL_VETO always beats a science explanation if they report sharp pain."""
 
-CLASSIFIER_SCHEMA = """{"intent": "WORKOUT_AUDIT|SCHEDULE_UPDATE|GENERAL_CHAT"}"""
+CLASSIFIER_SCHEMA = """{"intent": "WORKOUT_AUDIT|WEEK_REVIEW|SCHEDULE_UPDATE|SCIENCE_LOOKUP|CLINICAL_VETO|OFF_TOPIC|GENERAL_CHAT"}"""
 
 
 @dataclass(frozen=True)
@@ -115,6 +255,7 @@ class IntentDecision:
     source: str
     audit_score: int = 0
     schedule_score: int = 0
+    review_score: int = 0
 
 
 def normalize_intent(value: str | None) -> str:
@@ -130,7 +271,7 @@ def classify_chat_intent(
     activity_id: int | None = None,
     use_llm: bool = True,
 ) -> str:
-    """Public router. Returns one of WORKOUT_AUDIT, SCHEDULE_UPDATE, GENERAL_CHAT."""
+    """Public router. Returns one of the INTENTS labels."""
     return classify_chat_intent_detailed(
         message, activity_id=activity_id, use_llm=use_llm
     ).intent
@@ -154,12 +295,24 @@ def classify_chat_intent_detailed(
         return structural
     llm_intent = _classify_with_llm(message)
     if llm_intent:
+        if llm_intent == WORKOUT_AUDIT and structural.review_score >= 3:
+            return IntentDecision(
+                intent=WEEK_REVIEW,
+                confidence=0.85,
+                source="structural_blocks_llm_audit",
+                audit_score=structural.audit_score,
+                schedule_score=structural.schedule_score,
+                review_score=structural.review_score,
+            )
+        if structural.intent in {CLINICAL_VETO, OFF_TOPIC} and structural.confidence >= 0.8:
+            return structural
         return IntentDecision(
             intent=llm_intent,
             confidence=0.8,
             source="llm",
             audit_score=structural.audit_score,
             schedule_score=structural.schedule_score,
+            review_score=structural.review_score,
         )
     # Fail open to the structural winner. Never invent an autopsy.
     if structural.intent == WORKOUT_AUDIT and structural.confidence < 0.7:
@@ -169,6 +322,7 @@ def classify_chat_intent_detailed(
             source="ambiguous_default",
             audit_score=structural.audit_score,
             schedule_score=structural.schedule_score,
+            review_score=structural.review_score,
         )
     return structural
 
@@ -178,20 +332,45 @@ def _classify_structural(message: str) -> IntentDecision:
     if not text:
         return IntentDecision(GENERAL_CHAT, 1.0, "empty")
 
+    from app.services.coach_safety import detect_clinical_boundary
+
+    clinical = detect_clinical_boundary(message)
+    if clinical:
+        return IntentDecision(CLINICAL_VETO, 0.96, "structural_clinical")
+
+    if any(hint in text for hint in OFF_TOPIC_HINTS) or (
+        OFF_TOPIC_RE.search(text)
+        and not re.search(r"\b(train|ftp|hrv|sleep|ride|run|week|session)\b", text)
+    ):
+        return IntentDecision(OFF_TOPIC, 0.9, "structural_off_topic")
+
     audit = 0
     schedule = 0
+    review = 0
+    science = 0
+    week_scoped = bool(WEEK_SCOPE_RE.search(text))
+    looking_forward = bool(FORWARD_PLAN_RE.search(text))
+    pasted_laps = bool(LAP_RE.search(text) and POWER_PASTE_RE.search(text))
 
     if any(hint in text for hint in AUDIT_HINTS):
         audit += 3
+    if ("how did i do" in text or "how did i perform" in text) and not week_scoped:
+        if SESSION_SCOPE_RE.search(text):
+            audit += 3
     if POWER_PASTE_RE.search(text) and ("ftp" in text or "lap" in text or len(message) >= 280):
         audit += 3
-    if LAP_RE.search(text) and POWER_PASTE_RE.search(text):
+    if pasted_laps:
         audit += 3
-    if re.search(r"\b(how was|analyse|analyze)\b", text) and re.search(
-        r"\b(ride|run|swim|session|workout|trainer|whoosh|lift|gym|yoga|mobility)\b",
-        text,
-    ):
-        audit += 2
+    if re.search(r"\b(how was|analyse|analyze)\b", text) and SESSION_SCOPE_RE.search(text):
+        if not week_scoped:
+            audit += 2
+
+    if any(hint in text for hint in WEEK_REVIEW_HINTS):
+        review += 4
+    if week_scoped and RETROSPECT_RE.search(text) and not looking_forward:
+        review += 3
+    elif week_scoped and re.search(r"\b(how did i|done with|look at my week)\b", text):
+        review += 2
 
     if any(hint in text for hint in SCHEDULE_HINTS):
         schedule += 3
@@ -207,24 +386,47 @@ def _classify_structural(message: str) -> IntentDecision:
         text,
     ):
         schedule += 2
+    # Retrospective week language is not a request to rewrite the calendar.
+    if review >= 3 and looking_forward is False:
+        schedule = min(schedule, 2)
+
+    if any(hint in text for hint in SCIENCE_HINTS):
+        science += 4
+    if SCIENCE_QUESTION_RE.search(text) and not week_scoped and audit < 3 and schedule < 3:
+        science += 3
 
     # A past-session correction that also mentions the week plan is still an autopsy.
     if audit >= 3 and schedule >= 2 and (
-        LAP_RE.search(text) or "analyse" in text or "analyze" in text or "you got it wrong" in text
+        pasted_laps or "analyse" in text or "analyze" in text or "you got it wrong" in text
     ):
-        return IntentDecision(WORKOUT_AUDIT, 0.9, "structural_audit_overrides_schedule", audit, schedule)
+        return IntentDecision(
+            WORKOUT_AUDIT, 0.9, "structural_audit_overrides_schedule", audit, schedule, review
+        )
 
-    if schedule >= 3 and schedule > audit:
+    # Week recap beats a generic "how did I do" autopsy unless they pasted laps.
+    if review >= 3 and review >= audit and not pasted_laps:
+        if schedule >= 3 and looking_forward and schedule > review:
+            confidence = 0.92 if schedule >= 5 else 0.8
+            return IntentDecision(SCHEDULE_UPDATE, confidence, "structural", audit, schedule, review)
+        confidence = 0.92 if review >= 5 else 0.85
+        return IntentDecision(WEEK_REVIEW, confidence, "structural", audit, schedule, review)
+
+    if schedule >= 3 and schedule > audit and schedule >= review:
         confidence = 0.92 if schedule >= 5 else 0.8
-        return IntentDecision(SCHEDULE_UPDATE, confidence, "structural", audit, schedule)
-    if audit >= 3 and audit >= schedule:
+        return IntentDecision(SCHEDULE_UPDATE, confidence, "structural", audit, schedule, review)
+    if audit >= 3 and audit >= schedule and audit >= review:
         confidence = 0.92 if audit >= 5 else 0.8
-        return IntentDecision(WORKOUT_AUDIT, confidence, "structural", audit, schedule)
+        return IntentDecision(WORKOUT_AUDIT, confidence, "structural", audit, schedule, review)
+    if science >= 3 and science >= audit and science >= schedule and science >= review:
+        confidence = 0.9 if science >= 5 else 0.8
+        return IntentDecision(SCIENCE_LOOKUP, confidence, "structural_science", audit, schedule, review)
+    if review > 0 and review >= audit and review >= schedule:
+        return IntentDecision(WEEK_REVIEW, 0.6, "structural_weak", audit, schedule, review)
     if schedule > 0 and schedule >= audit:
-        return IntentDecision(SCHEDULE_UPDATE, 0.55, "structural_weak", audit, schedule)
+        return IntentDecision(SCHEDULE_UPDATE, 0.55, "structural_weak", audit, schedule, review)
     if audit > 0:
-        return IntentDecision(WORKOUT_AUDIT, 0.55, "structural_weak", audit, schedule)
-    return IntentDecision(GENERAL_CHAT, 0.85, "structural_default", audit, schedule)
+        return IntentDecision(WORKOUT_AUDIT, 0.55, "structural_weak", audit, schedule, review)
+    return IntentDecision(GENERAL_CHAT, 0.85, "structural_default", audit, schedule, review)
 
 
 def _classify_with_llm(message: str) -> str | None:

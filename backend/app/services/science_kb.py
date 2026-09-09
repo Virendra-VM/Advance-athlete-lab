@@ -88,6 +88,15 @@ TOPIC_SYNONYMS = {
     "swim": ["specificity"],
     "return": ["return-to-play", "progression"],
     "comeback": ["return-to-play"],
+    "acclimation": ["heat", "environment"],
+    "acclimatisation": ["heat", "environment"],
+    "acclimatization": ["heat", "environment"],
+    "bfr": ["recovery", "strength", "safety"],
+    "restriction": ["recovery", "strength", "safety"],
+    "occlusion": ["recovery", "strength", "safety"],
+    "ibuprofen": ["safety", "policy"],
+    "nsaid": ["safety", "policy"],
+    "nsaids": ["safety", "policy"],
 }
 
 SPORT_ALIASES = {
@@ -321,12 +330,31 @@ def retrieve_science(
     return results
 
 
-def format_science_for_prompt(hits: list[dict]) -> str:
+# BM25 + tag boost. Safety chunks get a 0.3 participation bonus even with no
+# lexical overlap — that must not count as a grounded scientific match.
+GROUNDED_MIN_SCORE = 1.8
+
+
+def grounded_hits(hits: list[dict], *, min_score: float = GROUNDED_MIN_SCORE) -> list[dict]:
+    """Keep only chunks that actually matched the question."""
+    return [hit for hit in hits if float(hit.get("score") or 0) >= min_score]
+
+
+def retrieval_is_grounded(hits: list[dict], *, min_score: float = GROUNDED_MIN_SCORE) -> bool:
+    return bool(grounded_hits(hits, min_score=min_score))
+
+
+def format_science_for_prompt(hits: list[dict], *, grounded: bool | None = None) -> str:
     """Render retrieved chunks with stable [S1..Sn] labels for citation."""
-    if not hits:
-        return "No retrieved evidence. Do not invent citations."
+    usable = hits if grounded is not False else []
+    if not usable:
+        return (
+            "No retrieved evidence that meets the grounding threshold. "
+            "Do not invent citations, authors, years, or papers. "
+            "Say the playbook does not cover this, then give conservative coaching judgement or refer out."
+        )
     lines = []
-    for index, hit in enumerate(hits, start=1):
+    for index, hit in enumerate(usable, start=1):
         citation = hit["citation"]
         origin = ", ".join(
             str(part)

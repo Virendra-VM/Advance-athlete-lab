@@ -1,90 +1,129 @@
 # Advance Athlete Lab
 
-Phase 1 foundation for a personalized AI fitness coach application.
+A personalized **AI fitness coach** and **Digital Twin Periodization Engine** for endurance and multi-sport athletes. The app unifies training data from **Strava** and **COROS**, surfaces health and load metrics, and delivers phase-aware coaching, season planning, and day-to-day autoregulation — with or without an AI provider API key.
+
+## What the app does
+
+| Capability | Description |
+|------------|-------------|
+| **Unified activity history** | Import and sync activities from Strava and COROS; dedupe across providers; rich activity detail (streams, laps, splits, strength exercises, notes). |
+| **Health & recovery** | Sleep, HRV, stress, resting HR, daily health, and recovery views powered by COROS metrics and rolling baselines. |
+| **Training analytics** | Training load (TSS/effort), volume & ACWR, fitness trends, and a schedule view aligned with planned workouts. |
+| **AI Coach** | Daily advice, weekly brief, chat with intent routing, week plans, and **Today's Call** autoregulation — grounded in a science knowledge base and a deterministic safety layer. |
+| **Season planning** | Retrograde periodization from A/B/C/D/E races; baseline & feasibility checks; phase editing, audit, and replan when life or readiness changes. |
+| **Cycle-aware coaching** | Optional menstrual cycle tracking with phase context in coach recommendations (opt-in). |
+| **Athlete profile** | Onboarding wizard, physiology fields (FTP, LTHR, max HR), events, planning notes, and consent-gated AI coaching. |
 
 ## Tech Stack
 
 | Layer | Technology | How it runs |
 |-------|------------|-------------|
-| **Frontend** | React (Vite) + Tailwind CSS | Local dev server on port `5173` |
-| **Backend** | Python FastAPI + SQLAlchemy | Local Uvicorn server on port `8000` |
-| **Database** | PostgreSQL 16 | Docker container on port `5432` |
+| **Frontend** | React 18 (Vite) + Tailwind CSS + React Router | Dev server on port `5173` |
+| **Backend** | Python FastAPI + SQLAlchemy + Alembic-style migrations | Uvicorn on port `8000` |
+| **Database** | PostgreSQL 16 | Docker container on host port `5433` |
+| **AI** | Provider-agnostic (`cursor`, `claude`, `openai`, `gemini`) with rules fallback | Backend services |
+| **Integrations** | Strava OAuth + webhooks; COROS MCP (OAuth 2.1 PKCE) | Backend sync workers |
 
 ## Architecture Overview
 
-In Phase 1, only **PostgreSQL** is Dockerized. The React frontend and FastAPI backend run on your host machine and connect to the database container over `localhost`.
+Only **PostgreSQL** runs in Docker. The React frontend and FastAPI backend run on your host and connect to the database over `localhost:5433`.
 
 ```mermaid
-flowchart LR
+flowchart TB
   subgraph host["Host machine"]
-    FE["React frontend<br/>localhost:5173"]
-    BE["FastAPI backend<br/>localhost:8000"]
+    FE["React SPA<br/>localhost:5173"]
+    BE["FastAPI API<br/>localhost:8000"]
   end
 
   subgraph docker["Docker"]
-    PG[("PostgreSQL<br/>athlete_lab_postgres<br/>localhost:5432")]
+    PG[("PostgreSQL 16<br/>athlete_lab_postgres<br/>localhost:5433")]
   end
 
-  FE -->|"HTTP fetch (JSON)<br/>VITE_API_URL"| BE
-  BE -->|"SQLAlchemy + psycopg2<br/>DATABASE_URL"| PG
+  subgraph external["External services"]
+    STRAVA["Strava API"]
+    COROS["COROS MCP"]
+    AI["AI providers<br/>(optional)"]
+  end
+
+  FE -->|"REST + JWT<br/>VITE_API_URL"| BE
+  BE -->|"SQLAlchemy<br/>DATABASE_URL"| PG
+  BE --> STRAVA
+  BE --> COROS
+  BE --> AI
+  BE -->|"Parquet point data"| FS["backend/data/activity_points/"]
+  BE -->|"Science corpus"| KB["backend/data/science_corpus/"]
 ```
 
-### How the React frontend talks to FastAPI
+### Request flow
 
-1. **API client** — `frontend/src/api/athlete.js` uses the browser `fetch` API to call REST endpoints under `/api/athletes`.
-2. **Base URL** — Requests go to `VITE_API_URL` (default `http://localhost:8000`), set in `.env.example` and copied to `frontend/.env` if needed.
-3. **CORS** — FastAPI enables cross-origin requests from any `localhost` or `127.0.0.1` port via `CORSMiddleware` in `backend/app/main.py`, so the Vite dev server (`5173`) can call the API (`8000`) without a proxy.
-4. **Data flow** — Components such as `Dashboard.jsx` call helpers like `listAthleteProfiles()` and `createAthleteProfile()`. The backend validates JSON with Pydantic schemas, persists rows via SQLAlchemy, and returns JSON responses.
+1. The SPA calls REST endpoints under `/api/*` with a JWT from `/api/auth/login` or `/api/auth/register`.
+2. FastAPI routes validate input with Pydantic schemas, load the athlete profile, and delegate to service modules.
+3. SQLAlchemy persists relational data; high-frequency activity streams are stored as Parquet files on disk.
+4. The AI coach layer always runs a **deterministic safety pass** before returning plans, advice, or chat — even when an LLM generates the draft.
 
-Example request path when loading the dashboard:
+## App navigation
+
+| Section | Routes | Purpose |
+|---------|--------|---------|
+| **Home** | `/dashboard` | Overview, connections, Today's Call, quick links |
+| **Coach** | `/coach` | AI chat, daily advice, week plan, week brief |
+| **Health & Recovery** | `/health/recovery`, `/sleep`, `/hrv`, `/stress`, `/rhr`, `/daily` | COROS-backed health metrics with guides |
+| **Training** | `/training/load`, `/volume`, `/fitness`, `/schedule`, `/season` | Load, ACWR, fitness, schedule, season timeline |
+| **Activities** | `/activities`, `/activities/:id` | Filterable history and sport-specific detail pages |
+| **Account** | `/profile`, `/settings` | Profile, events, cycle tracking, integrations, consent |
+
+Onboarding flow: **Sign in → Onboarding → Connect Strava (optional step) → Connect COROS (optional step) → Dashboard**.
+
+## Backend services (high level)
 
 ```
-Dashboard.jsx → athlete.js → GET http://localhost:8000/api/athletes → FastAPI router → PostgreSQL
+backend/app/
+├── routes/          # REST API (auth, activities, strava, coros, coach, season, cycle, biometrics, science)
+├── services/
+│   ├── ai_coach.py, coach_ai.py, coach_intent.py, coach_safety.py, coach_templates.py
+│   ├── periodization.py, season_baseline.py, season_replan.py, season_audit.py
+│   ├── autoregulation.py, training_load.py, athlete_coach_context.py
+│   ├── menstrual_engine.py, zone_recalibration.py, b_race_calibration.py
+│   ├── strava_sync.py, coros_sync.py, activity_dedupe.py, activity_detail.py
+│   ├── biometric_sync.py, biometric_baselines.py, science_kb.py
+│   └── planning_notes.py
+├── models.py        # Users, profiles, activities, season plans, events, advice snapshots, biometrics
+└── migrate.py       # Incremental schema migrations on startup
 ```
 
-### How PostgreSQL is connected
+## Project structure
 
-1. **Docker Compose** — `docker-compose.yml` starts a `postgres:16-alpine` container named `athlete_lab_postgres` with:
-   - User / password: `athlete` / `athlete`
-   - Database: `athlete_lab`
-   - Port mapping: `5432:5432` (container port exposed on the host)
-   - Named volume `postgres_data` for persistent storage
-   - Health check via `pg_isready` so you can confirm the DB is ready before starting the backend
-
-2. **Backend connection string** — `backend/app/database.py` reads `DATABASE_URL` from the environment (see `.env.example`):
-
-   ```
-   postgresql+psycopg2://athlete:athlete@localhost:5432/athlete_lab
-   ```
-
-   Because the backend runs on the host (not inside Docker), it reaches PostgreSQL through `localhost:5432`.
-
-3. **ORM & schema** — SQLAlchemy creates the `athlete_profiles` table on startup (`Base.metadata.create_all` in the FastAPI lifespan handler). Route handlers in `backend/app/routes/athletes.py` use a per-request DB session from `get_db()`.
+```
+Advance athlete lab/
+├── backend/
+│   ├── app/                 # FastAPI application
+│   ├── data/
+│   │   ├── activity_points/ # Parquet stream storage
+│   │   └── science_corpus/  # Curated coaching evidence chunks
+│   ├── scripts/
+│   │   ├── ai_eval/         # Coach quality evaluation harness
+│   │   └── science_ingest/  # Corpus indexing
+│   ├── tests/               # Pytest suite
+│   └── requirements.txt
+├── frontend/
+│   └── src/
+│       ├── api/             # API clients (auth, coach, season, coros, strava, activities)
+│       ├── components/      # UI (coach, season, activity, health, layout, profile)
+│       ├── pages/           # Route-level pages
+│       └── utils/           # Formatters, guides, onboarding steps
+├── docs/
+│   ├── ai-provider-evaluation.md
+│   └── science-kb-policy.md
+├── docker-compose.yml       # PostgreSQL only
+├── .env.example             # Environment template
+└── README.md
+```
 
 ## Prerequisites
 
 - Docker and Docker Compose
-- Python 3.11+ (use 3.11 for `fit2gpx` — Python 3.13 is not supported yet)
-- Node.js 18+
-
-## Project Structure
-
-```
-Advance athlete lab/
-├── backend/              # FastAPI + SQLAlchemy
-│   └── app/
-│       ├── main.py       # App entry, CORS, table creation
-│       ├── database.py   # Engine, session, DATABASE_URL
-│       ├── models.py     # AthleteProfile SQLAlchemy model
-│       ├── schemas.py    # Pydantic request/response models
-│       └── routes/       # /api/athletes endpoints
-├── frontend/             # React + Vite + Tailwind
-│   └── src/
-│       ├── api/athlete.js
-│       └── components/
-├── docker-compose.yml    # PostgreSQL service
-└── .env.example          # Shared env template
-```
+- Python **3.11+** (use 3.11 for `fit2gpx`; 3.13 may fail)
+- Node.js **18+**
 
 ## Quick Start
 
@@ -92,22 +131,16 @@ Advance athlete lab/
 
 ```bash
 cp .env.example backend/.env
-# Optional: copy VITE_API_URL for the frontend
 echo "VITE_API_URL=http://localhost:8000" > frontend/.env
 ```
 
-### 2. Start PostgreSQL (Docker)
+Edit `backend/.env` with your Strava/COROS/AI keys as needed (see [Environment Variables](#environment-variables)).
 
-From the project root:
+### 2. Start PostgreSQL
 
 ```bash
 docker compose up -d
-```
-
-Wait until the container is healthy:
-
-```bash
-docker compose ps
+docker compose ps   # wait until postgres is healthy
 ```
 
 ### 3. Backend
@@ -124,8 +157,6 @@ API docs: http://localhost:8000/docs
 
 ### 4. Frontend
 
-In a separate terminal:
-
 ```bash
 cd frontend
 npm install
@@ -136,210 +167,273 @@ App: http://localhost:5173
 
 ---
 
-## Docker Commands
+## Integrations
 
-All commands below are run from the **project root** (where `docker-compose.yml` lives).
-
-### Start containers
-
-```bash
-# Start PostgreSQL in the background
-docker compose up -d
-
-# Start and rebuild (if you change compose config)
-docker compose up -d --build
-```
-
-### Stop containers
-
-```bash
-# Stop containers but keep the postgres_data volume
-docker compose stop
-
-# Stop and remove containers (data volume is preserved)
-docker compose down
-
-# Stop, remove containers, AND delete the database volume (destructive)
-docker compose down -v
-```
-
-### View logs
-
-```bash
-# Follow logs for all services
-docker compose logs -f
-
-# Follow logs for PostgreSQL only
-docker compose logs -f postgres
-
-# Show last 100 lines without following
-docker compose logs --tail=100 postgres
-```
-
-### Other useful commands
-
-```bash
-# Container status and health
-docker compose ps
-
-# Open a psql shell inside the running container
-docker compose exec postgres psql -U athlete -d athlete_lab
-
-# Restart PostgreSQL
-docker compose restart postgres
-```
-
----
-
-## API Endpoints
-
-| Method | Path | Description |
-|--------|------|-------------|
-| POST | `/api/athletes` | Create athlete profile |
-| GET | `/api/athletes` | List all profiles |
-| GET | `/api/athletes/{id}` | Get profile by ID |
-| GET | `/api/strava/auth` | Get Strava OAuth authorization URL |
-| POST | `/api/strava/callback` | Exchange OAuth code for tokens |
-| GET | `/api/strava/status` | Check Strava connection status |
-| GET | `/strava/webhook` | Strava webhook subscription validation |
-| POST | `/strava/webhook` | Receive Strava activity webhook events |
-| POST | `/api/import/strava-history/upload` | Upload Strava bulk export zip and start import |
-| POST | `/api/import/strava-history` | Start import from `STRAVA_EXPORT_DIR` (dev/CLI) |
-| GET | `/api/import/strava-history/status` | Bulk import job progress |
-| GET | `/api/activities` | List imported activities for an athlete |
-| GET | `/api/activities/summary` | Monthly distance summary for charts |
-| GET | `/api/activities/{id}` | Get a single imported activity |
-| GET | `/api/coach/status` | Provider/consent/knowledge-base state for the coach UI |
-| GET | `/api/coach/context` | Unified athlete context (profile, load, readiness, safety caps) |
-| GET/POST | `/api/coach/plan` | Read or generate the week's training plan |
-| GET | `/api/coach/advice` | Today's readiness guidance |
-| GET/POST | `/api/coach/chat` | Coach chat history and messages |
-| GET | `/api/coach/planned-workouts` | Coach plans in Schedule-compatible rows |
-| GET | `/api/science/search` | Retrieve citable evidence chunks |
-| GET | `/api/science/sources` | List knowledge-base sources |
-
-### Athlete profile fields
-
-- `name` — athlete name
-- `age` — age in years
-- `weight` — weight in kg
-- `fitness_goals` — training goals
-- `medical_history` — relevant medical notes (nullable)
-
-## Verification
-
-```bash
-# Create a profile
-curl -X POST http://localhost:8000/api/athletes \
-  -H "Content-Type: application/json" \
-  -d '{"name":"Alex","age":28,"weight":75.5,"fitness_goals":"Build strength","medical_history":"None"}'
-
-# List profiles
-curl http://localhost:8000/api/athletes
-
-# Fetch profile by ID
-curl http://localhost:8000/api/athletes/1
-
-# Validate Strava webhook subscription
-curl "http://localhost:8000/strava/webhook?hub.mode=subscribe&hub.challenge=test123&hub.verify_token=YOUR_TOKEN"
-```
-
-## Strava Setup (Phase 2)
+### Strava
 
 1. Create a Strava API application at https://www.strava.com/settings/api
 2. Set **Authorization Callback Domain** to `localhost`
-3. Copy your credentials into **`backend/.env`** (not the frontend):
+3. Add to `backend/.env`:
 
 ```env
-STRAVA_CLIENT_ID=your_client_id_here
-STRAVA_CLIENT_SECRET=your_client_secret_here
+STRAVA_CLIENT_ID=your_client_id
+STRAVA_CLIENT_SECRET=your_client_secret
 STRAVA_REDIRECT_URI=http://localhost:5173/oauth/strava/callback
-STRAVA_WEBHOOK_VERIFY_TOKEN=your_webhook_verify_token_here
+STRAVA_WEBHOOK_VERIFY_TOKEN=your_webhook_verify_token
 ```
 
-4. In the app dashboard, click **Connect to Strava** to complete OAuth
-5. For webhook testing in local dev, expose the backend with ngrok (e.g. `https://abc123.ngrok.io/strava/webhook`) and create a Strava webhook subscription pointing to that URL
+4. Connect from the dashboard or onboarding flow.
+5. For webhooks in local dev, expose the backend with ngrok and register `https://<id>.ngrok.io/strava/webhook`.
 
-## Strava Bulk Export Import (Phase 2 Part 2)
+**Bulk export import:** Upload a Strava export zip from the dashboard, or set `STRAVA_EXPORT_DIR` and use the CLI import script.
 
-1. Request a bulk export from Strava and download the zip file (do not unzip)
-2. In the app dashboard, click **Upload Strava Export** and select the zip file
-3. Wait for upload + import progress to finish — activity history appears below your profile
+### COROS
 
-Optional CLI / server-path import (for developers):
+COROS uses the official remote MCP with OAuth 2.1 PKCE:
 
 ```env
-STRAVA_EXPORT_DIR=/Users/you/Downloads/strava_export
+COROS_MCP_URL=https://mcp.coros.com/mcp
+COROS_REDIRECT_URI=http://localhost:5173/oauth/coros/callback
+COROS_FIT_DAILY_LIMIT=50
+COROS_ACTIVITY_LOOKBACK_DAYS=90
+COROS_HEALTH_LOOKBACK_DAYS=28
 ```
 
-```bash
-cd backend
-python scripts/import_strava_history.py --athlete-profile-id 1
-```
+Connect from onboarding or Settings, then sync activities and health metrics. FIT files enrich activity detail and strength parsing.
 
-Summary metrics are stored in PostgreSQL (`activities` table); second-by-second point data is saved as Parquet files under `backend/data/activity_points/`.
-
-**Note:** `fit2gpx` may require Python 3.11 or 3.12 if installation fails on Python 3.13.
+---
 
 ## AI Coach
 
-The coach combines three layers, and works with or without an AI provider:
+The coach combines four layers and works **without** an API key (rules/templates mode):
 
-1. **Athlete context** — profile v2, recent activities, COROS health/load, readiness flags.
-2. **Science knowledge base** — curated, citable chunks under `backend/data/science_corpus/`,
-   seeded on first boot. Policy: [`docs/science-kb-policy.md`](docs/science-kb-policy.md).
-3. **Deterministic safety layer** — `backend/app/services/coach_safety.py` derives hard caps
-   (weekly minutes, hard sessions, injury contraindications, rest days) and repairs or blocks
-   any generated plan that violates them.
-
-Without an API key everything still works: plans, advice, and chat come from deterministic
-templates and responses are labelled `provider: "rules"`. Add a key to switch on generation:
+1. **Athlete context** — profile, physiology, recent activities, COROS health/load, season phase, cycle context (if enabled), readiness flags.
+2. **Science knowledge base** — curated, citable chunks under `backend/data/science_corpus/`. Policy: [`docs/science-kb-policy.md`](docs/science-kb-policy.md).
+3. **Deterministic safety layer** — `coach_safety.py` enforces caps (weekly minutes, hard sessions, injury contraindications, spine lock, ACWR veto) and repairs or blocks unsafe output.
+4. **LLM generation (optional)** — plans, advice, chat, and season-aware prompts when a provider key is configured.
 
 ```env
-AI_PROVIDER=claude          # claude | openai | gemini
-AI_FALLBACK_PROVIDER=gemini
-ANTHROPIC_API_KEY=...
+AI_PROVIDER=cursor          # cursor | claude | openai | gemini
+AI_FALLBACK_PROVIDER=
+CURSOR_API_KEY=...          # or ANTHROPIC_API_KEY / OPENAI_API_KEY / GEMINI_API_KEY
+AI_REQUEST_TIMEOUT_S=90
+AI_LOG_PROMPTS=false
 ```
 
-Provider choice is evidence-based — see [`docs/ai-provider-evaluation.md`](docs/ai-provider-evaluation.md).
-To re-run the comparison on 30 synthetic athletes:
+Provider evaluation methodology: [`docs/ai-provider-evaluation.md`](docs/ai-provider-evaluation.md).
 
 ```bash
 cd backend
-python scripts/ai_eval/run_eval.py --provider rules          # free baseline
+python scripts/ai_eval/run_eval.py --provider rules
 python scripts/ai_eval/run_eval.py --provider claude --provider gemini
-python scripts/ai_eval/smoke_coach.py                        # end-to-end pipeline check
+python scripts/ai_eval/smoke_coach.py
 ```
 
-AI coaching requires explicit consent on the athlete profile; plan, advice, and chat endpoints
-return `403` until it is granted.
+AI coaching requires explicit consent on the athlete profile; coach endpoints return `403` until granted.
+
+### Coach API highlights
+
+| Endpoint | Description |
+|----------|-------------|
+| `GET /api/coach/status` | Provider chain, consent, KB state |
+| `GET /api/coach/context` | Unified athlete context for the UI |
+| `GET /api/coach/todays-call` | Autoregulation tier and session guidance |
+| `GET/POST /api/coach/plan` | Weekly training plan |
+| `GET /api/coach/advice` | Today's readiness guidance |
+| `GET /api/coach/week-brief` | Weekly advice brief (with optional refresh/topic) |
+| `GET/POST /api/coach/chat` | Coach chat with intent routing |
+| `POST /api/coach/plan/from-chat` | Apply a chat-revised week plan |
+| `POST /api/coach/baseline/confirm` | Confirm athlete baseline for planning |
+| `GET /api/coach/planned-workouts` | Schedule-compatible planned rows |
+
+---
+
+## Digital Twin Periodization & Season Planning
+
+The **Season** page (`/training/season`) is the control centre for long-range training structure:
+
+- **Retrograde periodization** — phases (Base → Build → Peak → Taper → Restore) computed backward from your A-race and supporting B/C/D/E events.
+- **Athlete baseline** — recent training volume, long-session ceiling, and feasibility projection for the A-race target.
+- **Race feasibility** — flags when current load trajectory may not support the stated goal date or target.
+- **Season audit** — structured review of phase balance, recovery gaps, and event spacing before committing a plan.
+- **Replan engine** — detects triggers (missed load, injury flag, event date change) and proposes phase adjustments.
+- **Phase editing** — shift, replace, patch, or delete individual phases without rebuilding from scratch.
+- **Planning notes** — free-text context on the profile/onboarding that flows into season generation and coach prompts.
+- **B-race calibration & D-race zone tests** — post-race result capture and automatic zone recalibration flows.
+
+### Season API
+
+| Method | Path | Description |
+|--------|------|-------------|
+| GET | `/api/season` | Active season plan with phases, baseline, feasibility |
+| GET | `/api/season/preview` | Preview plan before generation |
+| POST | `/api/season/generate` | Generate a new season plan |
+| GET | `/api/season/audit` | Run season audit on current/proposed plan |
+| GET | `/api/season/replan/triggers` | List active replan triggers |
+| POST | `/api/season/replan` | Execute a season replan |
+| PATCH | `/api/season/phases/{id}` | Adjust phase parameters |
+| POST | `/api/season/phases/{id}/shift` | Shift a phase on the timeline |
+| POST | `/api/season/phases/{id}/replace` | Replace a phase |
+| DELETE | `/api/season/phases/{id}` | Remove a phase |
+| GET/POST/PATCH/DELETE | `/api/season/events` | CRUD for athlete events (A/B/C/D/E races) |
+| POST | `/api/season/events/{id}/complete` | Log race result and trigger calibration |
+
+Season context is injected into coach weekly prompts, Today's Call, and safety checks so daily guidance stays aligned with the macro plan.
+
+---
+
+## Health, load & cycle tracking
+
+| Feature | Backend | Frontend |
+|---------|---------|----------|
+| COROS health sync | `coros_sync.py`, `biometric_sync.py` | Health pages under `/health/*` |
+| Rolling baselines | `biometric_baselines.py` | Zone strips, gauges, metric guides |
+| Unified ACWR / TSS | `training_load.py` | Training Load & Volume pages |
+| Manual biometrics | `POST /api/biometrics/manual` | Profile / health inputs |
+| Cycle tracking (opt-in) | `menstrual_engine.py`, `/api/cycle/*` | Profile panel + coach phase chip |
+
+---
+
+## API Endpoints (summary)
+
+### Auth & profile
+
+| Method | Path | Description |
+|--------|------|-------------|
+| POST | `/api/auth/register` | Register user + athlete profile |
+| POST | `/api/auth/login` | Login, returns JWT |
+| GET | `/api/auth/me` | Current user |
+| POST | `/api/auth/verify-email/request` | Send verification email |
+| POST | `/api/auth/verify-email/confirm` | Confirm email token |
+| GET/PATCH | `/api/profile/me` | Read/update profile |
+| POST | `/api/profile/onboarding` | Complete onboarding wizard |
+
+### Activities
+
+| Method | Path | Description |
+|--------|------|-------------|
+| GET | `/api/activities` | Paginated activity list (filters, providers) |
+| GET | `/api/activities/summary` | Monthly volume summary |
+| GET | `/api/activities/{id}` | Activity detail |
+| POST | `/api/activities/{id}/enrich` | Fetch/sync detailed streams |
+| GET/PATCH/POST/DELETE | `/api/activities/{id}/notes` | Activity notes CRUD |
+| POST | `/api/activities/dedupe` | Cross-provider deduplication |
+
+### Strava & COROS
+
+| Method | Path | Description |
+|--------|------|-------------|
+| GET | `/api/strava/auth` | OAuth URL |
+| POST | `/api/strava/callback` | Exchange OAuth code |
+| POST | `/api/strava/sync` | Start background sync |
+| GET | `/api/coros/auth` | COROS OAuth URL |
+| POST | `/api/coros/callback` | COROS token exchange |
+| POST | `/api/coros/sync` | Sync activities + health |
+| GET | `/api/coros/overview` | COROS dashboard payload |
+
+### Science knowledge base
+
+| Method | Path | Description |
+|--------|------|-------------|
+| GET | `/api/science/sources` | List corpus sources |
+| GET | `/api/science/search` | Search citable evidence chunks |
+
+Full interactive docs: http://localhost:8000/docs
+
+---
 
 ## Environment Variables
 
 | Variable | Used by | Default | Description |
 |----------|---------|---------|-------------|
-| `DATABASE_URL` | Backend | `postgresql+psycopg2://athlete:athlete@localhost:5432/athlete_lab` | SQLAlchemy connection string |
-| `VITE_API_URL` | Frontend | `http://localhost:8000` | FastAPI base URL for browser requests |
-| `STRAVA_CLIENT_ID` | Backend | — | Strava app client ID |
-| `STRAVA_CLIENT_SECRET` | Backend | — | Strava app client secret (backend only) |
-| `STRAVA_REDIRECT_URI` | Backend | `http://localhost:5173/oauth/strava/callback` | OAuth redirect URI registered with Strava |
-| `STRAVA_WEBHOOK_VERIFY_TOKEN` | Backend | — | Secret token for Strava webhook validation |
-| `STRAVA_EXPORT_DIR` | Backend | — | Absolute path to unzipped Strava bulk export folder |
-| `ACTIVITY_POINTS_DIR` | Backend | `./data/activity_points` | Directory for Parquet point-data files |
-| `EMAIL_PROVIDER` | Backend | `console` | Verification email transport: `console`, `resend`, `smtp` |
-| `APP_BASE_URL` | Backend | `http://localhost:5173` | Base URL used in verification links |
-| `AI_PROVIDER` | Backend | `claude` | Primary coach provider; falls back to rules without a key |
-| `AI_FALLBACK_PROVIDER` | Backend | `gemini` | Second choice when the primary fails |
-| `ANTHROPIC_API_KEY` / `OPENAI_API_KEY` / `GEMINI_API_KEY` | Backend | — | Provider credentials |
-| `AI_LOG_PROMPTS` | Backend | `false` | Log redacted prompts/responses for debugging |
+| `DATABASE_URL` | Backend | `postgresql+psycopg2://athlete:athlete@localhost:5433/athlete_lab` | SQLAlchemy connection (host port **5433**) |
+| `VITE_API_URL` | Frontend | `http://localhost:8000` | API base URL |
+| `JWT_SECRET` | Backend | `change-me-in-production-...` | JWT signing secret |
+| `STRAVA_CLIENT_ID` / `STRAVA_CLIENT_SECRET` | Backend | — | Strava OAuth credentials |
+| `STRAVA_REDIRECT_URI` | Backend | `http://localhost:5173/oauth/strava/callback` | OAuth redirect |
+| `STRAVA_WEBHOOK_VERIFY_TOKEN` | Backend | — | Webhook validation secret |
+| `STRAVA_EXPORT_DIR` | Backend | — | Path to unzipped Strava bulk export |
+| `ACTIVITY_POINTS_DIR` | Backend | `./data/activity_points` | Parquet point-data directory |
+| `COROS_MCP_URL` | Backend | `https://mcp.coros.com/mcp` | COROS MCP endpoint |
+| `COROS_REDIRECT_URI` | Backend | `http://localhost:5173/oauth/coros/callback` | COROS OAuth redirect |
+| `COROS_FIT_DAILY_LIMIT` | Backend | `50` | Max FIT downloads per day |
+| `APP_BASE_URL` | Backend | `http://localhost:5173` | SPA URL for email links |
+| `EMAIL_PROVIDER` | Backend | `console` | `console` \| `resend` \| `smtp` |
+| `AI_PROVIDER` | Backend | `claude` | Primary coach provider |
+| `AI_FALLBACK_PROVIDER` | Backend | `gemini` | Fallback provider |
+| `CURSOR_API_KEY` / `ANTHROPIC_API_KEY` / `OPENAI_API_KEY` / `GEMINI_API_KEY` | Backend | — | Provider credentials |
+| `AI_LOG_PROMPTS` | Backend | `false` | Log redacted prompts for debugging |
+| `AI_DEBUG` | Backend | `false` | Show provider chain in `/coach/status` |
+
+See `.env.example` for the full list including SMTP and model overrides.
+
+---
+
+## Testing
+
+```bash
+cd backend
+source .venv/bin/activate
+pytest                           # full suite
+pytest tests/test_periodization.py tests/test_season_baseline.py tests/test_season_replan.py
+pytest tests/test_ai_coach.py tests/test_autoregulation.py
+pytest tests/test_menstrual_engine.py tests/test_spine_lock.py
+```
+
+Key test areas: periodization, season baseline/feasibility/audit/replan, coach intent & safety, clinical veto, science grounding, and week-plan flow.
+
+---
+
+## Docker commands
+
+Run from the **project root**:
+
+```bash
+docker compose up -d              # start PostgreSQL
+docker compose ps                 # check health
+docker compose logs -f postgres   # follow logs
+docker compose exec postgres psql -U athlete -d athlete_lab
+docker compose down               # stop containers (volume preserved)
+docker compose down -v            # stop and delete data (destructive)
+```
+
+---
 
 ## Troubleshooting
 
 | Issue | What to check |
 |-------|----------------|
-| Backend cannot connect to DB | Run `docker compose ps` — Postgres should be `healthy`. Confirm `DATABASE_URL` uses `localhost:5432`. |
-| Frontend shows network/CORS errors | Ensure the backend is running on port `8000` and `VITE_API_URL` matches. Restart Vite after changing `.env`. |
-| Port 5432 already in use | Stop a local PostgreSQL instance or change the host port in `docker-compose.yml` (e.g. `"5433:5432"`) and update `DATABASE_URL` accordingly. |
-| Empty dashboard after login | Use **Create Sample Profile** in the UI, or POST a profile via `curl` (see Verification). |
-| Strava connect fails | Confirm `STRAVA_CLIENT_ID`, `STRAVA_CLIENT_SECRET`, and `STRAVA_REDIRECT_URI` are set in `backend/.env` and match your Strava app settings. |
-| Import shows 0 imported / 1 error | Restart backend using Python 3.11 venv: `python3.11 -m venv .venv && pip install -r requirements.txt`. Needs `fit2gpx` + `lxml`. |
+| Backend cannot connect to DB | `docker compose ps` — Postgres should be `healthy`. Use port **5433** in `DATABASE_URL`. |
+| Frontend network/CORS errors | Backend on `8000`; `VITE_API_URL` matches. Restart Vite after `.env` changes. |
+| Port 5433 in use | Change host port in `docker-compose.yml` and update `DATABASE_URL`. |
+| Strava connect fails | Credentials in `backend/.env` match Strava app settings and redirect URI. |
+| COROS sync empty | Complete OAuth; check MCP URL and lookback day settings. |
+| Coach returns 403 | Enable AI coaching consent on the athlete profile. |
+| Import / FIT errors | Use Python 3.11 venv; ensure `fit2gpx` and `lxml` installed. |
+| AI coach uses rules only | No provider key set — expected. Add `CURSOR_API_KEY` or other provider key. |
+| Season plan won't generate | Set an A-race event and confirm baseline; check `/api/season/preview` warnings. |
+
+---
+
+## Verification (smoke test)
+
+```bash
+# Health check
+curl http://localhost:8000/
+
+# Register (returns JWT)
+curl -X POST http://localhost:8000/api/auth/register \
+  -H "Content-Type: application/json" \
+  -d '{"email":"test@example.com","password":"testpass123","name":"Alex","age":30,"weight":70,"fitness_goals":"Half marathon"}'
+
+# Coach status (requires auth header from register response)
+curl http://localhost:8000/api/coach/status \
+  -H "Authorization: Bearer YOUR_JWT"
+```
+
+---
+
+## License & docs
+
+- Science KB policy: [`docs/science-kb-policy.md`](docs/science-kb-policy.md)
+- AI provider evaluation: [`docs/ai-provider-evaluation.md`](docs/ai-provider-evaluation.md)

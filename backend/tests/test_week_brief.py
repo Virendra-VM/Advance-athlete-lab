@@ -16,11 +16,18 @@ if str(BACKEND_ROOT) not in sys.path:
 
 from app.database import Base  # noqa: E402
 from app.models import Activity, AthleteConsent, AthleteProfile, DailyHealthMetric, TrainingLoadSnapshot  # noqa: E402
-from app.services.coach_ai import generate_week_brief, health_brief_off_topic, week_brief_input_fingerprint  # noqa: E402
+from app.services.coach_ai import (  # noqa: E402
+    _season_status_dict as _season_status,
+    generate_week_brief,
+    health_brief_off_topic,
+    season_brief_off_topic,
+    week_brief_input_fingerprint,
+)
 from app.services.coach_templates import (  # noqa: E402
     build_template_daily_brief,
     build_template_hrv_brief,
     build_template_rhr_brief,
+    build_template_season_brief,
     build_template_sleep_brief,
     build_template_stress_brief,
 )
@@ -397,6 +404,158 @@ def test_health_brief_rejects_workouts_and_other_metrics():
     )
 
 
+def _season_context(*, has_plan=True, triggers=()):
+    context = _base_context()
+    if has_plan:
+        context["season"] = {
+            "has_plan": True,
+            "start_date": "2026-09-01",
+            "end_date": "2026-12-20",
+            "a_race": {"name": "City Marathon", "date": "2026-12-13", "target_metric": "sub 3:30"},
+            "current_phase": {
+                "phase_type": "build",
+                "intent": "Raise LT2/FTP with tempo and controlled quality.",
+                "week_count": 5,
+            },
+            "week_in_phase": 2,
+            "week_intent": {
+                "volume_bias": 1.0,
+                "intensity_bias": "moderate",
+                "long_session_allowed_min": 210,
+                "notes": ["Typical weekday session ~60 min is not a cap."],
+                "events": [],
+            },
+            "phases": [
+                {"phase_type": "base", "start_date": "2026-09-01", "end_date": "2026-10-11", "week_count": 6},
+                {"phase_type": "build", "start_date": "2026-10-12", "end_date": "2026-11-15", "week_count": 5},
+            ],
+            "upcoming_events": [],
+            "warnings": [],
+            "baseline": {
+                "long_session_ceiling_min": 195,
+                "recovery_cycle_weeks": 4,
+                "volume_damp": 1.0,
+                "confidence": "high",
+                "notes": ["Long-day ceiling 195 min — your longest was 150 min."],
+            },
+            "a_race_feasibility": None,
+            "replan_triggers": list(triggers),
+        }
+    else:
+        context["season"] = {
+            "has_plan": False,
+            "a_race": {"name": "City Marathon", "date": "2026-12-13"},
+            "replan_triggers": list(triggers),
+        }
+    return context
+
+
+def test_season_fingerprint_tracks_season_not_distance():
+    clock = {"week_start_iso": "2026-09-01"}
+    context = _season_context()
+    baseline = week_brief_input_fingerprint(context, clock, _distance(), "season")
+
+    spiked = _distance()
+    spiked["acwr"] = 1.9
+    assert week_brief_input_fingerprint(context, clock, spiked, "season") == baseline
+
+    moved_on = _season_context()
+    moved_on["season"]["current_phase"]["phase_type"] = "peak"
+    assert week_brief_input_fingerprint(moved_on, clock, _distance(), "season") != baseline
+
+    flagged = _season_context(triggers=[{"code": "active_injury", "message": "Injury on file."}])
+    assert week_brief_input_fingerprint(flagged, clock, _distance(), "season") != baseline
+
+    assert week_brief_input_fingerprint(context, clock, _distance(), "volume") != baseline
+
+
+def test_season_fingerprint_tracks_the_personalised_limits():
+    """The brief quotes the plan's limits, so it must refresh when they change."""
+    clock = {"week_start_iso": "2026-09-01"}
+    context = _season_context()
+    baseline = week_brief_input_fingerprint(context, clock, _distance(), "season")
+
+    raised = _season_context()
+    raised["season"]["baseline"]["long_session_ceiling_min"] = 240
+    assert week_brief_input_fingerprint(raised, clock, _distance(), "season") != baseline
+
+    # The reason can change while the number stays — an injury clearing, say.
+    reworded = _season_context()
+    reworded["season"]["baseline"]["notes"] = ["Volume held at 88% while calf is active."]
+    assert week_brief_input_fingerprint(reworded, clock, _distance(), "season") != baseline
+
+    damped = _season_context()
+    damped["season"]["baseline"]["volume_damp"] = 0.88
+    assert week_brief_input_fingerprint(damped, clock, _distance(), "season") != baseline
+
+    projected = _season_context()
+    projected["season"]["a_race_feasibility"] = {
+        "feasibility": "stretch",
+        "predicted_a_time": "3:34:10",
+    }
+    assert week_brief_input_fingerprint(projected, clock, _distance(), "season") != baseline
+
+
+def test_season_template_explains_phase_and_next_action():
+    quiet = build_template_season_brief(_season_context(), {}, _season_status(_season_context()))
+    assert "Build" in quiet["headline"]
+    assert "week 2 of 5" in quiet["recommendation"]
+    # No trigger: must not push a replan the button would refuse to do.
+    assert "replan" not in quiet["session_adjustment"].lower()
+    assert "no plan change" in quiet["session_adjustment"].lower()
+
+    flagged_ctx = _season_context(
+        triggers=[{"code": "missed_key_sessions", "message": "2 key sessions missed this week."}]
+    )
+    flagged = build_template_season_brief(flagged_ctx, {}, _season_status(flagged_ctx))
+    assert "replan" in flagged["session_adjustment"].lower()
+    assert "key sessions" in flagged["session_adjustment"].lower()
+
+    none_ctx = _season_context(has_plan=False)
+    missing = build_template_season_brief(none_ctx, {}, _season_status(none_ctx))
+    assert "Generate" in missing["recommendation"]
+    assert "City Marathon" in missing["recommendation"]
+
+
+def test_season_brief_rejects_sessions_and_false_replans():
+    quiet = _season_status(_season_context())
+    flagged = _season_status(
+        _season_context(triggers=[{"code": "active_injury", "message": "Injury on file."}])
+    )
+
+    # Prescribing sessions belongs to Coach, not the Season page.
+    assert season_brief_off_topic(
+        quiet,
+        {
+            "headline": "Build week",
+            "recommendation": "Run 6 x 800m at threshold.",
+            "session_adjustment": None,
+            "rationale": "",
+        },
+    )
+    # Telling the athlete to replan when nothing tripped sends them to a no-op button.
+    assert season_brief_off_topic(
+        quiet,
+        {
+            "headline": "Build week",
+            "recommendation": "You should replan the remaining weeks.",
+            "session_adjustment": None,
+            "rationale": "",
+        },
+    )
+    # Same sentence is correct once a trigger exists.
+    assert not season_brief_off_topic(
+        flagged,
+        {
+            "headline": "Build week",
+            "recommendation": "Replan the remaining weeks — an injury is on file.",
+            "session_adjustment": None,
+            "rationale": "",
+        },
+    )
+    assert not season_brief_off_topic(quiet, build_template_season_brief(_season_context(), {}, quiet))
+
+
 def test_health_templates_stay_on_metric():
     safety = {}
     ctx = {}
@@ -463,6 +622,10 @@ def run() -> None:
         test_generate_week_brief_uses_cache_until_signals_change,
         test_health_brief_rejects_workouts_and_other_metrics,
         test_health_templates_stay_on_metric,
+        test_season_fingerprint_tracks_season_not_distance,
+        test_season_fingerprint_tracks_the_personalised_limits,
+        test_season_template_explains_phase_and_next_action,
+        test_season_brief_rejects_sessions_and_false_replans,
     ]
     for test in tests:
         test()

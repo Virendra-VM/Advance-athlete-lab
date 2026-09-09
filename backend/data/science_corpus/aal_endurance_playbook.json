@@ -103,6 +103,22 @@
       "sport_tags": ["swim"],
       "topic_tags": ["sessions", "specificity", "technique"],
       "body": "Swimming is technique-limited. SWOLF (stroke count plus time for a length) is a simple efficiency score: lower is usually better if the stroke still looks long, not spun. Distance per stroke and a stable stroke rate matter more than thrashing a higher heart rate. Critical swim speed is a sustainable threshold-like pace for broken sets; work near it is quality, long easy swimming is aerobic volume. Upper-body local fatigue (shoulders, lats) often arrives before the cardiovascular system is truly taxed, so a moderate average heart rate can still be a hard swim. Frequency and drill-focused broken sets beat one long continuous slog for developing swimmers. Shoulder or back limitations should cut volume and aggressive rotation rather than be ignored because the sport is 'low impact'."
+    },
+    {
+      "key": "heat-acclimation",
+      "heading": "Heat acclimation for endurance events",
+      "audience": "endurance",
+      "sport_tags": ["run", "ride", "triathlon"],
+      "topic_tags": ["heat", "environment", "recovery", "sessions"],
+      "body": "Heat acclimation is a planned exposure block, typically 7-14 days of training in the heat or with extra clothing, so plasma volume expands, sweat starts earlier, and heart rate at a given pace or power falls. Easy aerobic work is the usual vehicle; stacking heat on threshold or VO2 sessions raises cardiovascular strain and heat-illness risk. Hydrate, shorten quality, and treat dizziness, cessation of sweating, or confusion as a stop-and-refer. A half-marathon in heat is still run from current fitness plus conservative pacing — heat sessions do not replace race-specific endurance. This is coaching practice, not a clinical heat-illness protocol."
+    },
+    {
+      "key": "blood-flow-restriction",
+      "heading": "Blood flow restriction is not a recovery tool for threshold",
+      "audience": "endurance",
+      "sport_tags": ["run", "ride", "strength", "general"],
+      "topic_tags": ["recovery", "strength", "safety", "sessions"],
+      "body": "Blood flow restriction (BFR, occlusion training) uses cuffs to train with lighter loads. It is a specialised strength or rehab method, not a way to speed threshold recovery after a hard endurance session. Recovery after threshold is easy aerobic work, sleep, and leaving the tissue unloaded — not adding a cuff protocol. This coach does not prescribe cuff pressures, durations, or BFR sets. Athletes considering BFR need a qualified practitioner; if they have vascular, clotting, or pain issues, they need a clinician, not a chat protocol."
     }
   ]
 }

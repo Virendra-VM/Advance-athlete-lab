@@ -7,6 +7,8 @@ task brief, and retrieval query so a run is not autopsied as a bike file.
 
 from __future__ import annotations
 
+import re
+from datetime import date, timedelta
 from typing import Any
 
 from app.services.activity_detail import activity_sport_family
@@ -79,9 +81,14 @@ watts, pace, %FTP, cadence, SWOLF, reps, or heart-rate peaks. Never treat averag
 session type when power, pace, laps, or exercise structure is available.
 - If COMPUTED SESSION TELEMETRY is absent, do not invent a workout autopsy. Completely skip \
 ⚡ THE BOTTOM LINE, 🔬 MECHANICAL PRECISION, and 🫀 CARDIOVASCULAR COST. Answer the question they asked.
+- If WEEK REVIEW PACKET is present, recap that whole window. Do not autopsy one ride. Completely skip \
+⚡ THE BOTTOM LINE, 🔬 MECHANICAL PRECISION, and 🫀 CARDIOVASCULAR COST. No NP, IF, TSS, or laps.
 - If prescribed_vs_executed is present, those lap roles override %FTP heuristics. A vo2_cap lap is \
 never a generic over. Do not reprint a previous assistant autopsy — produce a new planned-vs-executed audit.
 - Typical session length on the profile is a usual weekday length, not a cap and not today's target.
+- Weekly minutes budget is a ceiling, not days × typical equal sessions. Long days may be 90-240 minutes.
+- DATA SOURCES lists what was loaded (profile, Strava, COROS, planning notes). Use only loaded data; \
+name missing sources instead of guessing.
 - Put ATHLETE STATE (ACWR, sleep, HRV, resting HR, stress, sore joints, back limits) into the \
 recovery verdict — if a field is missing, say so.
 - Reply with a single JSON object and nothing else. No prose outside the JSON, no markdown fences."""
@@ -109,7 +116,8 @@ the session type.
 (sleep/HRV target, tissue or back guardrail, next-session instruction). Weave in ACWR.
 - 3-6 Metric/Biology/Example triplets total across Mechanical + Cardiovascular. Quality over volume.
 - Markdown **bold** is required on metric names. No # headings.
-- Cap the whole reply at ~350 words of bullets. Longer is a failed answer."""
+- Aim for 350-500 words of bullets when the session warrants depth. Never pad — but do not stop at \
+~150 words if the athlete needs a full coaching answer."""
 
 _VOICE_CLOSE = """Follow OUTPUT FORMAT exactly. Use only computed telemetry and ATHLETE STATE. \
 If a field is missing, write **Missing** and skip the analogy. Do not diagnose illness. \
@@ -148,7 +156,7 @@ SCHEDULE_FORMAT_RULES = """OUTPUT FORMAT — hard fail if you violate any of the
   • 🗣️ LOCKER ROOM LINGO: plain athletic translation (one sentence)
   • 💡 REAL-WORLD EXAMPLE: visual physical analogy — engine, radiator, scaffolding, battery (one sentence)
 - Markdown **bold** on status, session names, and DO NOT items. No # headings.
-- Cap ~280 words besides the table."""
+- Aim for 350-450 words besides the table when load and safety need explanation."""
 
 SCHEDULE_SYSTEM_PROMPT = (
     BASE_SYSTEM_PROMPT
@@ -177,7 +185,7 @@ CHAT_FORMAT_RULES = """OUTPUT FORMAT — hard fail if you violate any of these:
 - 💬 REFRAME = 3-5 spaced **bold** bullets. High-impact psychological reset. No paragraph. No pep-talk essay.
 - 📌 ANSWER = bullets that answer the biological / training question with ATHLETE STATE (sleep, HRV, ACWR, back limits). Cite [S1] if used.
 - Markdown **bold** on the hits that must stick. No # headings.
-- Cap ~220 words."""
+- Aim for 300-450 words. Simple questions can be shorter; training or emotional questions need depth."""
 
 CHAT_SYSTEM_PROMPT = (
     BASE_SYSTEM_PROMPT
@@ -200,6 +208,227 @@ Do not load or quote the last synced workout's telemetry, laps, or autopsy metri
 Focus 100% on the schedule, biological, or emotional question they asked.
 If they feel they failed or cut a session short: 💬 REFRAME as spaced **bold** bullets, then 📌 ANSWER.
 Use ATHLETE STATE (sleep, HRV, ACWR, back limits). Never contradict the safety rules."""
+
+
+SCIENCE_FORMAT_RULES = """OUTPUT FORMAT — hard fail if you violate any of these:
+- Intent is SCIENCE_LOOKUP. Answer the concept they asked about. Nothing else.
+- Completely skip ⚡ THE BOTTOM LINE, 🔬 MECHANICAL PRECISION, and 🫀 CARDIOVASCULAR COST.
+- Do NOT autopsy a workout. No NP, IF, TSS, laps, or file watts.
+- BAN essays. Never more than TWO consecutive sentences in any block or bullet.
+- Cite only retrieved [S1], [S2] labels. If RETRIEVED EVIDENCE says there is no grounded match, write **Evidence: Not in playbook** and do not invent a paper, author, or year.
+- Layout:
+  🧠 THE CALL
+  🔬 THE SCIENCE
+  🗣️ LOCKER ROOM LINGO
+  💡 REAL-WORLD EXAMPLE
+  📌 FOR YOU
+- 🔬 = one or two bullets grounded in [S#] or marked as coaching judgement.
+- 🗣️ = one sentence translation.
+- 💡 = one physical analogy.
+- 📌 FOR YOU = 2-3 bullets using ATHLETE STATE (ACWR, sleep, HRV, back limits) so the concept is not abstract.
+- Aim for 300-450 words when teaching a concept with athlete-specific application."""
+
+SCIENCE_SYSTEM_PROMPT = (
+    BASE_SYSTEM_PROMPT
+    + "\n\nRole lens:\nYou teach sports science the way a senior Olympic coach teaches a staff meeting. "
+    "If the playbook does not cover the method, you say so. You never hallucinate a citation.\n\n"
+    + SCIENCE_FORMAT_RULES
+)
+
+
+def science_system_prompt() -> str:
+    return SCIENCE_SYSTEM_PROMPT
+
+
+def science_task(*, grounded: bool) -> str:
+    if grounded:
+        return """Teach the concept from RETRIEVED EVIDENCE. Follow OUTPUT FORMAT exactly.
+Cite [S1] when you use a chunk. Weave ATHLETE STATE into 📌 FOR YOU.
+If a niche method is only partly covered, say what is known and what is coaching judgement."""
+    return """The playbook has no grounded chunk for this question.
+Follow OUTPUT FORMAT. Set 🔬 THE SCIENCE to **Evidence: Not in playbook**.
+Do not invent PubMed papers, authors, or years.
+Give a conservative coaching boundary (what you will not prescribe) and 📌 FOR YOU using ATHLETE STATE.
+If the topic is medical, refer out instead of speculating."""
+
+
+def template_science_lookup(
+    message: str,
+    safety: dict,
+    science_hits: list[dict],
+    *,
+    grounded: bool,
+    context: dict | None = None,
+) -> dict[str, Any]:
+    asked = message.strip()[:160] or "a training-science question"
+    acwr = ((safety or {}).get("load") or {}).get("minutes_acwr")
+    if grounded and science_hits:
+        heading = science_hits[0].get("heading") or "Playbook match"
+        body = (science_hits[0].get("body") or "")[:220]
+        science_line = f"• [S1] **{heading}** — {body}"
+    else:
+        science_line = (
+            "• **Evidence: Not in playbook.** I will not invent a 2026 paper, author, or DOI."
+        )
+    lines = [
+        "🧠 THE CALL",
+        f"This is a science question: **{asked}**",
+        "",
+        "🔬 THE SCIENCE",
+        science_line,
+        "",
+        "🗣️ LOCKER ROOM LINGO",
+        "• If I don't have a citable chunk, I won't fake one — I'll coach the conservative boundary.",
+        "",
+        "💡 REAL-WORLD EXAMPLE",
+        "• A library with no book on the shelf does not get a made-up title. Same rule here.",
+        "",
+        "📌 FOR YOU",
+        f"• **ACWR:** {acwr if acwr is not None else 'Missing'} — still the load dial for this week.",
+        "• Use this idea only inside the safety rules. No extra quality to 'test' a theory.",
+    ]
+    return {
+        "reply": "\n".join(lines),
+        "citations": [
+            hit["citation"]["slug"]
+            for hit in science_hits[:2]
+            if grounded and hit.get("citation", {}).get("slug")
+        ],
+        "escalate": False,
+        "escalation_reason": None,
+        "intent": "SCIENCE_LOOKUP",
+    }
+
+
+def template_off_topic(message: str) -> dict[str, Any]:
+    asked = message.strip()[:120] or "that"
+    return {
+        "reply": "\n".join(
+            [
+                "🧠 THE CALL",
+                "That's outside the coaching brief.",
+                "",
+                "📌 ANSWER",
+                f"• I don't coach **{asked}**.",
+                "• I specialize in athletic performance, sports science, and recovery.",
+                "• Ask about your week, a session, sleep/HRV, load, or a training concept.",
+            ]
+        ),
+        "citations": [],
+        "escalate": False,
+        "escalation_reason": None,
+        "intent": "OFF_TOPIC",
+    }
+
+
+def template_clinical_veto(
+    message: str,
+    *,
+    region: str | None = None,
+    kind: str | None = None,
+    plan_changes: list[str] | None = None,
+) -> dict[str, Any]:
+    tissue = region or "the reported tissue"
+    changes = plan_changes or []
+    lines = [
+        "⚕️ CLINICAL VETO",
+        f"**Stop quality. {tissue} is not a session to grind through.**",
+        "",
+        "🫀 WHAT THIS SIGNALS",
+        "• Sharp or focal pain under load is a tissue alarm — strain or inflammation — not a fitness gap.",
+        "• I do not diagnose, name a tear, or prescribe medication (including ibuprofen / NSAIDs).",
+        "",
+        "🧠 WHAT YOU DO",
+        "• **See a sports physician or physical therapist** before the next quality or impact session.",
+        "• Today: rest or pain-free mobility only. Stop if pain returns.",
+    ]
+    if kind == "medication":
+        lines.append("• Medication is a clinician's call. I will not dose you from chat.")
+    lines.extend(["", "🛡️ PLAN LOCK"])
+    if changes:
+        lines.extend(f"• {item}" for item in changes[:6])
+    else:
+        lines.append(
+            "• Remaining quality this week is locked to joint-safe recovery once a plan is on file."
+        )
+    lines.append("• Flag stays active until you clear it — later weeks inherit the contraindication.")
+    _ = message
+    return {
+        "reply": "\n".join(lines),
+        "citations": ["aal-safety-and-load"],
+        "escalate": True,
+        "escalation_reason": f"Clinical boundary: {kind or 'tissue pain'}"
+        + (f" ({region})" if region else "")
+        + ".",
+        "intent": "CLINICAL_VETO",
+    }
+
+
+
+WEEK_REVIEW_FORMAT_RULES = """OUTPUT FORMAT — hard fail if you violate any of these:
+- Intent is WEEK_REVIEW. Recap the WEEK REVIEW PACKET window. Nothing else.
+- Completely skip ⚡ THE BOTTOM LINE, 🔬 MECHANICAL PRECISION, and 🫀 CARDIOVASCULAR COST.
+- Do NOT autopsy the last synced workout. No NP, IF, TSS, laps, or file watts.
+- BAN essays. Never more than TWO consecutive sentences in any block, bullet, or table cell.
+- Every line is a bullet, a **key: value** pair, a one-line callout, or a table row.
+- Layout in this exact order, with these exact headers:
+  🧭 WEEK GRADE
+  📅 WHAT LANDED
+  🫀 RECOVERY COST
+  🧠 NEXT WEEK'S CALL
+  🔬 THE SCIENCE
+- 🧭 WEEK GRADE = one sentence grade for the whole window (volume, quality, adherence), then 2-4 **key: value** pairs (Sessions, Minutes, Quality days, ACWR).
+- 📅 WHAT LANDED = one Markdown table, one row per day in the window:
+  | Day | Session | Status | Note |
+  Status is Done / Missed / Unplanned / Rest. Note is one short coaching clause, not a file autopsy.
+- 🫀 RECOVERY COST = sleep, HRV, stress, RHR across the window as **key: value** bullets. Missing stays Missing.
+- 🧠 NEXT WEEK'S CALL = exactly 3 numbered actions for the next 7 days (load, tissue, first quality day).
+- 🔬 THE SCIENCE = 2 (max 3) triplets:
+  • 🔬 THE SCIENCE:
+  • 🗣️ LOCKER ROOM LINGO:
+  • 💡 REAL-WORLD EXAMPLE:
+- Markdown **bold** on the grade and statuses. No # headings.
+- Aim for 350-450 words besides the table."""
+
+WEEK_REVIEW_SYSTEM_PROMPT = (
+    BASE_SYSTEM_PROMPT
+    + "\n\nRole lens:\nYou are a Pro Olympic Coach doing a week debrief, not a ride physiologist. "
+    "Grade the week they actually lived — planned vs executed, recovery cost, next week's call. "
+    "Sunday's long ride is one row in the table, not the whole answer.\n\n"
+    + WEEK_REVIEW_FORMAT_RULES
+)
+
+
+def week_review_system_prompt() -> str:
+    return WEEK_REVIEW_SYSTEM_PROMPT
+
+
+def week_review_task() -> str:
+    return """Debrief the athlete's week from WEEK REVIEW PACKET. Follow OUTPUT FORMAT exactly.
+BAN essays. Never more than two consecutive sentences.
+Bypass the workout-autopsy template completely. Skip ⚡ THE BOTTOM LINE, 🔬 MECHANICAL PRECISION, and 🫀 CARDIOVASCULAR COST. No NP / IF / TSS / laps.
+
+Use the packet window dates — on Monday, "this week" / "done with the week" means the Mon–Sun just finished, not the empty new week.
+🧭 One-sentence grade + key:value totals from the packet. Do not invent sessions.
+📅 Table every day in the window. Match planned vs executed. Unplanned files are Unplanned, not a bonus autopsy.
+🫀 Recovery from the packet nights, not a single ride's HR.
+🧠 3 actions for the coming week. Guard ACWR and any back/spine limits.
+🔬 2 load/recovery/adherence triplets. Cite [S1] if used.
+
+If the packet has no executed sessions, say so and grade adherence as incomplete — do not substitute the last synced file from outside the window."""
+
+
+def week_plan_review_task() -> str:
+    return """Review the athlete's constraints against SEASON PLAN and CURRENT WEEK PLAN. Follow OUTPUT FORMAT exactly.
+BAN essays. Never more than two consecutive sentences per bullet. No full week table yet.
+
+🧭 Phase fit — one sentence: does their schedule match the current macro phase?
+⚠️ Conflicts — bullets: anything that fights volume bias, long-day cap, or events this week
+📅 Schedule notes — bullets: how to arrange days given their constraints
+🛡️ Safety — copy TODAY'S CALL status exactly; spine/injury guards if active
+🔬 2 metric → locker-room → analogy triplets (ACWR, sleep/HRV, stacking). Cite [S#] if used.
+
+Do NOT output week_plan. Do NOT fill a 5-column week table. Review only — they confirm before you build."""
 
 
 def schedule_task() -> str:
@@ -844,6 +1073,60 @@ def template_general_chat(
     }
 
 
+def template_week_plan_review(
+    message: str,
+    safety: dict,
+    science_hits: list[dict],
+    *,
+    current_plan: dict | None = None,
+    context: dict | None = None,
+    clock: dict | None = None,
+) -> dict[str, Any]:
+    """Review-only fallback before the athlete commits to a week plan."""
+    load = safety.get("load") or {}
+    health = ((context or {}).get("coros") or {}).get("latest_health") or {}
+    season = (context or {}).get("season") or {}
+    phase = (season.get("current_phase") or {}).get("phase_type") or "—"
+    intent = season.get("week_intent") or {}
+    acwr = load.get("minutes_acwr")
+    score, source = readiness_score(health, safety)
+    _band, status_label = today_call_status(score)
+
+    lines = [
+        "🧭 **Phase fit**",
+        f"You are in **{phase}** — keep this week aligned with {intent.get('volume_bias', '—')} volume bias "
+        f"and {intent.get('intensity_bias', '—')} intensity.",
+        "",
+        "⚠️ **Conflicts to watch**",
+        "• Stack no more than two hard days back-to-back unless the season note says otherwise.",
+        "• Respect the long-day ceiling for this phase — do not sneak in a hero session.",
+        "",
+        "📅 **Schedule notes**",
+        f"Your constraints: {message.strip()[:400] or 'None stated — confirm days and time budget.'}",
+        "",
+        "🛡️ **Safety**",
+        f"**{status_label}** · Readiness {score if score is not None else 'Missing'} ({source})",
+        f"ACWR {acwr if acwr is not None else 'Missing'} — hold progression if load is already spiking.",
+        "",
+        "🔬 **Science**",
+        "• **Metric:** ACWR · **Locker room:** spike vs chronic · **Analogy:** a credit card you have not paid off.",
+        "• **Metric:** Sleep/HRV · **Locker room:** recovery deposit · **Analogy:** charging the battery before race pace.",
+        "",
+        "Reply **Plan my week** when this review fits — I will build the full table and save it.",
+    ]
+    return {
+        "reply": "\n".join(lines),
+        "citations": [
+            hit["citation"]["slug"]
+            for hit in science_hits[:2]
+            if hit.get("citation", {}).get("slug")
+        ],
+        "escalate": False,
+        "escalation_reason": None,
+        "intent": "WEEK_PLAN_REVIEW",
+    }
+
+
 def template_schedule(
     message: str,
     safety: dict,
@@ -954,6 +1237,163 @@ def template_schedule(
         "escalate": False,
         "escalation_reason": None,
         "intent": "SCHEDULE_UPDATE",
+    }
+
+
+def review_week_window(clock: dict, message: str) -> tuple[date, date, str]:
+    """Which Mon–Sun (or Mon–today) a week recap covers.
+
+    Monday + "this week" / "done with the week" means the week just finished,
+    not the empty calendar that started this morning.
+    """
+    today = clock["today"]
+    this_monday = clock["week_start"]
+    text = (message or "").lower()
+    explicit_last = bool(re.search(r"\blast week\b", text))
+    finished_language = bool(
+        re.search(
+            r"\b(done with the week|finished the week|finish the week|week recap|week in review)\b",
+            text,
+        )
+    )
+    this_week_words = bool(re.search(r"\b(this week|the week|my week)\b", text))
+    monday_recap = today.weekday() == 0 and (finished_language or this_week_words)
+    if explicit_last or monday_recap:
+        start = this_monday - timedelta(days=7)
+        end = this_monday - timedelta(days=1)
+        return start, end, "last week (Mon–Sun just finished)"
+    end = min(today, this_monday + timedelta(days=6))
+    return this_monday, end, "this training week (Mon–today)"
+
+
+def template_week_review(
+    message: str,
+    safety: dict,
+    science_hits: list[dict],
+    *,
+    packet: dict | None = None,
+    context: dict | None = None,
+) -> dict[str, Any]:
+    """Deterministic week debrief — never a single-file autopsy."""
+    load = safety.get("load") or {}
+    injuries = safety.get("injuries") or {}
+    packet = packet or {}
+    window = packet.get("window") or {}
+    days = packet.get("days") or []
+    totals = packet.get("totals") or {}
+    recovery = packet.get("recovery") or {}
+    acwr = load.get("minutes_acwr")
+    acute = load.get("acute_minutes")
+    chronic = load.get("chronic_minutes")
+    sessions = totals.get("sessions") or len(
+        [row for row in days if row.get("status") in {"Done", "Unplanned"}]
+    )
+    minutes = totals.get("minutes") or 0
+    quality = totals.get("quality_days") or 0
+    label = window.get("label") or "this training week"
+    if sessions == 0:
+        grade = f"**Incomplete** — no completed files in {label}."
+    elif isinstance(acwr, (int, float)) and acwr >= 1.3:
+        grade = f"**Heavy volume** — {sessions} sessions landed, ACWR is elevated."
+    elif quality == 0:
+        grade = f"**Aerobic week** — {sessions} sessions, volume without a quality day."
+    else:
+        grade = f"**Solid week** — {sessions} sessions with {quality} quality day(s) in {label}."
+
+    rows = [
+        "| Day | Session | Status | Note |",
+        "|---|---|---|---|",
+    ]
+    if days:
+        for row in days:
+            rows.append(
+                f"| {row.get('day') or '—'} | {row.get('session') or '—'} | "
+                f"{row.get('status') or '—'} | {row.get('note') or '—'} |"
+            )
+    else:
+        rows.append("| — | No sessions in window | Missing | Sync files or check the dates. |")
+
+    sleep = recovery.get("avg_sleep_score")
+    sleep_min = recovery.get("avg_sleep_min")
+    hrv = recovery.get("avg_hrv")
+    stress = recovery.get("avg_stress")
+    rhr = recovery.get("avg_rhr")
+    acwr_line = f"{acwr}"
+    if isinstance(acwr, (int, float)) and acute is not None and chronic is not None:
+        acwr_line = f"{acwr} ({acute}/{chronic})"
+
+    back_limited = any(
+        "back" in str(item).lower() or "spine" in str(item).lower()
+        for item in (injuries.get("active") or [])
+    )
+    next_calls = [
+        "1. Protect the ACWR — no extra quality until sleep/HRV are back in range."
+        if isinstance(acwr, (int, float)) and acwr >= 1.15
+        else "1. Keep one quality day; fill the rest with easy aerobic or rest.",
+        "2. Spine stays a pillar — skip hinge-under-load if a back limit is active."
+        if back_limited
+        else "2. Tissue looks clear — still keep easy posture on long days.",
+        "3. First session next week is easy or mobility, not a revenge interval.",
+    ]
+    translations = [
+        _call_triplet(
+            f"Adherence {sessions} files · {minutes} min in {label}",
+            "The week is the work, not Sunday's longest file.",
+            "Like grading a school week from every class, not the last exam.",
+        )
+    ]
+    if isinstance(acwr, (int, float)):
+        translations.append(
+            _call_triplet(
+                f"ACWR {acwr_line}",
+                "Acute load versus the last 28 days is the injury-risk dial.",
+                "Overtime looks productive until the tissue invoice arrives.",
+            )
+        )
+    elif sleep is not None or hrv is not None:
+        translations.append(
+            _call_triplet(
+                f"Sleep {sleep if sleep is not None else 'Missing'} · HRV {hrv if hrv is not None else 'Missing'}",
+                "Overnight recharge decides whether next week can take quality.",
+                "A battery at half charge finishes the commute; it does not start a race.",
+            )
+        )
+
+    lines = [
+        "🧭 WEEK GRADE",
+        grade,
+        f"**Sessions:** {sessions}",
+        f"**Minutes:** {minutes}",
+        f"**Quality days:** {quality}",
+        f"**ACWR:** {acwr_line if acwr is not None else 'Missing'}",
+        f"**Window:** {window.get('start') or '—'} → {window.get('end') or '—'}",
+        "",
+        "📅 WHAT LANDED",
+        *rows,
+        "",
+        "🫀 RECOVERY COST",
+        f"• **Sleep score (avg):** {sleep if sleep is not None else 'Missing'}",
+        f"• **Sleep minutes (avg):** {sleep_min if sleep_min is not None else 'Missing'}",
+        f"• **HRV (avg):** {hrv if hrv is not None else 'Missing'}",
+        f"• **Stress (avg):** {stress if stress is not None else 'Missing'}",
+        f"• **RHR (avg):** {rhr if rhr is not None else 'Missing'}",
+        "",
+        "🧠 NEXT WEEK'S CALL",
+        *next_calls,
+        "",
+        "🔬 THE SCIENCE",
+        *translations[:3],
+    ]
+    return {
+        "reply": "\n".join(lines),
+        "citations": [
+            hit["citation"]["slug"]
+            for hit in science_hits[:2]
+            if hit.get("citation", {}).get("slug")
+        ],
+        "escalate": False,
+        "escalation_reason": None,
+        "intent": "WEEK_REVIEW",
     }
 
 

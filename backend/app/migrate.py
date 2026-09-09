@@ -74,6 +74,7 @@ def run_migrations() -> None:
                 ("goal_event_name", "VARCHAR(255)"),
                 ("goal_event_date", "DATE"),
                 ("goal_metric", "VARCHAR(255)"),
+                ("planning_notes", "TEXT"),
                 ("units", "VARCHAR(16) NOT NULL DEFAULT 'metric'"),
                 ("baseline_confirmed_at", "TIMESTAMP"),
                 ("ftp_watts", "DOUBLE PRECISION"),

@@ -21,6 +21,7 @@ import {
   LeaveGuard,
   MeasureFields,
   MissingCompleteness,
+  PlanningNotesView,
   PreferencesView,
   SectionEditButton,
   SettingsHint,
@@ -341,6 +342,7 @@ export default function ProfilePage() {
         goal_event_name: toTextOrNull(form.goal_event_name),
         goal_event_date: toTextOrNull(form.goal_event_date),
         goal_metric: toTextOrNull(form.goal_metric),
+        planning_notes: toTextOrNull(form.planning_notes),
         ftp_watts: toNumberOrNull(form.ftp_watts),
         lthr_bpm: toNumberOrNull(form.lthr_bpm),
         max_hr_bpm: toNumberOrNull(form.max_hr_bpm),
@@ -595,6 +597,35 @@ export default function ProfilePage() {
             renderFields(PREFERENCE_FIELDS)
           ) : (
             <PreferencesView form={form} />
+          )}
+        </SectionCard>
+
+        <SectionCard
+          id="profile-planning"
+          title="More info for your coach"
+          subtitle="Travel, schedule constraints, or anything structured fields do not capture."
+          actions={
+            <SectionEditButton
+              editing={isSectionEditing('planning')}
+              onEdit={() => startSectionEdit('planning')}
+            />
+          }
+        >
+          {isSectionEditing('planning') ? (
+            <OnboardingField
+              field={{
+                key: 'planning_notes',
+                label: 'Notes',
+                type: 'textarea',
+                placeholder:
+                  'e.g. Away 12–18 Oct, can only train mornings, prefer long run on Sunday…',
+              }}
+              answers={form}
+              value={form.planning_notes}
+              onChange={(value) => updateField('planning_notes', value)}
+            />
+          ) : (
+            <PlanningNotesView form={form} />
           )}
         </SectionCard>
 

@@ -1,3 +1,5 @@
+import { sleepChartColors } from './healthTheme'
+
 export const SLEEP_RANGES = [
   { id: 'day', label: 'Day', days: 1 },
   { id: 'week', label: 'Week', days: 7 },
@@ -13,19 +15,8 @@ export const STAGE_COLORS = {
   deep: '#3730A3',
 }
 
-/** Line / bar accents for sleep charts (not the global sage UI accent). */
-export const SLEEP_CHART = {
-  duration: '#5B8DEF',
-  durationSoft: 'rgba(91, 141, 239, 0.18)',
-  hrv: '#14B8A6',
-  hrvSoft: 'rgba(20, 184, 166, 0.16)',
-  sleepHr: '#FB7185',
-  sleepHrSoft: 'rgba(251, 113, 133, 0.14)',
-  grid: 'color-mix(in srgb, var(--aal-line) 85%, transparent)',
-  cursor: 'rgba(91, 141, 239, 0.08)',
-  tooltipBg: 'var(--aal-card)',
-  tooltipBorder: 'var(--aal-line)',
-}
+/** Line / bar accents for sleep charts — aliases shared health theme tokens. */
+export const SLEEP_CHART = sleepChartColors()
 
 /** Sleep score UI is parked until COROS MCP matches the app score. */
 export const SLEEP_SCORE_ENABLED = false

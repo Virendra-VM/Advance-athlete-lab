@@ -18,6 +18,7 @@ from app.schemas import (
     CoachStatusResponse,
     PlanGenerateRequest,
     TodaysCallResponse,
+    WeekPlanContextResponse,
 )
 from app.services.autoregulation import compute_todays_call
 from app.services.ai import configured_providers, describe_ai_runtime
@@ -29,13 +30,20 @@ from app.services.coach_ai import (
     chat_history,
     coach_chat,
     confirm_baseline,
+    current_week_monday,
     generate_daily_advice,
     generate_week_brief,
     generate_week_plan,
     get_active_plan,
     publish_plan_to_schedule,
+    resolve_clock,
 )
-from app.services.coach_intent import classify_chat_intent
+from app.services.coach_intent import (
+    SCHEDULE_UPDATE,
+    WEEK_PLAN_REVIEW,
+    classify_chat_intent,
+)
+from app.services.periodization import build_season_context
 from app.services.schedule_completion import match_planned_workout_completions
 
 router = APIRouter(prefix="/coach", tags=["coach"])
@@ -188,10 +196,11 @@ def read_week_brief(
         "rhr",
         "daily",
         "sleep",
+        "season",
     }:
         raise HTTPException(
             status_code=422,
-            detail="topic must be volume, load, hrv, stress, rhr, daily, or sleep",
+            detail="topic must be volume, load, hrv, stress, rhr, daily, sleep, or season",
         )
     profile = _require_profile(current_user, db)
     _require_ai_consent(db, profile)
@@ -211,6 +220,23 @@ def read_chat_history(
     return CoachChatHistoryResponse(messages=chat_history(db, profile.id))
 
 
+@router.get("/week-plan/context", response_model=WeekPlanContextResponse)
+def read_week_plan_context(
+    timezone: str | None = Query(default=None),
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    profile = _require_profile(current_user, db)
+    clock = resolve_clock(timezone)
+    season_ctx = build_season_context(db, profile, on_date=clock["today"])
+    return WeekPlanContextResponse(
+        week_start=current_week_monday(clock["today"]),
+        has_season=bool(season_ctx and season_ctx.get("has_plan")),
+        planning_notes=profile.planning_notes,
+        season=season_ctx,
+    )
+
+
 @router.post("/chat", response_model=CoachChatResponse)
 def post_chat(
     payload: CoachChatRequest,
@@ -222,7 +248,19 @@ def post_chat(
     message = payload.message.strip()
     if not message:
         raise HTTPException(status_code=422, detail="Message cannot be empty.")
-    intent = classify_chat_intent(message, activity_id=payload.activity_id)
+
+    mode = (payload.chat_mode or "").strip().lower()
+    intent = None
+    persist_plan = None
+    if mode == "week_plan_commit":
+        intent = SCHEDULE_UPDATE
+        persist_plan = True
+    elif mode == "week_plan_review":
+        intent = WEEK_PLAN_REVIEW
+        persist_plan = False
+    else:
+        intent = classify_chat_intent(message, activity_id=payload.activity_id)
+
     return CoachChatResponse(
         **coach_chat(
             db,
@@ -231,6 +269,7 @@ def post_chat(
             timezone_name=payload.timezone,
             activity_id=payload.activity_id,
             intent=intent,
+            persist_plan=persist_plan,
         )
     )
 

@@ -27,7 +27,10 @@ from app.models import Activity, ActivityNote, AthleteProfile, CoachMessage, Dai
 from app.services.ai import ProviderError, provider_chain
 from app.services.athlete_coach_context import build_athlete_coach_context
 from app.services.coach_safety import (
+    apply_joint_safe_recovery_mode,
+    detect_clinical_boundary,
     detect_red_flags,
+    flag_clinical_injury,
     safety_prompt_rules,
     sports_for_retrieval,
     strip_intensity,
@@ -39,6 +42,7 @@ from app.services.coach_templates import (
     build_template_hrv_brief,
     build_template_load_brief,
     build_template_rhr_brief,
+    build_template_season_brief,
     build_template_sleep_brief,
     build_template_stress_brief,
     build_template_week,
@@ -47,6 +51,7 @@ from app.services.coach_templates import (
 from app.services.science_kb import (
     citation_slugs,
     format_science_for_prompt,
+    grounded_hits,
     retrieve_science,
 )
 from app.services.ai_coach import (
@@ -61,15 +66,31 @@ from app.services.ai_coach import (
     science_sports_for_modality,
     schedule_system_prompt,
     schedule_task,
+    week_plan_review_task,
+    science_system_prompt,
+    science_task,
     system_prompt_for_modality,
     template_autopsy,
+    template_clinical_veto,
     template_general_chat,
+    template_off_topic,
     template_schedule,
+    template_week_plan_review,
+    template_science_lookup,
+    template_week_review,
     today_call_prompt_block,
+    week_review_system_prompt,
+    week_review_task,
+    review_week_window,
 )
 from app.services.coach_intent import (
+    CLINICAL_VETO,
     GENERAL_CHAT,
+    OFF_TOPIC,
     SCHEDULE_UPDATE,
+    WEEK_PLAN_REVIEW,
+    SCIENCE_LOOKUP,
+    WEEK_REVIEW,
     WORKOUT_AUDIT,
     classify_chat_intent_detailed,
     normalize_intent,
@@ -81,6 +102,7 @@ from app.services.session_telemetry import (
     laps_are_uninformative,
     match_activity_for_message,
 )
+from app.services.week_from_chat import coerce_week_plan, parse_week_plan_from_text
 
 logger = logging.getLogger(__name__)
 
@@ -177,12 +199,66 @@ def health_brief_off_topic(topic: str, advice: dict | None) -> bool:
         return True
     return bool(_CROSS_METRIC_RE[topic].search(blob))
 
+
+_SESSION_PRESCRIPTION_RE = re.compile(
+    r"\b\d+\s*[x×]\s*\d|\b\d+\s*x\s*\d+\s*(m|km|min)\b|\bper\s*km\b|\b\d+:\d{2}\s*/\s*km\b",
+    re.I,
+)
+_REPLAN_WORD_RE = re.compile(r"\breplan(?:ning|ned)?\b", re.I)
+
+
+def season_brief_off_topic(season: dict | None, advice: dict | None) -> bool:
+    """True when a season brief prescribes sessions or pushes a replan with no trigger."""
+    if not advice:
+        return False
+    blob = " ".join(
+        str(advice.get(key) or "")
+        for key in ("headline", "recommendation", "session_adjustment", "rationale")
+    )
+    if _SESSION_PRESCRIPTION_RE.search(blob):
+        return True
+    has_trigger = bool((season or {}).get("replan_trigger_codes"))
+    return bool(not has_trigger and _REPLAN_WORD_RE.search(blob))
+
+
+SEASON_ADVICE_SCHEMA = """{
+  "headline": "string, max 10 words, names the current phase, no markdown",
+  "recommendation": "string with REAL newlines. Lead sentence about where they are in the season, then numbered points that explain this block or name the next planner action. Each point is '1. Name — short constraint' followed by '- Label: value' bullets. Never one packed paragraph.",
+  "session_adjustment": "string or null, one or two short sentences naming Replan, Rebuild, or 'no change needed'",
+  "rationale": "string referencing their own phase, week number, or race countdown, max two sentences",
+  "citations": ["S1"],
+  "escalate": false,
+  "escalation_reason": null
+}"""
+
+SEASON_SYSTEM_PROMPT = """You explain an athlete's SEASON PLAN inside Advance Athlete Lab.
+The season skeleton is drawn by a deterministic periodization engine working backward from the A-race. You do not author it.
+Your job: say where they are in the season, what the current phase is for, and which planner action to take next (Replan, Rebuild, or nothing).
+You never invent or restate phase dates other than the ones given to you, and you never write individual workouts — the Coach page does that.
+Respond with JSON matching the requested schema."""
+
+SEASON_BAN = """HARD RULES
+Explain the season, do not rewrite it. Never propose different phase dates, phase lengths, or a different phase order.
+Do not prescribe specific sessions, paces, distances, or interval sets. Point at the Coach page for sessions.
+Only recommend Replan when a trigger is listed below. Only recommend Rebuild when the A-race itself changed or there is no plan.
+If no trigger is listed, say plainly that no plan change is needed this week.
+Do not lecture about sleep, HRV, stress, or resting HR — those have their own pages.
+Never more than two consecutive sentences per block. Do not pack into one paragraph."""
+
 CHAT_SCHEMA = """{
   "reply": "string, bullet-only GENERAL_CHAT answer: skip autopsy sections, max two sentences per bullet, optional bold REFRAME",
   "citations": ["S1"],
   "escalate": false,
   "escalation_reason": null,
   "intent": "GENERAL_CHAT"
+}"""
+
+WEEK_PLAN_REVIEW_SCHEMA = """{
+  "reply": "string, review-only: phase fit, conflicts, schedule notes, safety, science triplets. No week table.",
+  "citations": ["S1"],
+  "escalate": false,
+  "escalation_reason": null,
+  "intent": "WEEK_PLAN_REVIEW"
 }"""
 
 SCHEDULE_SCHEMA = """{
@@ -208,6 +284,22 @@ SCHEDULE_SCHEMA = """{
       }
     ]
   }
+}"""
+
+WEEK_REVIEW_SCHEMA = """{
+  "reply": "string, week debrief: WEEK GRADE, WHAT LANDED table, RECOVERY COST, NEXT WEEK'S CALL, science triplets. No ride autopsy, no NP/IF/TSS/laps.",
+  "citations": ["S1"],
+  "escalate": false,
+  "escalation_reason": null,
+  "intent": "WEEK_REVIEW"
+}"""
+
+SCIENCE_SCHEMA = """{
+  "reply": "string, science teaching: THE CALL, THE SCIENCE with [S#] or Evidence: Not in playbook, locker-room lingo, analogy, FOR YOU bullets. No invented papers.",
+  "citations": ["S1"],
+  "escalate": false,
+  "escalation_reason": null,
+  "intent": "SCIENCE_LOOKUP"
 }"""
 
 ESCALATION_REPLY = (
@@ -373,6 +465,56 @@ def _when_label(activity_day: date, today: date) -> str:
     return f"in {-delta} days"
 
 
+def format_data_sources_block(context: dict) -> str:
+    """Tell the model which athlete data was loaded before answering."""
+    sources = context.get("data_sources") or {}
+    if not sources:
+        return "DATA SOURCES: profile only — no integration summary available."
+    lines = [
+        "DATA SOURCES (ground truth — base every answer on what is loaded below)",
+        f"- Profile + constraints: {'yes' if sources.get('profile_loaded') else 'no'}",
+    ]
+    if sources.get("planning_notes"):
+        flags = ", ".join(sources.get("planning_note_flags") or []) or "free text"
+        lines.append(f"- Athlete planning notes: yes ({flags})")
+        for hint in sources.get("planning_note_hints") or []:
+            lines.append(f"  · {hint}")
+    else:
+        lines.append("- Athlete planning notes: none on file")
+    lines.append(
+        f"- Strava connected: {'yes' if sources.get('strava_connected') else 'no'}"
+    )
+    lines.append(
+        f"- COROS connected: {'yes' if sources.get('coros_connected') else 'no'}"
+        + (
+            f" (last sync {sources['coros_last_synced_at']})"
+            if sources.get("coros_last_synced_at")
+            else ""
+        )
+    )
+    activity_count = sources.get("recent_activities_count") or 0
+    by_provider = sources.get("recent_activities_by_provider") or {}
+    provider_bits = ", ".join(f"{name}={count}" for name, count in sorted(by_provider.items()))
+    lines.append(
+        f"- Recent activities (28d): {activity_count}"
+        + (f" ({provider_bits})" if provider_bits else "")
+    )
+    lines.append(f"- COROS health nights in context: {sources.get('coros_health_days') or 0}")
+    lines.append(
+        f"- COROS fitness snapshot: {'yes' if sources.get('coros_fitness_loaded') else 'no'}"
+    )
+    lines.append(
+        f"- COROS training load: {'yes' if sources.get('coros_training_load_loaded') else 'no'}"
+    )
+    lines.append(
+        f"- Active season plan in context: {'yes' if sources.get('season_plan_loaded') else 'no'}"
+    )
+    lines.append(
+        "- If a source is missing, say so explicitly — never invent Strava/COROS numbers."
+    )
+    return "\n".join(lines)
+
+
 def _context_digest(
     context: dict, clock: dict | None = None, *, include_session_audit: bool = False
 ) -> str:
@@ -380,6 +522,7 @@ def _context_digest(
 
     Laps, streams, and autopsy metrics of the last synced file stay out of this
     digest unless ``include_session_audit`` is True (WORKOUT_AUDIT only).
+    Week recaps use WEEK REVIEW PACKET instead of last-file laps.
     """
     clock = clock or resolve_clock()
     profile = dict(context.get("profile") or {})
@@ -402,6 +545,7 @@ def _context_digest(
         ],
     }
     digest = {
+        "data_sources": context.get("data_sources") or {},
         "profile": profile,
         "physiology": {
             "ftp_watts": physiology.get("ftp_watts"),
@@ -459,6 +603,238 @@ def _plan_digest(plan: dict | None, clock: dict) -> str:
         },
         indent=2,
     )
+
+
+_QUALITY_TOKENS = (
+    "hard",
+    "threshold",
+    "interval",
+    "vo2",
+    "quality",
+    "race",
+    "tempo",
+    "sweet spot",
+)
+
+_SCIENCE_QUERY_BOOST = (
+    ("acwr", "acute chronic workload ratio injury risk training load"),
+    ("hrv", "heart rate variability recovery autonomic nervous system"),
+    ("ftp", "functional threshold power cycling training zones"),
+    ("vo2", "VO2max intervals aerobic capacity"),
+    ("lthr", "lactate threshold heart rate endurance zones"),
+    ("sleep", "sleep recovery training adaptation"),
+    ("menstrual", "menstrual cycle training female athlete"),
+    ("periodization", "periodization mesocycle recovery endurance"),
+    ("zone 2", "zone 2 aerobic base mitochondrial fat oxidation"),
+    ("overreaching", "functional overreaching recovery load management"),
+)
+
+
+def _mean(values: list) -> float | None:
+    numbers = [float(value) for value in values if isinstance(value, (int, float))]
+    if not numbers:
+        return None
+    return round(sum(numbers) / len(numbers), 1)
+
+
+def _looks_quality(blob: str) -> bool:
+    text = (blob or "").lower()
+    return any(token in text for token in _QUALITY_TOKENS)
+
+
+def _chat_retrieval_query(message: str) -> str:
+    """Ground GENERAL_CHAT in the science corpus, not the last ride file."""
+    text = (message or "").lower()
+    extra = [boost for needle, boost in _SCIENCE_QUERY_BOOST if needle in text]
+    if extra:
+        return f"{(message or '')[:240]} {' '.join(extra[:2])}"
+    return message
+
+
+def build_week_review_packet(
+    context: dict,
+    clock: dict,
+    review_plan: dict | None,
+    message: str,
+) -> dict:
+    """Planned vs executed for one training week. No laps, no last-file telemetry."""
+    start, end, label = review_week_window(clock, message)
+    tz = clock["tz"]
+    executed_by_day: dict[date, list[dict]] = {}
+    for activity in context.get("recent_activities") or []:
+        day = _parse_local_date(
+            activity.get("activity_date") or activity.get("date"), tz
+        )
+        if day is None or day < start or day > end:
+            continue
+        minutes = activity.get("minutes")
+        if minutes is None:
+            minutes = round((activity.get("moving_time_s") or 0) / 60.0)
+        km = activity.get("km")
+        if km is None:
+            km = round((activity.get("distance_m") or 0) / 1000.0, 2)
+        executed_by_day.setdefault(day, []).append(
+            {
+                "name": activity.get("name") or activity.get("sport") or "Session",
+                "sport": activity.get("sport") or activity.get("sport_type"),
+                "minutes": minutes,
+                "km": km,
+                "avg_hr": activity.get("avg_hr") or activity.get("average_heartrate"),
+                "when": _when_label(day, clock["today"]),
+            }
+        )
+
+    planned_by_day: dict[date, list[dict]] = {}
+    for workout in ((review_plan or {}).get("plan") or {}).get("workouts") or []:
+        try:
+            day = date.fromisoformat(str(workout.get("date"))[:10])
+        except (TypeError, ValueError):
+            continue
+        if day < start or day > end:
+            continue
+        planned_by_day.setdefault(day, []).append(
+            {
+                "title": workout.get("title") or workout.get("session_type") or "Planned",
+                "sport": workout.get("sport"),
+                "session_type": workout.get("session_type"),
+                "intensity": workout.get("intensity"),
+                "duration_min": workout.get("duration_min"),
+                "completed": bool(workout.get("completed_activity_id")),
+            }
+        )
+
+    days = []
+    cursor = start
+    total_minutes = 0
+    total_km = 0.0
+    session_count = 0
+    quality_days = 0
+    while cursor <= end:
+        planned = planned_by_day.get(cursor) or []
+        executed = executed_by_day.get(cursor) or []
+        weekday = WEEKDAYS[cursor.weekday()]
+        planned_rest = any(
+            str(item.get("session_type") or item.get("title") or "").lower() in {"rest", "off"}
+            or "rest" in str(item.get("title") or "").lower()
+            for item in planned
+        )
+        if executed:
+            names = " + ".join(str(item.get("name") or "Session") for item in executed)
+            minutes = sum(item.get("minutes") or 0 for item in executed)
+            total_minutes += minutes
+            total_km += sum(float(item.get("km") or 0) for item in executed)
+            session_count += len(executed)
+            quality = any(
+                _looks_quality(
+                    f"{item.get('name') or ''} {item.get('sport') or ''}"
+                )
+                for item in executed
+            ) or any(
+                _looks_quality(
+                    f"{item.get('title') or ''} {item.get('session_type') or ''} {item.get('intensity') or ''}"
+                )
+                for item in planned
+            )
+            if quality:
+                quality_days += 1
+            status = "Unplanned" if not planned else "Done"
+            note = f"{minutes:.0f} min" if minutes else "Completed"
+            days.append(
+                {
+                    "date": cursor.isoformat(),
+                    "day": weekday,
+                    "session": names,
+                    "status": status,
+                    "note": note,
+                    "planned": planned,
+                    "executed": executed,
+                }
+            )
+        elif planned_rest or (
+            planned and all(
+                str(item.get("session_type") or "").lower() in {"rest", "mobility", "easy"}
+                and "rest" in str(item.get("title") or item.get("session_type") or "").lower()
+                for item in planned
+            )
+        ):
+            title = (planned[0].get("title") if planned else None) or "Rest"
+            days.append(
+                {
+                    "date": cursor.isoformat(),
+                    "day": weekday,
+                    "session": title,
+                    "status": "Rest",
+                    "note": "Planned off",
+                    "planned": planned,
+                    "executed": [],
+                }
+            )
+        elif planned:
+            title = " + ".join(str(item.get("title") or "Planned") for item in planned)
+            days.append(
+                {
+                    "date": cursor.isoformat(),
+                    "day": weekday,
+                    "session": title,
+                    "status": "Missed",
+                    "note": "No file synced",
+                    "planned": planned,
+                    "executed": [],
+                }
+            )
+        else:
+            days.append(
+                {
+                    "date": cursor.isoformat(),
+                    "day": weekday,
+                    "session": "—",
+                    "status": "Rest",
+                    "note": "No plan, no file",
+                    "planned": [],
+                    "executed": [],
+                }
+            )
+        cursor += timedelta(days=1)
+
+    nights = []
+    for row in ((context.get("coros") or {}).get("health_trend") or []):
+        try:
+            night = date.fromisoformat(str(row.get("metric_date"))[:10])
+        except (TypeError, ValueError):
+            continue
+        if start <= night <= end:
+            nights.append(row)
+
+    safety = context.get("safety") or {}
+    load = safety.get("load") or {}
+    return {
+        "window": {
+            "start": start.isoformat(),
+            "end": end.isoformat(),
+            "label": label,
+        },
+        "days": days,
+        "totals": {
+            "sessions": session_count,
+            "minutes": round(total_minutes),
+            "km": round(total_km, 1),
+            "quality_days": quality_days,
+            "planned_sessions": sum(len(items) for items in planned_by_day.values()),
+        },
+        "recovery": {
+            "nights": len(nights),
+            "avg_sleep_score": _mean([row.get("sleep_score") for row in nights]),
+            "avg_sleep_min": _mean([row.get("sleep_duration_min") for row in nights]),
+            "avg_hrv": _mean([row.get("hrv") for row in nights]),
+            "avg_stress": _mean([row.get("stress") for row in nights]),
+            "avg_rhr": _mean([row.get("resting_heart_rate") for row in nights]),
+        },
+        "load": {
+            "acute_minutes": load.get("acute_minutes"),
+            "chronic_minutes": load.get("chronic_minutes"),
+            "minutes_acwr": load.get("minutes_acwr"),
+        },
+    }
 
 
 def _retrieve(
@@ -522,6 +898,8 @@ def build_week_plan_prompt(
     remaining_start = max(clock["today"], week_start)
     remaining_end = week_start + timedelta(days=6)
     return f"""{format_clock_block(clock)}
+
+{format_data_sources_block(context)}
 
 ATHLETE CONTEXT
 {_context_digest(context, clock)}
@@ -1219,7 +1597,9 @@ def _effort_load_dict(context: dict) -> dict:
     }
 
 
-WEEK_BRIEF_TOPICS = frozenset({"volume", "load", "hrv", "stress", "rhr", "daily", "sleep"})
+WEEK_BRIEF_TOPICS = frozenset(
+    {"volume", "load", "hrv", "stress", "rhr", "daily", "sleep", "season"}
+)
 HEALTH_WEEK_TOPICS = frozenset({"hrv", "stress", "rhr", "daily", "sleep"})
 
 
@@ -1346,6 +1726,101 @@ def _sleep_status_dict(context: dict) -> dict:
     }
 
 
+def _attach_replan_triggers(db: Session, profile: AthleteProfile, context: dict) -> None:
+    """Put current replan triggers on the season context so the brief can cite them.
+
+    Only the Season brief needs these, and detection costs several queries, so we
+    do not pay for them on every coach context build.
+    """
+    season = context.get("season")
+    if not isinstance(season, dict):
+        return
+    # Lazy import: periodization/season_replan already import from this module's peers.
+    from app.services.periodization import get_active_season_plan
+    from app.services.season_replan import detect_replan_triggers
+
+    try:
+        plan = get_active_season_plan(db, profile.id)
+        season["replan_triggers"] = detect_replan_triggers(db, profile, plan=plan)
+    except Exception:  # noqa: BLE001 - a brief must never fail on trigger detection
+        logger.warning("Replan trigger detection failed for season brief", exc_info=True)
+        season["replan_triggers"] = []
+
+
+def _season_status_dict(context: dict) -> dict:
+    """Season packet for the Season page brief — phases plus planner triggers."""
+    season = context.get("season") or {}
+    a_race = season.get("a_race") or {}
+    triggers = season.get("replan_triggers") or []
+    trigger_codes = sorted({str(item.get("code")) for item in triggers if item.get("code")})
+
+    if not season.get("has_plan"):
+        return {
+            "has_plan": False,
+            "a_race": {"name": a_race.get("name"), "date": a_race.get("date")} if a_race else None,
+            "replan_trigger_codes": trigger_codes,
+            "replan_trigger_messages": [str(item.get("message")) for item in triggers],
+        }
+
+    phase = season.get("current_phase") or {}
+    intent = season.get("week_intent") or {}
+    baseline = season.get("baseline") or {}
+    feasibility = season.get("a_race_feasibility") or {}
+    return {
+        "has_plan": True,
+        "a_race": {
+            "name": a_race.get("name"),
+            "date": a_race.get("date"),
+            "target_metric": a_race.get("target_metric"),
+        },
+        "season_start": season.get("start_date"),
+        "season_end": season.get("end_date"),
+        "current_phase": phase.get("phase_type"),
+        "phase_intent": phase.get("intent"),
+        "week_in_phase": season.get("week_in_phase"),
+        "phase_week_count": phase.get("week_count"),
+        "volume_bias": intent.get("volume_bias"),
+        "intensity_bias": intent.get("intensity_bias"),
+        "long_session_allowed_min": intent.get("long_session_allowed_min"),
+        # The reasons the limits are what they are. Fingerprinted so the brief
+        # refreshes when the explanation changes, not only when a number does.
+        "baseline": {
+            "long_session_ceiling_min": baseline.get("long_session_ceiling_min"),
+            "recovery_cycle_weeks": baseline.get("recovery_cycle_weeks"),
+            "volume_damp": baseline.get("volume_damp"),
+            "confidence": baseline.get("confidence"),
+            "notes": list(baseline.get("notes") or []),
+        },
+        "a_race_feasibility": {
+            "feasibility": feasibility.get("feasibility"),
+            "predicted_a_time": feasibility.get("predicted_a_time"),
+        },
+        "week_notes": list(intent.get("notes") or []),
+        "week_events": list(intent.get("events") or []),
+        "phase_outline": [
+            {
+                "phase_type": row.get("phase_type"),
+                "start_date": row.get("start_date"),
+                "end_date": row.get("end_date"),
+                "week_count": row.get("week_count"),
+            }
+            for row in season.get("phases") or []
+        ],
+        "upcoming_events": [
+            {
+                "name": row.get("name"),
+                "date": row.get("date"),
+                "priority": row.get("priority"),
+            }
+            for row in season.get("upcoming_events") or []
+        ],
+        "replan_trigger_codes": trigger_codes,
+        "replan_trigger_messages": [str(item.get("message")) for item in triggers],
+        "warnings": list(season.get("warnings") or []),
+        "a_race_feasibility": season.get("a_race_feasibility"),
+    }
+
+
 def week_brief_input_fingerprint(
     context: dict, clock: dict, distance: dict, topic: str = "volume"
 ) -> str:
@@ -1391,6 +1866,12 @@ def week_brief_input_fingerprint(
         payload = {"topic": topic, "week_start": shared["week_start"], "daily": _daily_status_dict(context)}
     elif topic == "sleep":
         payload = {"topic": topic, "week_start": shared["week_start"], "sleep": _sleep_status_dict(context)}
+    elif topic == "season":
+        payload = {
+            "topic": topic,
+            "week_start": shared["week_start"],
+            "season": _season_status_dict(context),
+        }
     else:
         load = safety.get("load") or {}
         payload = {
@@ -1422,6 +1903,8 @@ def generate_week_brief(
     current_plan = get_active_plan(db, profile.id, clock["week_start"])
     context["current_plan"] = current_plan or {}
     distance = _distance_load_dict(db, profile.id) if topic == "volume" else {}
+    if topic == "season":
+        _attach_replan_triggers(db, profile, context)
     fingerprint = week_brief_input_fingerprint(context, clock, distance, topic)
     week_start = clock["week_start"]
 
@@ -1516,6 +1999,7 @@ def _compose_week_brief(
     rhr = _rhr_status_dict(context) if topic == "rhr" else {}
     daily = _daily_status_dict(context) if topic == "daily" else {}
     sleep = _sleep_status_dict(context) if topic == "sleep" else {}
+    season = _season_status_dict(context) if topic == "season" else {}
 
     if topic == "hrv":
         query = "HRV heart-rate variability overnight milliseconds rMSSD"
@@ -1584,6 +2068,26 @@ Lead with last night's sleep_duration_min vs avg_7d_min (ratio_vs_usual). You ma
 deep/rem/light percentages, nap_duration_min, bedtime, and wake_time. Nothing else.
 If sleep_duration_min is missing, say they need an overnight sleep recording — do not invent minutes.
 {HEALTH_METRIC_BAN}"""
+    elif topic == "season":
+        query = "periodization macro base build peak taper season plan"
+        hits = _retrieve(db, query, profile, k=4)
+        focus_block = f"""SEASON PLAN ONLY (macro phases drawn backward from the A-race)
+{json.dumps(season, indent=2, default=str)}
+
+TASK
+Write THIS WEEK's Season brief. Week of Monday {clock['week_start_iso']} through Sunday {clock['week_end_iso']}.
+Today is {clock['weekday']} {clock['local_date']}.
+If has_plan is false, tell them to generate the season from their A-race — nothing else.
+Otherwise lead with the current phase and week_in_phase of phase_week_count, plus how far the A-race is.
+Explain what this phase is for using phase_intent, volume_bias, and intensity_bias.
+Then numbered points in this shape:
+Lead sentence.
+1. Point — short constraint
+- Label: value
+If replan_trigger_codes is non-empty, the session_adjustment must recommend Replan and name the reason.
+If it is empty, the session_adjustment must say no plan change is needed this week.
+Recommend Rebuild only when there is no plan or the A-race itself changed.
+{SEASON_BAN}"""
     elif topic == "load":
         query = f"training load TRIMP short-term long-term effort {' '.join(context['readiness_flags'])}".strip()
         hits = _retrieve(db, query or "training-load management", profile, k=4)
@@ -1638,8 +2142,21 @@ RETRIEVED EVIDENCE
 Respond with JSON matching exactly this shape:
 {HEALTH_METRIC_ADVICE_SCHEMA}"""
         system_prompt = HEALTH_METRIC_SYSTEM_PROMPT
+    elif topic == "season":
+        user_prompt = f"""{format_clock_block(clock)}
+
+RETRIEVED EVIDENCE
+{format_science_for_prompt(hits)}
+
+{focus_block}
+
+Respond with JSON matching exactly this shape:
+{SEASON_ADVICE_SCHEMA}"""
+        system_prompt = SEASON_SYSTEM_PROMPT
     else:
         user_prompt = f"""{format_clock_block(clock)}
+
+{format_data_sources_block(context)}
 
 ATHLETE CONTEXT
 {_context_digest(context, clock)}
@@ -1674,6 +2191,10 @@ Respond with JSON matching exactly this shape:
                 logger.warning("Health week brief for %s mentioned other topics; using template", topic)
                 advice = None
                 provider_name, model_name = "rules", "deterministic-template"
+            elif topic == "season" and season_brief_off_topic(season, advice):
+                logger.warning("Season brief drifted into sessions or a false replan; using template")
+                advice = None
+                provider_name, model_name = "rules", "deterministic-template"
         except ValidationError as exc:
             logger.warning("Week brief schema validation failed for %s: %s", provider_name, exc)
             advice = None
@@ -1692,10 +2213,12 @@ Respond with JSON matching exactly this shape:
             advice = build_template_daily_brief(context, safety, daily)
         elif topic == "sleep":
             advice = build_template_sleep_brief(context, safety, sleep)
+        elif topic == "season":
+            advice = build_template_season_brief(context, safety, season)
         else:
             advice = build_template_week_brief(context, safety, distance)
 
-    if topic not in HEALTH_WEEK_TOPICS and readiness["action"] == "rest_or_mobility":
+    if topic not in HEALTH_WEEK_TOPICS and topic != "season" and readiness["action"] == "rest_or_mobility":
         fallback = {
             "load": "Keep remaining days easy or rest — do not chase weekly load points.",
             "hrv": "Keep remaining days easy or rest — a recovered HRV number does not override rest.",
@@ -1859,6 +2382,8 @@ def coach_chat(
     timezone_name: str | None = None,
     activity_id: int | None = None,
     intent: str | None = None,
+    *,
+    persist_plan: bool | None = None,
 ) -> dict:
     clock = resolve_clock(timezone_name)
     context = build_athlete_coach_context(db, profile.id)
@@ -1895,20 +2420,84 @@ def coach_chat(
         resolved_intent = decision.intent
         decision_source = decision.source
         logger.info(
-            "Coach intent=%s source=%s audit=%s schedule=%s",
+            "Coach intent=%s source=%s audit=%s schedule=%s review=%s",
             decision.intent,
             decision.source,
             decision.audit_score,
             decision.schedule_score,
+            decision.review_score,
         )
     intent = resolved_intent
-    if intent not in (WORKOUT_AUDIT, SCHEDULE_UPDATE, GENERAL_CHAT):
+    if intent not in (
+        WORKOUT_AUDIT,
+        WEEK_REVIEW,
+        WEEK_PLAN_REVIEW,
+        SCHEDULE_UPDATE,
+        SCIENCE_LOOKUP,
+        CLINICAL_VETO,
+        OFF_TOPIC,
+        GENERAL_CHAT,
+    ):
         intent = GENERAL_CHAT
+
+    if persist_plan is None:
+        persist_plan = intent == SCHEDULE_UPDATE
+
+    clinical = detect_clinical_boundary(message)
+    if clinical:
+        intent = CLINICAL_VETO
+
+    if intent == CLINICAL_VETO:
+        clinical = clinical or {"kind": "tissue_pain", "region": None, "hits": []}
+        flag_clinical_injury(
+            db,
+            profile.id,
+            message,
+            region=clinical.get("region"),
+        )
+        plan_changes = apply_joint_safe_recovery_mode(
+            db,
+            profile.id,
+            today=clock["today"],
+            week_start=clock["week_start"],
+            region=clinical.get("region"),
+        )
+        db.commit()
+        reply = template_clinical_veto(
+            message,
+            region=clinical.get("region"),
+            kind=clinical.get("kind"),
+            plan_changes=plan_changes,
+        )
+        _store_assistant_message(db, profile.id, reply, "clinical-veto")
+        return {
+            "provider": "clinical-veto",
+            "model": "deterministic-rules",
+            "reply": reply,
+            "citations": ["aal-safety-and-load"],
+            "history": chat_history(db, profile.id),
+            "disclaimer": safety["disclaimer"],
+        }
+
+    if intent == OFF_TOPIC:
+        reply = template_off_topic(message)
+        _store_assistant_message(db, profile.id, reply, "domain-gate")
+        return {
+            "provider": "domain-gate",
+            "model": "deterministic-rules",
+            "reply": reply,
+            "citations": [],
+            "history": chat_history(db, profile.id),
+            "disclaimer": safety["disclaimer"],
+        }
 
     history = chat_history(db, profile.id, limit=12)
     current_plan = get_active_plan(db, profile.id, clock["week_start"])
     session_packet = None
+    week_packet = None
+    review_plan = current_plan
     modality = None
+    science_grounded = False
     if intent == WORKOUT_AUDIT:
         session_packet = _load_session_telemetry(
             db, profile, context, message, clock, activity_id=activity_id
@@ -1951,7 +2540,18 @@ def coach_chat(
             k=6,
             extra_sports=science_sports_for_modality(modality, sports_for_retrieval(profile)),
         )
-    elif intent == SCHEDULE_UPDATE:
+    elif intent == WEEK_REVIEW:
+        window_start, _window_end, _label = review_week_window(clock, message)
+        review_plan = get_active_plan(db, profile.id, window_start) or current_plan
+        week_packet = build_week_review_packet(context, clock, review_plan, message)
+        hits = _retrieve(
+            db,
+            "weekly training load ACWR adherence periodization recovery sleep HRV "
+            + message[:180],
+            profile,
+            k=5,
+        )
+    elif intent in {SCHEDULE_UPDATE, WEEK_PLAN_REVIEW}:
         hits = _retrieve(
             db,
             "weekly training plan ACWR consecutive hard days spinal load recovery sleep HRV "
@@ -1959,8 +2559,16 @@ def coach_chat(
             profile,
             k=5,
         )
+    elif intent == SCIENCE_LOOKUP:
+        hits = _retrieve(db, _chat_retrieval_query(message), profile, k=6)
+        strong = grounded_hits(hits)
+        science_grounded = bool(strong)
+        hits = strong if science_grounded else []
     else:
-        hits = _retrieve(db, message, profile, k=5)
+        hits = _retrieve(db, _chat_retrieval_query(message), profile, k=5)
+        strong = grounded_hits(hits)
+        if intent == GENERAL_CHAT:
+            hits = strong if strong else hits[:1]
 
     has_prescription = bool(
         session_packet
@@ -1986,6 +2594,33 @@ CORRECTION / PRESCRIPTION RULES (hard)
 - Match week_plan_session to CURRENT WEEK PLAN for that date.
 - Do NOT copy a previous assistant autopsy. Produce a new planned-vs-executed audit.
 """
+    elif intent == WEEK_REVIEW:
+        extra_block = f"""
+WEEK REVIEW PACKET (ground truth for the recap window — do not invent sessions or swap in a ride outside this window)
+{json.dumps(week_packet, indent=2, default=str)}
+
+{athlete_state_block(context, safety)}
+
+ROUTING (hard)
+Intent is WEEK_REVIEW. This is a week debrief, not a file autopsy.
+Do not load or invent session telemetry. Completely skip ⚡ THE BOTTOM LINE, 🔬 MECHANICAL PRECISION, and 🫀 CARDIOVASCULAR COST.
+Do not quote NP, IF, TSS, laps, or a single ride's watts as if they were the whole week.
+Sunday's long ride is one row in 📅 WHAT LANDED.
+Use the packet window. If today is Monday and they said they finished the week, recap last Mon–Sun.
+Never more than two consecutive sentences per block.
+"""
+    elif intent == WEEK_PLAN_REVIEW:
+        extra_block = f"""
+{today_call_prompt_block(context, safety)}
+
+{athlete_state_block(context, safety)}
+
+ROUTING (hard)
+Intent is WEEK_PLAN_REVIEW. Review only — do NOT build or save a week plan yet.
+Do not autopsy a past ride. Skip ⚡ THE BOTTOM LINE, 🔬 MECHANICAL PRECISION, and 🫀 CARDIOVASCULAR COST.
+No NP / IF / TSS / laps. No 5-column week table. No week_plan JSON.
+Use SEASON PLAN limits and the athlete's stated constraints. Copy TODAY'S CALL status exactly.
+"""
     elif intent == SCHEDULE_UPDATE:
         extra_block = f"""
 {today_call_prompt_block(context, safety)}
@@ -2000,6 +2635,15 @@ Do not write essays or paragraphs. Never more than two consecutive sentences per
 Bullets, key-values, and the week table only.
 Use CURRENT WEEK PLAN plus the athlete's proposed calendar.
 Copy TODAY'S CALL status line exactly. Guard active back/spine limits with non-negotiable DO NOT lifts on strength days.
+"""
+    elif intent == SCIENCE_LOOKUP:
+        extra_block = f"""
+{athlete_state_block(context, safety)}
+
+ROUTING (hard)
+Intent is SCIENCE_LOOKUP. Teach the concept. Do not autopsy a file.
+Grounded retrieval: {"yes — cite only [S#]" if science_grounded else "NO — Evidence: Not in playbook. Do not invent a paper."}
+Never more than two consecutive sentences per bullet.
 """
     else:
         extra_block = f"""
@@ -2017,23 +2661,44 @@ If they feel they failed or cut a session short: 💬 REFRAME as spaced **bold**
         task = autopsy_task_for_packet(modality, session_packet)
         chat_schema = AUTOPSY_SCHEMA
         system_prompt = system_prompt_for_modality(modality)
+    elif intent == WEEK_REVIEW:
+        task = week_review_task()
+        chat_schema = WEEK_REVIEW_SCHEMA
+        system_prompt = week_review_system_prompt()
+    elif intent == WEEK_PLAN_REVIEW:
+        task = week_plan_review_task()
+        chat_schema = WEEK_PLAN_REVIEW_SCHEMA
+        system_prompt = schedule_system_prompt()
     elif intent == SCHEDULE_UPDATE:
         task = schedule_task()
         chat_schema = SCHEDULE_SCHEMA
         system_prompt = schedule_system_prompt()
+    elif intent == SCIENCE_LOOKUP:
+        task = science_task(grounded=science_grounded)
+        chat_schema = SCIENCE_SCHEMA
+        system_prompt = science_system_prompt()
     else:
         task = chat_task()
         chat_schema = CHAT_SCHEMA
         system_prompt = chat_system_prompt()
 
+    review_plan_block = ""
+    if intent == WEEK_REVIEW and review_plan is not current_plan:
+        review_plan_block = f"""
+REVIEW WEEK PLAN (the recap window — not necessarily this Monday's plan)
+{_plan_digest(review_plan, clock)}
+"""
+
     user_prompt = f"""{format_clock_block(clock)}
+
+{format_data_sources_block(context)}
 
 ATHLETE CONTEXT
 {_context_digest(context, clock, include_session_audit=(intent == WORKOUT_AUDIT))}
 
 CURRENT WEEK PLAN
 {_plan_digest(current_plan, clock)}
-
+{review_plan_block}
 SAFETY RULES (hard limits)
 {safety_prompt_rules(safety, weekday_index=clock["weekday_index"])}
 
@@ -2041,7 +2706,7 @@ RECENT CONVERSATION
 {transcript or '(none)'}
 
 RETRIEVED EVIDENCE
-{format_science_for_prompt(hits)}
+{format_science_for_prompt(hits, grounded=(science_grounded if intent == SCIENCE_LOOKUP else None))}
 {extra_block}
 ATHLETE MESSAGE
 {message.strip()}
@@ -2052,7 +2717,9 @@ TASK
 Respond with JSON matching exactly this shape:
 {chat_schema}"""
 
-    result = _call_provider(system_prompt, user_prompt)
+    result = None
+    if not (intent == SCIENCE_LOOKUP and not science_grounded):
+        result = _call_provider(system_prompt, user_prompt)
     provider_name, model_name = "rules", "deterministic-template"
     reply: dict | None = None
     raw_payload: dict | None = None
@@ -2072,6 +2739,23 @@ Respond with JSON matching exactly this shape:
             reply = template_autopsy(
                 message, safety, hits, session_packet=session_packet, context=context
             )
+        elif intent == WEEK_REVIEW:
+            reply = template_week_review(
+                message,
+                safety,
+                hits,
+                packet=week_packet,
+                context=context,
+            )
+        elif intent == WEEK_PLAN_REVIEW:
+            reply = template_week_plan_review(
+                message,
+                safety,
+                hits,
+                current_plan=current_plan,
+                context=context,
+                clock=clock,
+            )
         elif intent == SCHEDULE_UPDATE:
             reply = template_schedule(
                 message,
@@ -2081,12 +2765,20 @@ Respond with JSON matching exactly this shape:
                 context=context,
                 clock=clock,
             )
+        elif intent == SCIENCE_LOOKUP:
+            reply = template_science_lookup(
+                message,
+                safety,
+                hits,
+                grounded=science_grounded,
+                context=context,
+            )
         else:
             reply = template_general_chat(message, safety, hits)
 
     reply["intent"] = intent
     applied_plan = None
-    if intent == SCHEDULE_UPDATE:
+    if intent == SCHEDULE_UPDATE and persist_plan:
         plan_data = extract_week_plan_from_chat(
             raw=raw_payload or reply,
             reply_text=reply.get("reply") or "",

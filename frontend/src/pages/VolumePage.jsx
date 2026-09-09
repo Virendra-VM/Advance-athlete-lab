@@ -26,8 +26,11 @@ import AcwrZoneStrip from '../components/training/AcwrZoneStrip'
 import EmptyState from '../components/ui/EmptyState'
 import LoadingDots from '../components/ui/LoadingDots'
 import SectionCard from '../components/ui/SectionCard'
+import { HEALTH_CHART, healthColorsForMetric } from '../utils/healthTheme'
 import { ACWR_ZONES, hasLoadHistory, interpretLoad, isSparseBaseline, LOAD_LEARN } from '../utils/loadGuides'
 import { staggerContainer, staggerItem } from '../utils/statusColors'
+
+const VOLUME_COLORS = healthColorsForMetric('volume')
 
 function VolumeTooltip({ active, payload }) {
   if (!active || !payload?.length) return null
@@ -131,7 +134,9 @@ export default function VolumePage() {
       <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
         <header className="relative z-20 flex shrink-0 flex-wrap items-center justify-between gap-2 border-b border-[var(--aal-line)] bg-[var(--aal-card)]/85 px-3 py-2 backdrop-blur-sm sm:px-5">
           <div className="min-w-0 pl-10 lg:pl-0">
-            <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-sage">Training</p>
+            <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-indigo-500 dark:text-indigo-300">
+              Training
+            </p>
             <p className="truncate text-sm font-semibold text-[var(--aal-ink)]">Volume & ACWR</p>
             <p className="truncate text-[11px] text-[var(--aal-muted)]">
               This week vs the week your body is used to
@@ -263,7 +268,7 @@ export default function VolumePage() {
                 <div className="h-72">
                   <ResponsiveContainer width="100%" height="100%">
                     <BarChart data={volumeData} margin={{ top: 12, right: 8, left: 0, bottom: 0 }}>
-                      <CartesianGrid stroke="var(--aal-line)" strokeDasharray="3 3" vertical={false} />
+                      <CartesianGrid stroke={HEALTH_CHART.grid} strokeDasharray="4 6" vertical={false} />
                       <XAxis
                         dataKey="label"
                         tick={{ fontSize: 12, fill: 'var(--aal-muted)' }}
@@ -277,7 +282,10 @@ export default function VolumePage() {
                         width={40}
                         tickFormatter={(value) => `${value}`}
                       />
-                      <Tooltip cursor={{ fill: 'transparent' }} content={<VolumeTooltip />} />
+                      <Tooltip
+                        cursor={{ fill: HEALTH_CHART.cursor }}
+                        content={<VolumeTooltip />}
+                      />
                       {Number(stats.chronic_load_km || 0) > 0 ? (
                         <ReferenceLine
                           y={Number(stats.chronic_load_km)}
@@ -295,7 +303,11 @@ export default function VolumePage() {
                         {volumeData.map((row) => (
                           <Cell
                             key={row.label}
-                            fill={row.isCurrent ? '#8fb5a3' : '#6b9080'}
+                            fill={
+                              row.isCurrent
+                                ? VOLUME_COLORS.primary
+                                : VOLUME_COLORS.secondary || VOLUME_COLORS.muted
+                            }
                             fillOpacity={row.km === 0 ? 0.35 : 1}
                           />
                         ))}

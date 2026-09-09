@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { AnimatePresence, motion } from 'framer-motion'
-import { Pin, Send, Sparkles, X, CalendarPlus } from 'lucide-react'
+import { Pin, Send, Sparkles, Square, X, CalendarPlus } from 'lucide-react'
+import { loadComposerDraft, saveComposerDraft } from '../../utils/coachComposerStorage'
 import { parseUtcDate } from '../../utils/formatters'
 import WeekPlan from './WeekPlan'
 import {
@@ -146,11 +147,12 @@ function isSpineHeader(trimmed) {
 
 function isCoachSectionHeader(trimmed) {
   return (
-    /^(⚡|🔬|🫀|🧠|📅|🗓️|⚠️|🟢|🟡|🔴|🗣️|💡|🛡️|💬|📌)\s/.test(trimmed) ||
+    /^(⚡|🔬|🫀|🧠|🧭|📅|🗓️|⚠️|🟢|🟡|🔴|🗣️|💡|🛡️|💬|📌|⚕️)\s/.test(trimmed) ||
     isTodayCallHeader(trimmed) ||
     isLockerHeader(trimmed) ||
     isSpineHeader(trimmed) ||
     /WEEKLY TRANSLATIONS/i.test(trimmed) ||
+    /WHAT LANDED/i.test(trimmed) ||
     isRevisedWeekHeader(trimmed)
   )
 }
@@ -563,20 +565,24 @@ function MessageRow({
 export default function CoachChat({
   messages,
   onSend,
+  onStop = () => {},
   sending,
   disabled,
   disabledReason,
   plan,
   weekStart,
-  generating,
   profileId,
   focalLabel,
   onApplyWeek,
   applyingWeek,
   onAddToSchedule,
+  initialDraft = '',
+  draftSeed = null,
+  composerHint = '',
 }) {
   const [draft, setDraft] = useState('')
   const [pins, setPins] = useState(() => loadPins(profileId))
+  const skipDraftPersist = useRef(false)
   const [stream, setStream] = useState(null)
   const listRef = useRef(null)
   const inputRef = useRef(null)
@@ -588,6 +594,38 @@ export default function CoachChat({
   useEffect(() => {
     setPins(loadPins(profileId))
   }, [profileId])
+
+  useEffect(() => {
+    if (!profileId) return
+    skipDraftPersist.current = true
+    setDraft(loadComposerDraft(profileId))
+    requestAnimationFrame(() => {
+      resizeInput()
+      skipDraftPersist.current = false
+    })
+  }, [profileId])
+
+  useEffect(() => {
+    if (!profileId || skipDraftPersist.current) return
+    saveComposerDraft(profileId, draft)
+  }, [profileId, draft])
+
+  useEffect(() => {
+    if (!draftSeed || !initialDraft) return
+    skipDraftPersist.current = true
+    setDraft(initialDraft)
+    saveComposerDraft(profileId, initialDraft)
+    requestAnimationFrame(() => {
+      resizeInput()
+      const node = inputRef.current
+      if (!node) return
+      node.focus()
+      const len = initialDraft.length
+      node.setSelectionRange(len, len)
+      skipDraftPersist.current = false
+    })
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [draftSeed, initialDraft])
 
   useEffect(() => {
     savePins(profileId, pins)
@@ -703,13 +741,31 @@ export default function CoachChat({
     const message = (text ?? draft).trim()
     if (!message || sending || disabled) return
     stickToBottom.current = true
+    skipDraftPersist.current = true
     setDraft('')
+    saveComposerDraft(profileId, '')
     requestAnimationFrame(() => {
       if (inputRef.current) {
         inputRef.current.style.height = 'auto'
       }
     })
-    await onSend(message)
+    await onSend(message, {
+      restoreOnCancel: (restoreText) => {
+        skipDraftPersist.current = true
+        setDraft(restoreText)
+        saveComposerDraft(profileId, restoreText)
+        requestAnimationFrame(() => {
+          resizeInput()
+          const node = inputRef.current
+          if (!node) return
+          node.focus()
+          const len = restoreText.length
+          node.setSelectionRange(len, len)
+          skipDraftPersist.current = false
+        })
+      },
+    })
+    skipDraftPersist.current = false
   }
 
   const empty = messages.length === 0
@@ -767,7 +823,6 @@ export default function CoachChat({
                 plan={plan}
                 weekStart={weekStart}
                 loading={false}
-                generating={generating}
                 publishing={applyingWeek}
                 onAddToSchedule={onAddToSchedule}
                 embedded
@@ -850,6 +905,9 @@ export default function CoachChat({
             submit()
           }}
         >
+          {composerHint ? (
+            <p className="mb-2 text-center text-xs text-[var(--aal-muted)]">{composerHint}</p>
+          ) : null}
           <div className="flex items-end gap-2 rounded-[1.75rem] border border-[var(--aal-line)] bg-[var(--aal-card)] px-3 py-2 shadow-[0_10px_40px_-18px_rgba(15,23,42,0.45)] focus-within:border-sage/50">
             <textarea
               ref={inputRef}
@@ -869,14 +927,25 @@ export default function CoachChat({
               placeholder={disabled ? disabledReason : 'Message Coach'}
               className="max-h-40 min-h-11 flex-1 resize-none bg-transparent px-2 py-2.5 text-[15px] leading-6 outline-none"
             />
-            <button
-              type="submit"
-              disabled={disabled || sending || !draft.trim()}
-              className="mb-0.5 inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-sage text-white transition hover:brightness-105 disabled:opacity-40"
-              aria-label="Send"
-            >
-              <Send className="h-4 w-4" />
-            </button>
+            {sending ? (
+              <button
+                type="button"
+                onClick={onStop}
+                className="mb-0.5 inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-[var(--aal-ink)] text-[var(--aal-bg)] transition hover:brightness-110"
+                aria-label="Stop"
+              >
+                <Square className="h-3.5 w-3.5 fill-current" />
+              </button>
+            ) : (
+              <button
+                type="submit"
+                disabled={disabled || !draft.trim()}
+                className="mb-0.5 inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-sage text-white transition hover:brightness-105 disabled:opacity-40"
+                aria-label="Send"
+              >
+                <Send className="h-4 w-4" />
+              </button>
+            )}
           </div>
           <p className="mt-2 text-center text-[10px] text-[var(--aal-muted)]">
             Coaching only — not medical advice.

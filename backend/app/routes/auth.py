@@ -186,6 +186,7 @@ SCALAR_V2_FIELDS = (
     "goal_event_name",
     "goal_event_date",
     "goal_metric",
+    "planning_notes",
     "ftp_watts",
     "lthr_bpm",
     "max_hr_bpm",

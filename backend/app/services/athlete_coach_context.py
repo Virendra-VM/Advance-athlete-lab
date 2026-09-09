@@ -14,8 +14,10 @@ from app.models import (
     CorosScheduleItem,
     DailyHealthMetric,
     FitnessAssessment,
+    StravaConnection,
     TrainingLoadSnapshot,
 )
+from app.services.planning_notes import parse_planning_notes
 from app.services.athlete_profile import (
     age_from_dob,
     get_profile_consent,
@@ -95,6 +97,17 @@ def build_athlete_coach_context(db: Session, athlete_profile_id: int) -> dict:
         .all()
     )
     connection = get_coros_connection(db, athlete_profile_id)
+    strava = (
+        db.query(StravaConnection)
+        .filter(StravaConnection.athlete_profile_id == athlete_profile_id)
+        .order_by(StravaConnection.id.desc())
+        .first()
+    )
+    provider_counts: dict[str, int] = {}
+    for activity in activities:
+        key = (activity.provider or "unknown").lower()
+        provider_counts[key] = provider_counts.get(key, 0) + 1
+    note_parse = parse_planning_notes(profile.planning_notes)
 
     latest_health_row = health_rows[0] if health_rows else None
     readiness_flags = readiness_flags_from_signals(
@@ -180,9 +193,29 @@ def build_athlete_coach_context(db: Session, athlete_profile_id: int) -> dict:
                 }
             )
 
+    data_sources = {
+        "profile_loaded": True,
+        "planning_notes": bool((profile.planning_notes or "").strip()),
+        "planning_note_flags": note_parse["flags"],
+        "planning_note_hints": note_parse["hints"],
+        "strava_connected": strava is not None and bool(strava.access_token),
+        "coros_connected": connection is not None,
+        "coros_last_synced_at": connection.last_synced_at.isoformat()
+        if connection and connection.last_synced_at
+        else None,
+        "recent_activities_count": len(activities),
+        "recent_activities_by_provider": provider_counts,
+        "coros_health_days": len(health_rows),
+        "coros_fitness_loaded": fitness is not None,
+        "coros_training_load_loaded": load is not None,
+        "coros_schedule_items": len(schedule),
+        "season_plan_loaded": bool(season.get("has_plan")),
+    }
+
     return {
         "athlete_profile_id": athlete_profile_id,
         "generated_at": datetime.utcnow(),
+        "data_sources": data_sources,
         "profile": {
             "name": profile.name,
             "age": profile.age or age_from_dob(profile.date_of_birth),
@@ -210,6 +243,7 @@ def build_athlete_coach_context(db: Session, athlete_profile_id: int) -> dict:
             "race_prs": profile.race_prs,
             "exercises_hate": profile.exercises_hate,
             "exercises_love": profile.exercises_love,
+            "planning_notes": profile.planning_notes,
             "ftp_watts": physiology.get("ftp_watts"),
             "lthr_bpm": physiology.get("lthr_bpm"),
             "max_hr_bpm": physiology.get("max_hr_bpm"),

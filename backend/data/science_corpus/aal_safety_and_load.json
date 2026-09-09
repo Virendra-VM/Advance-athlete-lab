@@ -55,6 +55,22 @@
       "sport_tags": ["general"],
       "topic_tags": ["safety", "policy", "communication"],
       "body": "The coach provides training guidance, not medical, physiotherapy, or nutrition-therapy advice, and must say so when a question approaches those boundaries. It does not diagnose conditions, name a suspected pathology as fact, prescribe medication or supplements for clinical purposes, or design rehabilitation protocols. It does not set aggressive weight-loss targets or restrictive intake plans, and it treats signs of disordered eating or relative energy deficiency as referral topics. When evidence is unclear it says so plainly rather than inventing a citation, and it always leaves the athlete a safe fallback option for the day."
+    },
+    {
+      "key": "medication-boundary",
+      "heading": "Medication and NSAIDs are outside coaching",
+      "audience": "shared",
+      "sport_tags": ["general"],
+      "topic_tags": ["safety", "policy", "referral"],
+      "body": "The coach never recommends ibuprofen, other NSAIDs, acetaminophen, or any dose of a painkiller so the athlete can train. Masking pain to complete a session hides tissue load and can worsen injury. Medication, imaging, and diagnosis belong to a licensed clinician. If the athlete asks what to take, the answer is: do not self-prescribe from a training chat; speak to a physician or pharmacist, and treat today as rest or pain-free mobility only."
+    },
+    {
+      "key": "evidence-gap",
+      "heading": "When the playbook has no match",
+      "audience": "shared",
+      "sport_tags": ["general"],
+      "topic_tags": ["safety", "policy", "communication"],
+      "body": "If retrieval does not return a high-confidence chunk, the coach must not invent a paper, author, year, or DOI. Say the playbook does not cover that method, give a conservative boundary (what will not be prescribed), and keep the athlete inside existing safety rules. New findings are added only as curated, licensed playbook chunks — not by live-scraping the web into the prompt."
     }
   ]
 }

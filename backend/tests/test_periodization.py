@@ -10,8 +10,12 @@ BACKEND_ROOT = Path(__file__).resolve().parents[1]
 if str(BACKEND_ROOT) not in sys.path:
     sys.path.insert(0, str(BACKEND_ROOT))
 
-from app.models import AthleteEvent  # noqa: E402
+from datetime import timedelta  # noqa: E402
+
+from app.models import AthleteEvent, AthleteProfile  # noqa: E402
 from app.services.periodization import (  # noqa: E402
+    PEAK_MAX_WEEKS,
+    TAPER_MAX_WEEKS,
     blocks_to_dated_phases,
     build_phase_blocks,
     collapse_blocks,
@@ -46,6 +50,39 @@ def test_short_season_gets_minimum_blocks():
     assert counts["taper"] == 1
 
 
+def test_every_season_length_spends_exactly_its_budget():
+    for total in range(2, 61):
+        counts = distribute_macro_weeks(total)
+        assert sum(counts.values()) == total, total
+        assert counts["taper"] >= 1, total
+        assert min(counts.values()) >= 0, total
+
+
+def test_taper_and_peak_stay_inside_physiological_caps():
+    counts = distribute_macro_weeks(52)
+    # A year of runway must not become a six-week taper; the surplus goes to base.
+    assert counts["taper"] == TAPER_MAX_WEEKS
+    assert counts["peak"] == PEAK_MAX_WEEKS
+    assert counts["base"] > counts["build"] > counts["peak"]
+
+
+def test_long_season_earns_a_multi_week_taper():
+    assert distribute_macro_weeks(8)["taper"] == 1
+    assert distribute_macro_weeks(16)["taper"] == 2
+    assert distribute_macro_weeks(32)["taper"] == 3
+
+
+def test_replan_keeps_peak_and_taper_at_full_season_length():
+    """Peak is anchored to the A-race, so a shorter runway must not shrink it."""
+    full = distribute_macro_weeks(24)
+    remaining = distribute_macro_weeks(18, anchor_weeks=24)
+    assert remaining["peak"] == full["peak"]
+    assert remaining["taper"] == full["taper"]
+    # The six lost weeks come out of base and build instead.
+    assert remaining["base"] + remaining["build"] == full["base"] + full["build"] - 6
+    assert sum(remaining.values()) == 18
+
+
 def test_recovery_weeks_inserted_in_base_build():
     blocks = [
         PhaseBlock("base", 4),
@@ -54,6 +91,25 @@ def test_recovery_weeks_inserted_in_base_build():
     expanded = insert_recovery_weeks(blocks, every=4)
     types = [block.phase_type for block in expanded]
     assert "recovery_week" in types
+
+
+def test_recovery_weeks_come_out_of_the_block_budget():
+    """Recovery weeks are spent from base/build, never added on top of them.
+
+    Adding them used to push the timeline past the A-race, which silently
+    squeezed peak and taper out of long seasons.
+    """
+    blocks = [PhaseBlock("base", 8), PhaseBlock("build", 4)]
+    expanded = insert_recovery_weeks(blocks, every=4)
+    assert sum(block.week_count for block in expanded) == 12
+    assert sum(1 for block in expanded if block.phase_type == "recovery_week") == 3
+
+
+def test_recovery_cycle_resets_per_block():
+    """A short build block never opens on a recovery week it cannot afford."""
+    expanded = insert_recovery_weeks([PhaseBlock("base", 3), PhaseBlock("build", 2)], every=4)
+    assert [block.phase_type for block in expanded] == ["base", "build"]
+    assert [block.week_count for block in expanded] == [3, 2]
 
 
 def test_collapse_blocks_merges_adjacent():
@@ -147,3 +203,117 @@ def test_blocks_to_dated_phases_end_before_race_week():
     assert phases[0]["start_date"] == monday_of(date(2026, 9, 7))
     assert phases[-1]["phase_type"] == "taper"
     assert phases[-1]["start_date"] == monday_of(date(2026, 10, 4))
+
+
+def test_blocks_never_overlap_reserved_race_week():
+    """Race week belongs to the taper, so the block before it stops on Sunday."""
+    race = date(2026, 10, 4)  # a Sunday
+    phases = blocks_to_dated_phases(
+        [PhaseBlock("base", 2), PhaseBlock("build", 2)], date(2026, 9, 7), race
+    )
+    taper = phases[-1]
+    assert phases[-2]["end_date"] < taper["start_date"]
+    assert taper["end_date"] == race
+
+
+def test_trailing_taper_block_merges_into_race_week():
+    """A planned two-week taper is one contiguous phase, not two adjacent ones."""
+    phases = blocks_to_dated_phases(
+        [PhaseBlock("build", 2), PhaseBlock("taper", 1)],
+        date(2026, 9, 7),
+        date(2026, 10, 4),
+    )
+    tapers = [row for row in phases if row["phase_type"] == "taper"]
+    assert len(tapers) == 1
+    assert tapers[0]["week_count"] == 2
+    assert tapers[0]["end_date"] == date(2026, 10, 4)
+
+
+def _profile(**overrides):
+    defaults = {
+        "name": "Test",
+        "age": 34,
+        "weight": 70.0,
+        "fitness_level": "intermediate",
+        "workout_duration_minutes": 60,
+    }
+    return AthleteProfile(**{**defaults, **overrides})
+
+
+def test_plan_is_contiguous_and_lands_on_race_day_for_any_length():
+    """The structural contract of a season, checked across every plausible span.
+
+    Phases must tile the season with no overlap and no gap, the taper must end on
+    the A-race, and restore must follow it.
+    """
+    start = date(2026, 9, 7)  # a Monday
+    for weeks in range(2, 53):
+        race = start + timedelta(weeks=weeks) - timedelta(days=1)
+        phases = build_phase_blocks(_profile(), start, race)
+
+        for prev, nxt in zip(phases, phases[1:]):
+            assert nxt["start_date"] == prev["end_date"] + timedelta(days=1), (
+                weeks,
+                prev["phase_type"],
+                nxt["phase_type"],
+            )
+
+        assert phases[-1]["phase_type"] == "restore", weeks
+        assert phases[-2]["phase_type"] == "taper", weeks
+        assert phases[-2]["end_date"] == race, weeks
+        assert phases[0]["start_date"] == start, weeks
+
+        planned = phases[:-1]
+        spent = sum(row["week_count"] for row in planned)
+        assert spent == weeks_between_inclusive(start, race), weeks
+
+
+def test_long_seasons_keep_a_peak_phase():
+    """Recovery weeks used to overflow the budget and push peak off the end."""
+    start = date(2026, 9, 7)
+    for weeks in range(8, 53):
+        race = start + timedelta(weeks=weeks) - timedelta(days=1)
+        types = {row["phase_type"] for row in build_phase_blocks(_profile(), start, race)}
+        assert "peak" in types, weeks
+        assert "build" in types, weeks
+
+
+def test_long_build_up_earns_a_two_week_restore():
+    start = date(2026, 9, 7)
+    short = build_phase_blocks(_profile(), start, start + timedelta(weeks=10))
+    long = build_phase_blocks(_profile(), start, start + timedelta(weeks=24))
+    assert short[-1]["week_count"] == 1
+    assert long[-1]["week_count"] == 2
+
+
+def test_baseline_lowers_long_session_ceiling_and_damps_loading_volume():
+    start = date(2026, 9, 7)
+    race = start + timedelta(weeks=16)
+    baseline = {
+        "long_session_ceiling_min": 75,
+        "volume_damp": 0.88,
+        "recovery_cycle_weeks": 4,
+    }
+    phases = build_phase_blocks(_profile(), start, race, baseline=baseline)
+    by_type = {row["phase_type"]: row for row in phases}
+
+    # Base normally allows a four-hour long day; this athlete has not earned it.
+    assert by_type["base"]["long_session_allowed_min"] == 75
+    assert by_type["base"]["volume_bias"] == round(1.1 * 0.88, 2)
+    # Already-reduced phases are not damped a second time, and the ceiling is
+    # never raised above the phase default.
+    assert by_type["restore"]["volume_bias"] == 0.4
+    assert by_type["restore"]["long_session_allowed_min"] == 60
+
+
+def test_shorter_recovery_cycle_adds_more_down_weeks():
+    start = date(2026, 9, 7)
+    race = start + timedelta(weeks=20)
+
+    def down_weeks(cycle):
+        phases = build_phase_blocks(
+            _profile(), start, race, baseline={"recovery_cycle_weeks": cycle}
+        )
+        return sum(row["week_count"] for row in phases if row["phase_type"] == "recovery_week")
+
+    assert down_weeks(3) > down_weeks(4)
