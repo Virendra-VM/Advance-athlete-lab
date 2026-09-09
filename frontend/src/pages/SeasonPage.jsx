@@ -1,89 +1,86 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { Link } from 'react-router-dom'
+import { useNavigate } from 'react-router-dom'
 import { motion } from 'framer-motion'
-import {
-  AlertTriangle,
-  CalendarRange,
-  Flag,
-  Gauge,
-  Pencil,
-  RefreshCw,
-  ShieldCheck,
-  Sparkles,
-} from 'lucide-react'
+import { AlertTriangle, CheckCircle2, RefreshCw, Sparkles } from 'lucide-react'
 import {
   adjustSeasonPhase,
+  deleteSeasonPhase,
+  replaceSeasonPhase,
+  shiftRecoveryPhase,
   generateSeason,
   getReplanTriggers,
   getSeason,
+  getSeasonAudit,
+  getSeasonPreview,
   replanSeason,
 } from '../api/season'
-import { getCoachStatus, getWeekBrief } from '../api/coach'
+import { useAuth } from '../context/AuthContext'
+import { getCoachStatus, getWeekBrief, getWeekPlan } from '../api/coach'
 import { WeekAlertButton } from '../components/coach/TodayAdvice'
 import AppShell from '../components/layout/AppShell'
+import DismissibleBanner from '../components/season/DismissibleBanner'
 import PhaseDetailModal from '../components/season/PhaseDetailModal'
 import RaceFeasibilityCard from '../components/season/RaceFeasibilityCard'
-import ReplanResultCard from '../components/season/ReplanResultCard'
+import ReplanResultModal from '../components/season/ReplanResultModal'
 import SeasonActionDialog from '../components/season/SeasonActionDialog'
-import SeasonBaselineCard from '../components/season/SeasonBaselineCard'
+import SeasonAuditModal from '../components/season/SeasonAuditModal'
+import SeasonFeedbackModal from '../components/season/SeasonFeedbackModal'
+import SeasonOnboarding from '../components/season/SeasonOnboarding'
+import SeasonPlanMenu from '../components/season/SeasonPlanMenu'
+import SeasonPlanPreviewModal from '../components/season/SeasonPlanPreviewModal'
+import SeasonStatusHero from '../components/season/SeasonStatusHero'
+import SeasonSupportingPanel from '../components/season/SeasonSupportingPanel'
 import SeasonTimeline from '../components/season/SeasonTimeline'
+import SeasonWeekFocus from '../components/season/SeasonWeekFocus'
 import SeasonWeekStrip from '../components/season/SeasonWeekStrip'
 import LearnRow from '../components/training/LearnRow'
 import EmptyState from '../components/ui/EmptyState'
 import LoadingDots from '../components/ui/LoadingDots'
-import PageHeader from '../components/ui/PageHeader'
 import SectionCard from '../components/ui/SectionCard'
 import {
-  PRIORITY_GUIDES,
   SEASON_LEARN,
   TRIGGER_GUIDES,
-  countdownLabel,
   daysUntil,
-  formatMinutes,
   formatRange,
-  formatSeasonDate,
-  intensityLabel,
-  isCurrentPhase,
-  phaseAccent,
-  phaseGuide,
   phaseLabel,
-  volumeBiasLabel,
   weeksUntil,
 } from '../utils/seasonGuides'
 import { staggerContainer, staggerItem } from '../utils/statusColors'
 
-function MetricTile({ label, value, hint }) {
-  return (
-    <div className="rounded-xl border border-[var(--aal-line)] bg-[var(--aal-card)] px-4 py-3">
-      <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-[var(--aal-muted)]">
-        {label}
-      </p>
-      <p className="mt-1 text-lg font-bold text-[var(--aal-ink)]">{value}</p>
-      {hint ? <p className="mt-0.5 text-xs text-[var(--aal-muted)]">{hint}</p> : null}
-    </div>
-  )
-}
-
 export default function SeasonPage() {
+  const navigate = useNavigate()
+  const { updateProfile } = useAuth()
   const [season, setSeason] = useState(null)
   const [loading, setLoading] = useState(true)
   const [generating, setGenerating] = useState(false)
   const [replanning, setReplanning] = useState(false)
   const [replanTriggers, setReplanTriggers] = useState([])
-  // Holds the whole replan response so the page can show what actually changed,
-  // not just that something did.
   const [replanResult, setReplanResult] = useState(null)
   const [error, setError] = useState('')
   const [dialogMode, setDialogMode] = useState(null)
   const [phaseIndex, setPhaseIndex] = useState(null)
   const [adjusting, setAdjusting] = useState(false)
   const [adjustError, setAdjustError] = useState('')
-  const [openLearn, setOpenLearn] = useState('retrograde')
+  const [openLearn, setOpenLearn] = useState(null)
+  const [learnOpen, setLearnOpen] = useState(false)
+  const [previewOpen, setPreviewOpen] = useState(false)
+  const [previewMode, setPreviewMode] = useState('generate')
+  const [preview, setPreview] = useState(null)
+  const [previewLoading, setPreviewLoading] = useState(false)
+  const [previewError, setPreviewError] = useState('')
+  const [planningNotes, setPlanningNotes] = useState('')
 
   const [brief, setBrief] = useState(null)
   const [briefLoading, setBriefLoading] = useState(false)
   const [briefError, setBriefError] = useState('')
   const [consented, setConsented] = useState(false)
+  const [currentWeekPlan, setCurrentWeekPlan] = useState(null)
+  const [weekPlanLoading, setWeekPlanLoading] = useState(false)
+  const [auditOpen, setAuditOpen] = useState(false)
+  const [audit, setAudit] = useState(null)
+  const [auditLoading, setAuditLoading] = useState(false)
+  const [auditError, setAuditError] = useState('')
+  const [feedback, setFeedback] = useState(null)
 
   const loadBrief = useCallback(async (force = false) => {
     setBriefLoading(true)
@@ -122,7 +119,6 @@ export default function SeasonPage() {
     }
   }, [])
 
-  // The brief explains an existing plan, so there is nothing to fetch until one exists.
   const planActive = season?.status === 'active'
 
   useEffect(() => {
@@ -147,9 +143,6 @@ export default function SeasonPage() {
     setError('')
     setReplanResult(null)
     try {
-      // The backend detects a newly added B or C race itself, but passing the
-      // flag makes the trigger fire on the same visit the athlete added one
-      // instead of waiting for the next signal sweep.
       const data = await replanSeason({
         force,
         new_bc_race: replanTriggers.some((trigger) => trigger.code === 'new_bc_race'),
@@ -200,6 +193,30 @@ export default function SeasonPage() {
   }
 
   const hasPlan = season?.status === 'active' && season?.phases?.length > 0
+  const weekAlreadyPlanned = Boolean(currentWeekPlan?.plan?.workouts?.length)
+
+  useEffect(() => {
+    if (!hasPlan) {
+      setCurrentWeekPlan(null)
+      return undefined
+    }
+    let cancelled = false
+    async function loadCurrentWeekPlan() {
+      setWeekPlanLoading(true)
+      try {
+        const weekStart = season?.week_intent?.week_start || null
+        const plan = await getWeekPlan(weekStart).catch(() => null)
+        if (!cancelled) setCurrentWeekPlan(plan)
+      } finally {
+        if (!cancelled) setWeekPlanLoading(false)
+      }
+    }
+    loadCurrentWeekPlan()
+    return () => {
+      cancelled = true
+    }
+  }, [hasPlan, season?.week_intent?.week_start])
+
   const phases = useMemo(() => season?.phases || [], [season])
   const weekOutline = useMemo(() => season?.week_outline || [], [season])
   const aRace = season?.a_race || null
@@ -209,10 +226,14 @@ export default function SeasonPage() {
   const raceDays = aRace ? daysUntil(aRace.date) : null
   const raceWeeks = aRace ? weeksUntil(aRace.date) : null
 
-  const currentIndex = useMemo(
-    () => phases.findIndex((phase) => isCurrentPhase(phase)),
-    [phases],
-  )
+  const hasAlerts =
+    (hasPlan && replanTriggers.length > 0) || (season?.warnings?.length ?? 0) > 0
+
+  function showPhaseFeedback(variant, title, message) {
+    setPhaseIndex(null)
+    setAdjustError('')
+    setFeedback({ variant, title, message })
+  }
 
   async function handleAdjustWeeks(phaseId, deltaWeeks) {
     setAdjusting(true)
@@ -220,6 +241,11 @@ export default function SeasonPage() {
     try {
       const plan = await adjustSeasonPhase(phaseId, deltaWeeks)
       setSeason(plan)
+      showPhaseFeedback(
+        'success',
+        'Block updated',
+        deltaWeeks > 0 ? 'One week added to this block.' : 'One week removed from this block.',
+      )
       if (consented) loadBrief(true)
     } catch (err) {
       setAdjustError(err.message || 'Could not move that week.')
@@ -228,497 +254,426 @@ export default function SeasonPage() {
     }
   }
 
+  async function handleShiftRecovery(phaseId, targetWeekStart) {
+    setAdjusting(true)
+    setAdjustError('')
+    try {
+      const plan = await shiftRecoveryPhase(phaseId, targetWeekStart)
+      setSeason(plan)
+      showPhaseFeedback('success', 'Recovery week moved', `Block now starts ${targetWeekStart}.`)
+      if (consented) loadBrief(true)
+    } catch (err) {
+      setAdjustError(err.message || 'Could not place recovery on that week.')
+    } finally {
+      setAdjusting(false)
+    }
+  }
+
+  async function handleDeletePhase(phaseId, mergeInto = 'next') {
+    setAdjusting(true)
+    setAdjustError('')
+    try {
+      const plan = await deleteSeasonPhase(phaseId, mergeInto)
+      setSeason(plan)
+      showPhaseFeedback(
+        'success',
+        'Week removed',
+        `Merged into the ${mergeInto === 'prev' ? 'previous' : 'next'} block.`,
+      )
+      if (consented) loadBrief(true)
+    } catch (err) {
+      setAdjustError(err.message || 'Could not remove that week.')
+    } finally {
+      setAdjusting(false)
+    }
+  }
+
+  async function handleReplacePhase(phaseId, newPhaseType) {
+    setAdjusting(true)
+    setAdjustError('')
+    try {
+      const plan = await replaceSeasonPhase(phaseId, newPhaseType)
+      setSeason(plan)
+      showPhaseFeedback(
+        'success',
+        'Block replaced',
+        `This week is now a ${phaseLabel(newPhaseType)} block.`,
+      )
+      if (consented) loadBrief(true)
+    } catch (err) {
+      setAdjustError(err.message || 'Could not replace that block.')
+    } finally {
+      setAdjusting(false)
+    }
+  }
+
+  async function openPreview(mode = 'generate') {
+    setPreviewMode(mode)
+    setPreviewOpen(true)
+    setPreviewLoading(true)
+    setPreviewError('')
+    setPreview(null)
+    try {
+      const data = await getSeasonPreview()
+      setPreview(data)
+      setPlanningNotes(data?.profile?.planning_notes || '')
+    } catch (err) {
+      setPreviewError(err.message || 'Could not load season preview.')
+    } finally {
+      setPreviewLoading(false)
+    }
+  }
+
+  async function confirmPreview() {
+    setPreviewError('')
+    try {
+      const savedNotes = preview?.profile?.planning_notes || ''
+      const trimmed = (planningNotes || '').trim()
+      if (trimmed !== (savedNotes || '').trim()) {
+        await updateProfile({ planning_notes: trimmed || null })
+      }
+      setPreviewOpen(false)
+      await handleGenerate()
+    } catch (err) {
+      setPreviewError(err.message || 'Could not save or plan your season.')
+    }
+  }
+
   function requestGenerate() {
     if (!hasPlan) {
-      handleGenerate()
+      openPreview('generate')
       return
     }
     setDialogMode('rebuild')
   }
 
+  function goPlanWeek({ recoveryPhase = null } = {}) {
+    if (!consented) {
+      navigate('/settings#privacy')
+      return
+    }
+    navigate('/coach', {
+      state: {
+        weekPlanFlow: true,
+        recoveryShift: Boolean(recoveryPhase),
+        recoveryPhase: recoveryPhase || null,
+      },
+    })
+  }
+
+  async function openAudit() {
+    setAuditOpen(true)
+    setAuditLoading(true)
+    setAuditError('')
+    setAudit(null)
+    try {
+      setAudit(await getSeasonAudit())
+    } catch (err) {
+      setAuditError(err.message || 'Could not run season audit.')
+    } finally {
+      setAuditLoading(false)
+    }
+  }
+
+  function handleAuditAction(action) {
+    setAuditOpen(false)
+    if (action === 'replan') {
+      setDialogMode('replan')
+      return
+    }
+    if (action === 'rebuild') {
+      setDialogMode('rebuild')
+      return
+    }
+    if (action === 'coach') {
+      goPlanWeek()
+      return
+    }
+    if (action === 'profile') {
+      navigate('/profile')
+    }
+  }
+
   return (
-    <AppShell title="Season">
-      <PageHeader
-        eyebrow="Training"
-        title="Season plan"
-        subtitle="Every phase is measured backward from your A-race — Base, Build, Peak, Taper, then Restore."
-        actions={
+    <AppShell title="Season" fill>
+      <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
+        {/* Sticky toolbar — coach brief + plan options only */}
+        <header className="relative z-20 flex shrink-0 flex-wrap items-center justify-between gap-2 border-b border-[var(--aal-line)] bg-[var(--aal-card)]/90 px-3 py-2 backdrop-blur-sm sm:px-5">
+          <div className="flex min-w-0 flex-1 flex-wrap items-center gap-2 pl-10 lg:pl-0">
+            <div className="min-w-0">
+              <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-indigo-500 dark:text-indigo-300">
+                Training
+              </p>
+              <p className="truncate text-sm font-semibold text-[var(--aal-ink)]">Season plan</p>
+              <p className="truncate text-[11px] text-[var(--aal-muted)]">
+                {hasPlan && currentPhase
+                  ? `${phaseLabel(currentPhase.phase_type)} · ${raceWeeks ?? '—'} weeks to race`
+                  : 'Roadmap from your goal race'}
+              </p>
+            </div>
+          </div>
           <div className="flex flex-wrap items-center gap-2">
             {hasPlan ? (
-              <WeekAlertButton
-                topic="season"
-                advice={brief}
-                loading={briefLoading && !brief}
-                error={briefError}
-                onRefresh={() => (consented ? loadBrief(true) : null)}
-                refreshing={briefLoading}
-                loadChips={[
-                  {
-                    label: 'Phase',
-                    value: currentPhase ? phaseLabel(currentPhase.phase_type) : null,
-                  },
-                  {
-                    label: 'To race',
-                    value: raceWeeks != null ? `${raceWeeks} wk` : null,
-                  },
-                  {
-                    label: 'Volume',
-                    value: season?.week_intent?.volume_bias ?? null,
-                  },
-                ]}
-              />
+              <>
+                {weekPlanLoading ? null : weekAlreadyPlanned ? (
+                  <span className="inline-flex shrink-0 items-center gap-1.5 rounded-xl border border-sage/35 bg-sage/10 px-3 py-1.5 text-xs font-semibold text-sage">
+                    <CheckCircle2 className="h-3.5 w-3.5" />
+                    Week already planned
+                  </span>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={() => goPlanWeek()}
+                    disabled={loading || weekPlanLoading}
+                    className="inline-flex shrink-0 items-center gap-1.5 rounded-xl border border-sage/40 bg-sage/10 px-3 py-1.5 text-xs font-semibold text-sage transition hover:bg-sage/20 disabled:opacity-60 sm:text-sm sm:px-3 sm:py-2"
+                  >
+                    <Sparkles className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
+                    Plan this week
+                  </button>
+                )}
+                <WeekAlertButton
+                  topic="season"
+                  advice={brief}
+                  loading={briefLoading && !brief}
+                  error={briefError}
+                  onRefresh={() => (consented ? loadBrief(true) : null)}
+                  refreshing={briefLoading}
+                  loadChips={[
+                    {
+                      label: 'Phase',
+                      value: currentPhase ? phaseLabel(currentPhase.phase_type) : null,
+                    },
+                    {
+                      label: 'To race',
+                      value: raceWeeks != null ? `${raceWeeks} wk` : null,
+                    },
+                    {
+                      label: 'Volume',
+                      value: season?.week_intent?.volume_bias ?? null,
+                    },
+                  ]}
+                />
+                <SeasonPlanMenu
+                  disabled={loading || generating || replanning}
+                  replanTriggerCount={replanTriggers.length}
+                  onReplan={() => setDialogMode('replan')}
+                  onRebuildFromScratch={() => setDialogMode('rebuild')}
+                  onRebuildSeason={() => openPreview('rebuild')}
+                />
+              </>
+            ) : aRace ? (
+              <button
+                type="button"
+                onClick={requestGenerate}
+                disabled={generating || loading || previewLoading}
+                className="inline-flex items-center gap-2 rounded-xl bg-indigo-600 px-3 py-2 text-sm font-semibold text-white transition hover:bg-indigo-500 disabled:opacity-60"
+              >
+                <RefreshCw className={`h-4 w-4 ${generating || previewLoading ? 'animate-spin' : ''}`} />
+                {generating || previewLoading ? 'Loading…' : 'Generate roadmap'}
+              </button>
             ) : null}
-            <button
-              type="button"
-              onClick={requestGenerate}
-              disabled={generating || loading}
-              className={
-                hasPlan
-                  ? 'inline-flex items-center gap-2 rounded-xl border border-[var(--aal-line)] bg-[var(--aal-card)] px-3 py-2 text-sm font-medium transition hover:border-indigo-300 hover:text-indigo-600 disabled:opacity-60 dark:hover:text-indigo-300'
-                  : 'inline-flex items-center gap-2 rounded-xl bg-indigo-600 px-3 py-2 text-sm font-semibold text-white transition hover:bg-indigo-500 disabled:opacity-60'
-              }
-            >
-              <RefreshCw className={`h-4 w-4 ${generating ? 'animate-spin' : ''}`} />
-              {generating ? 'Building…' : hasPlan ? 'Rebuild season' : 'Generate season'}
-            </button>
           </div>
-        }
-      />
+        </header>
 
-      {error ? <p className="mb-4 text-sm text-danger-muted">{error}</p> : null}
+        {error ? (
+          <p className="shrink-0 border-b border-red-200/60 bg-red-50/80 px-4 py-2 text-sm text-danger-muted dark:bg-red-950/30">
+            {error}
+          </p>
+        ) : null}
 
-      {loading ? (
-        <SectionCard>
-          <LoadingDots label="Loading season…" />
-        </SectionCard>
-      ) : !aRace ? (
-        <EmptyState
-          title="No A-race yet"
-          description="Your season is built backward from one goal event. Set that race on Profile first, then generate the plan."
-          actionLabel="Go to Profile"
-          actionTo="/profile#profile-training"
-        />
-      ) : (
-        <motion.div
-          className="space-y-6"
-          variants={staggerContainer}
-          initial="hidden"
-          animate="visible"
-        >
-          {replanResult ? (
-            <motion.div variants={staggerItem}>
-              <ReplanResultCard
-                result={replanResult}
-                onDismiss={() => setReplanResult(null)}
-              />
-            </motion.div>
-          ) : null}
-
-          {/* Hero: the anchor and where the athlete stands today. */}
-          <motion.div
-            variants={staggerItem}
-            className="relative overflow-hidden rounded-2xl border border-[var(--aal-line)] px-4 py-5 sm:px-6"
-          >
-            <div
-              className="pointer-events-none absolute inset-0"
-              style={{
-                background:
-                  'radial-gradient(120% 80% at 0% 0%, rgba(55,48,163,0.14), transparent 55%), radial-gradient(90% 70% at 100% 20%, rgba(91,141,239,0.1), transparent 50%), linear-gradient(165deg, var(--aal-card), color-mix(in srgb, #312e81 6%, var(--aal-card)))',
-              }}
+        {loading ? (
+          <div className="flex min-h-0 flex-1 items-center justify-center">
+            <LoadingDots label="Loading season…" />
+          </div>
+        ) : !aRace ? (
+          <div className="min-h-0 flex-1 overflow-y-auto p-4 sm:p-6">
+            <EmptyState
+              title="Set your goal race first"
+              description="Your season is built backward from one A-race. Add it on Profile, then come back to generate your roadmap."
+              actionLabel="Go to Profile"
+              actionTo="/profile#profile-training"
             />
-            <div className="relative flex flex-col gap-5 lg:flex-row lg:items-center lg:justify-between">
-              <div className="flex items-start gap-3">
-                <div className="shrink-0 rounded-xl bg-indigo-600/15 p-2.5 text-indigo-600 dark:text-indigo-300">
-                  <Flag className="h-5 w-5" />
-                </div>
-                <div className="min-w-0">
-                  <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-indigo-500 dark:text-indigo-300">
-                    A-race anchor
-                  </p>
-                  <h2 className="mt-0.5 text-2xl font-bold leading-tight text-[var(--aal-ink)]">
-                    {aRace.name}
-                  </h2>
-                  <p className="mt-1 text-sm text-[var(--aal-muted)]">
-                    {formatSeasonDate(aRace.date)}
-                    {aRace.target_metric ? ` · Target ${aRace.target_metric}` : ''}
-                  </p>
-                </div>
-              </div>
-
-              <div className="flex flex-wrap items-stretch gap-3">
-                <div className="rounded-xl border border-indigo-500/25 bg-[var(--aal-card)]/85 px-4 py-3 text-center">
-                  <p className="text-3xl font-bold tabular-nums leading-none text-indigo-600 dark:text-indigo-300">
-                    {raceDays != null && raceDays >= 0 ? raceDays : '—'}
-                  </p>
-                  <p className="mt-1 text-[10px] font-semibold uppercase tracking-[0.14em] text-[var(--aal-muted)]">
-                    days to go
-                  </p>
-                </div>
-
-                {hasPlan && currentPhase ? (
-                  <div className="min-w-[13rem] rounded-xl border border-indigo-500/25 bg-[var(--aal-card)]/85 px-4 py-3">
-                    <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-indigo-500 dark:text-indigo-300">
-                      You are here
-                    </p>
-                    <p className="mt-0.5 text-lg font-bold text-[var(--aal-ink)]">
-                      {phaseLabel(currentPhase.phase_type)}
-                      {season.week_in_phase ? (
-                        <span className="ml-1.5 text-sm font-medium text-[var(--aal-muted)]">
-                          week {season.week_in_phase} of {currentPhase.week_count}
-                        </span>
-                      ) : null}
-                    </p>
-                    <p className="mt-0.5 text-xs text-[var(--aal-muted)]">
-                      {phaseGuide(currentPhase.phase_type).tagline} ·{' '}
-                      {countdownLabel(aRace.date)}
-                    </p>
-                  </div>
-                ) : null}
-              </div>
-            </div>
-          </motion.div>
-
-          {/* Replan suggestion sits above everything else because it is time-sensitive. */}
-          {hasPlan && replanTriggers.length > 0 ? (
+          </div>
+        ) : (
+          <div className="min-h-0 flex-1 overflow-y-auto px-4 py-5 sm:px-6 lg:px-8">
             <motion.div
-              variants={staggerItem}
-              className="rounded-2xl border border-amber-500/40 bg-amber-500/10 px-4 py-4 sm:px-5"
+              className="space-y-5"
+              variants={staggerContainer}
+              initial="hidden"
+              animate="visible"
             >
-              <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-                <div className="flex items-start gap-3">
-                  <AlertTriangle className="mt-0.5 h-5 w-5 shrink-0 text-amber-700 dark:text-amber-300" />
-                  <div>
-                    <p className="font-semibold text-amber-900 dark:text-amber-100">
-                      Your training has drifted from this plan
-                    </p>
-                    <ul className="mt-1.5 space-y-1 text-sm text-amber-900/85 dark:text-amber-100/85">
-                      {replanTriggers.map((trigger) => (
-                        <li key={trigger.code}>
-                          {TRIGGER_GUIDES[trigger.code]?.plain || trigger.message}
-                        </li>
-                      ))}
-                    </ul>
-                  </div>
-                </div>
-                <button
-                  type="button"
-                  onClick={() => setDialogMode('replan')}
-                  disabled={replanning}
-                  className="inline-flex shrink-0 items-center justify-center gap-2 rounded-xl bg-indigo-600 px-3 py-2 text-sm font-semibold text-white transition hover:bg-indigo-500 disabled:opacity-60"
-                >
-                  <ShieldCheck className="h-4 w-4" />
-                  {replanning ? 'Replanning…' : 'Review replan'}
-                </button>
-              </div>
-            </motion.div>
-          ) : null}
-
-          {/* A read on the goal time — surfaced once a B-race has been raced. */}
-          {hasPlan && feasibility ? (
-            <motion.div variants={staggerItem}>
-              <RaceFeasibilityCard feasibility={feasibility} aRace={aRace} />
-            </motion.div>
-          ) : null}
-
-          {season.warnings?.length ? (
-            <motion.div variants={staggerItem}>
-              <SectionCard title="Planner warnings" subtitle="Worth a look before race week.">
-                <ul className="space-y-2 text-sm text-amber-800 dark:text-amber-200">
-                  {season.warnings.map((warning) => (
-                    <li key={warning} className="rounded-lg bg-amber-500/10 px-3 py-2">
-                      {warning}
-                    </li>
-                  ))}
-                </ul>
-              </SectionCard>
-            </motion.div>
-          ) : null}
-
-          {hasPlan ? (
-            <>
+              {/* 1 · Status — goal, phase, countdown, primary CTA */}
               <motion.div variants={staggerItem}>
-                <SectionCard
-                  title="Phase timeline"
-                  subtitle={`${formatRange(season.start_date, season.end_date)} · tap a block for what it is for`}
-                >
-                  <SeasonTimeline
-                    phases={phases}
-                    startDate={season.start_date}
-                    endDate={season.end_date}
-                    events={season.upcoming_events}
-                    onSelectPhase={setPhaseIndex}
-                  />
-
-                  {weekOutline.length ? (
-                    <div className="mt-7 border-t border-[var(--aal-line)] pt-5">
-                      <p className="mb-3 text-[10px] font-semibold uppercase tracking-[0.14em] text-[var(--aal-muted)]">
-                        Week by week
-                      </p>
-                      <SeasonWeekStrip
-                        weeks={weekOutline}
-                        phases={phases}
-                        onSelectPhase={setPhaseIndex}
-                      />
-                    </div>
-                  ) : null}
-
-                  <div className="mt-6 grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
-                    {phases.map((phase, index) => {
-                      const accent = phaseAccent(phase.phase_type)
-                      const guide = phaseGuide(phase.phase_type)
-                      const current = index === currentIndex
-                      return (
-                        <button
-                          key={phase.id}
-                          type="button"
-                          onClick={() => setPhaseIndex(index)}
-                          className={`rounded-xl border px-3.5 py-3 text-left transition hover:-translate-y-0.5 hover:shadow-sm ${
-                            current
-                              ? `${accent.ring} bg-[var(--aal-card)] shadow-sm`
-                              : 'border-[var(--aal-line)] bg-[var(--aal-card)]/60 hover:border-indigo-300/50'
-                          }`}
-                        >
-                          <div className="flex items-center justify-between gap-2">
-                            <span
-                              className={`rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide ${accent.chip}`}
-                            >
-                              {phaseLabel(phase.phase_type)}
-                            </span>
-                            {current ? (
-                              <span className="text-[10px] font-bold uppercase tracking-wide text-indigo-600 dark:text-indigo-300">
-                                Now
-                              </span>
-                            ) : (
-                              <span className="text-xs tabular-nums text-[var(--aal-muted)]">
-                                {phase.week_count} wk
-                              </span>
-                            )}
-                          </div>
-                          <p className="mt-2 text-sm font-semibold text-[var(--aal-ink)]">
-                            {guide.tagline}
-                          </p>
-                          <p className="mt-1 text-xs text-[var(--aal-muted)]">
-                            {formatRange(phase.start_date, phase.end_date)}
-                          </p>
-                        </button>
-                      )
-                    })}
-                  </div>
-                </SectionCard>
+                <SeasonStatusHero
+                  aRace={aRace}
+                  raceDays={raceDays}
+                  currentPhase={currentPhase}
+                  weekInPhase={season?.week_in_phase}
+                  seasonStart={season?.start_date}
+                  seasonEnd={season?.end_date}
+                  hasPlan={hasPlan}
+                />
               </motion.div>
 
-              {season.week_intent ? (
-                <motion.div variants={staggerItem}>
-                  <SectionCard
-                    title="This week"
-                    subtitle={`Week of ${formatSeasonDate(season.week_intent.week_start)} — how this block wants you to train`}
-                    actions={
-                      <Link
-                        to="/coach"
-                        className="inline-flex items-center gap-1.5 rounded-xl border border-[var(--aal-line)] px-3 py-1.5 text-xs font-medium transition hover:border-indigo-300 hover:text-indigo-600 dark:hover:text-indigo-300"
-                      >
-                        <Sparkles className="h-3.5 w-3.5" />
-                        Get the sessions
-                      </Link>
-                    }
-                  >
-                    <div className="grid gap-3 sm:grid-cols-3">
-                      <MetricTile
-                        label="Intensity"
-                        value={intensityLabel(season.week_intent.intensity_bias)}
-                      />
-                      <MetricTile
-                        label="Volume"
-                        value={volumeBiasLabel(season.week_intent.volume_bias)}
-                        hint={`${season.week_intent.volume_bias}× bias`}
-                      />
-                      <MetricTile
-                        label="Long day up to"
-                        value={formatMinutes(season.week_intent.long_session_allowed_min)}
-                        hint="Scaled to your longest recent session"
-                      />
-                    </div>
-                    {season.week_intent.notes?.length ? (
-                      <ul className="mt-4 space-y-2">
-                        {season.week_intent.notes.map((note) => (
-                          <li
-                            key={note}
-                            className="flex gap-2 text-sm leading-snug text-[var(--aal-muted)]"
-                          >
-                            <span
-                              className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-indigo-500/60"
-                              aria-hidden="true"
-                            />
-                            <span>{note}</span>
+              {/* 2 · Alerts — only when something needs attention */}
+              {hasAlerts ? (
+                <motion.div variants={staggerItem} className="space-y-2">
+                  {hasPlan && replanTriggers.length > 0 ? (
+                    <DismissibleBanner
+                      id={`replan-${replanTriggers.map((t) => t.code).join('-')}`}
+                      icon={AlertTriangle}
+                      title={`Plan may be out of date — ${replanTriggers.length} signal${replanTriggers.length === 1 ? '' : 's'}`}
+                      action={
+                        <button
+                          type="button"
+                          onClick={() => setDialogMode('replan')}
+                          disabled={replanning}
+                          className="rounded-lg bg-indigo-600 px-2.5 py-1 text-xs font-semibold text-white transition hover:bg-indigo-500 disabled:opacity-60"
+                        >
+                          {replanning ? '…' : 'Review replan'}
+                        </button>
+                      }
+                    >
+                      <ul className="space-y-1">
+                        {replanTriggers.map((trigger) => (
+                          <li key={trigger.code}>
+                            {TRIGGER_GUIDES[trigger.code]?.plain || trigger.message}
                           </li>
                         ))}
                       </ul>
-                    ) : null}
-                  </SectionCard>
+                    </DismissibleBanner>
+                  ) : null}
+                  {season.warnings?.length ? (
+                    <DismissibleBanner
+                      id={`warnings-${season.warnings.join('|')}`}
+                      icon={AlertTriangle}
+                      title={`${season.warnings.length} planner note${season.warnings.length === 1 ? '' : 's'}`}
+                    >
+                      <ul className="space-y-1">
+                        {season.warnings.map((warning) => (
+                          <li key={warning}>{warning}</li>
+                        ))}
+                      </ul>
+                    </DismissibleBanner>
+                  ) : null}
                 </motion.div>
               ) : null}
 
-              {baseline ? (
+              {hasPlan && feasibility ? (
                 <motion.div variants={staggerItem}>
-                  <SectionCard
-                    title="Why these numbers"
-                    subtitle="Your phase limits are scaled to the training you have actually done."
-                  >
-                    <SeasonBaselineCard baseline={baseline} />
-                  </SectionCard>
+                  <RaceFeasibilityCard feasibility={feasibility} aRace={aRace} />
                 </motion.div>
               ) : null}
 
-              {season.upcoming_events?.length ? (
+              {hasPlan ? (
+                <>
+                  {/* 3 · Roadmap — full-width timeline */}
+                  <motion.div variants={staggerItem}>
+                    <SectionCard
+                      title="Season roadmap"
+                      subtitle={`${formatRange(season.start_date, season.end_date)} · Today’s line shows where you are · Tap any block for details`}
+                      actions={
+                        <button
+                          type="button"
+                          onClick={openAudit}
+                          disabled={auditLoading}
+                          className="inline-flex shrink-0 items-center gap-1.5 rounded-xl border border-indigo-500/30 bg-indigo-500/10 px-3 py-1.5 text-xs font-semibold text-indigo-700 transition hover:bg-indigo-500/15 disabled:opacity-60 dark:text-indigo-200"
+                        >
+                          <Sparkles className="h-3.5 w-3.5" />
+                          Periodization audit
+                        </button>
+                      }
+                    >
+                      <SeasonTimeline
+                        phases={phases}
+                        startDate={season.start_date}
+                        endDate={season.end_date}
+                        events={season.upcoming_events}
+                        onSelectPhase={setPhaseIndex}
+                        onShiftPhase={handleShiftRecovery}
+                        shifting={adjusting}
+                      />
+                      {weekOutline.length ? (
+                        <div className="mt-5 border-t border-[var(--aal-line)] pt-4">
+                          <p className="mb-2 text-[10px] font-semibold uppercase tracking-[0.14em] text-[var(--aal-muted)]">
+                            Week by week
+                          </p>
+                          <SeasonWeekStrip
+                            weeks={weekOutline}
+                            phases={phases}
+                            onSelectPhase={setPhaseIndex}
+                          />
+                        </div>
+                      ) : null}
+                    </SectionCard>
+                  </motion.div>
+
+                  {/* 4 · This week — actionable focus */}
+                  <motion.div variants={staggerItem}>
+                    <SeasonWeekFocus
+                      weekIntent={season.week_intent}
+                      weekAlreadyPlanned={weekAlreadyPlanned}
+                      onPlanWeek={weekAlreadyPlanned ? null : () => goPlanWeek()}
+                    />
+                  </motion.div>
+
+                  {/* 5 · Supporting context */}
+                  <motion.div variants={staggerItem}>
+                    <SeasonSupportingPanel
+                      events={season.upcoming_events}
+                      baseline={baseline}
+                    />
+                  </motion.div>
+                </>
+              ) : (
                 <motion.div variants={staggerItem}>
-                  <SectionCard
-                    title="Races ahead"
-                    subtitle="How each priority is treated inside the plan."
-                  >
-                    <div className="space-y-2">
-                      {season.upcoming_events.map((event) => {
-                        const priority = PRIORITY_GUIDES[event.priority] || PRIORITY_GUIDES.E
-                        return (
-                          <div
-                            key={event.id}
-                            className={`flex flex-wrap items-center justify-between gap-x-3 gap-y-1 rounded-xl border px-3 py-2.5 ${priority.accent}`}
-                          >
-                            <div className="min-w-0">
-                              <p className="font-medium">
-                                <span className="mr-2 text-[10px] font-bold uppercase tracking-wide">
-                                  {priority.label}
-                                </span>
-                                {event.name}
-                              </p>
-                              <p className="mt-0.5 text-xs opacity-80">{priority.meaning}</p>
-                            </div>
-                            <span className="text-sm tabular-nums">
-                              {formatSeasonDate(event.date)}
-                            </span>
-                          </div>
-                        )
-                      })}
-                    </div>
-                  </SectionCard>
+                  <SeasonOnboarding
+                    aRace={aRace}
+                    raceWeeks={raceWeeks}
+                    generating={generating || previewLoading}
+                    onGenerate={requestGenerate}
+                  />
                 </motion.div>
-              ) : null}
+              )}
 
-              {/* The decision the athlete keeps getting wrong: Replan vs Rebuild. */}
-              <motion.div variants={staggerItem}>
-                <SectionCard
-                  title="Manage this plan"
-                  subtitle="Three different jobs — pick the smallest one that fixes your problem."
+              {/* 6 · Learn — optional depth */}
+              <motion.section variants={staggerItem}>
+                <button
+                  type="button"
+                  onClick={() => setLearnOpen((current) => !current)}
+                  className="flex w-full items-center justify-between gap-3 rounded-xl border border-dashed border-[var(--aal-line)] bg-[var(--aal-card)]/60 px-4 py-3 text-left transition hover:border-indigo-300/50 hover:bg-[var(--aal-card)]"
                 >
-                  <div className="grid gap-3 lg:grid-cols-3">
-                    <Link
-                      to="/profile#profile-training"
-                      className="group rounded-xl border border-[var(--aal-line)] px-4 py-3.5 transition hover:border-indigo-300/60 hover:bg-indigo-50/40 dark:hover:bg-indigo-950/20"
-                    >
-                      <span className="inline-flex items-center gap-2 text-sm font-semibold text-[var(--aal-ink)]">
-                        <Pencil className="h-4 w-4 text-indigo-500" />
-                        Edit A-race
-                      </span>
-                      <p className="mt-1.5 text-xs leading-relaxed text-[var(--aal-muted)]">
-                        The date or event changed. Change it here first, then rebuild so the phases
-                        land correctly.
-                      </p>
-                    </Link>
-
-                    <button
-                      type="button"
-                      onClick={() => setDialogMode('replan')}
-                      disabled={replanning}
-                      className="rounded-xl border border-[var(--aal-line)] px-4 py-3.5 text-left transition hover:border-indigo-300/60 hover:bg-indigo-50/40 disabled:opacity-60 dark:hover:bg-indigo-950/20"
-                    >
-                      <span className="inline-flex items-center gap-2 text-sm font-semibold text-[var(--aal-ink)]">
-                        <ShieldCheck className="h-4 w-4 text-indigo-500" />
-                        Replan remaining weeks
-                      </span>
-                      <p className="mt-1.5 text-xs leading-relaxed text-[var(--aal-muted)]">
-                        Missed sessions, an injury, a new B or C race, or load climbing too fast.
-                        Finished weeks stay.
-                        {replanTriggers.length > 0 ? (
-                          <span className="mt-1 block font-semibold text-amber-700 dark:text-amber-300">
-                            {replanTriggers.length} reason
-                            {replanTriggers.length === 1 ? '' : 's'} to replan right now
-                          </span>
-                        ) : null}
-                      </p>
-                    </button>
-
-                    <button
-                      type="button"
-                      onClick={() => setDialogMode('rebuild')}
-                      disabled={generating}
-                      className="rounded-xl border border-[var(--aal-line)] px-4 py-3.5 text-left transition hover:border-amber-400/60 hover:bg-amber-50/40 disabled:opacity-60 dark:hover:bg-amber-950/20"
-                    >
-                      <span className="inline-flex items-center gap-2 text-sm font-semibold text-[var(--aal-ink)]">
-                        <RefreshCw className="h-4 w-4 text-amber-600 dark:text-amber-400" />
-                        Rebuild from scratch
-                      </span>
-                      <p className="mt-1.5 text-xs leading-relaxed text-[var(--aal-muted)]">
-                        Starts the whole timeline again from today. Use it for a new season or after
-                        changing your A-race — it does not keep finished weeks.
-                      </p>
-                    </button>
-                  </div>
-                </SectionCard>
-              </motion.div>
-            </>
-          ) : (
-            <motion.div variants={staggerItem}>
-              <SectionCard>
-                <div className="flex items-start gap-3">
-                  <CalendarRange className="mt-0.5 h-5 w-5 shrink-0 text-indigo-500" />
                   <div>
-                    <p className="font-semibold text-[var(--aal-ink)]">Ready to plan your season</p>
-                    <p className="mt-1 text-sm leading-relaxed text-[var(--aal-muted)]">
-                      We will count backward from {aRace.name} and split the{' '}
-                      {raceWeeks != null ? `${raceWeeks} weeks` : 'weeks'} left into Base, Build,
-                      Peak, and Taper, with recovery weeks built in. Add B, C, and D events on
-                      Profile first if you have them — they change how the weeks are shared out.
+                    <p className="text-sm font-semibold text-[var(--aal-ink)]">
+                      How season planning works
                     </p>
-                    <button
-                      type="button"
-                      onClick={handleGenerate}
-                      disabled={generating}
-                      className="mt-4 inline-flex items-center gap-2 rounded-xl bg-indigo-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-indigo-500 disabled:opacity-60"
-                    >
-                      <Gauge className={`h-4 w-4 ${generating ? 'animate-spin' : ''}`} />
-                      {generating ? 'Building…' : 'Generate season'}
-                    </button>
+                    <p className="text-xs text-[var(--aal-muted)]">
+                      Phases, replan vs rebuild, and where the dates come from
+                    </p>
                   </div>
-                </div>
-              </SectionCard>
+                  <span className="shrink-0 text-xs font-medium text-indigo-500">
+                    {learnOpen ? 'Hide' : 'Learn more'}
+                  </span>
+                </button>
+                {learnOpen ? (
+                  <div className="mt-2 rounded-xl border border-[var(--aal-line)] bg-[var(--aal-card)] px-4 sm:px-5">
+                    {SEASON_LEARN.map((topic) => (
+                      <LearnRow
+                        key={topic.id}
+                        topic={topic}
+                        open={openLearn === topic.id}
+                        onToggle={() =>
+                          setOpenLearn((current) => (current === topic.id ? null : topic.id))
+                        }
+                      />
+                    ))}
+                  </div>
+                ) : null}
+              </motion.section>
             </motion.div>
-          )}
-
-          <motion.section
-            variants={staggerItem}
-            className="rounded-2xl border border-[var(--aal-line)] bg-[var(--aal-card)] px-5 sm:px-6"
-          >
-            <div className="pt-5">
-              <h2 className="text-lg font-semibold text-[var(--aal-ink)]">
-                How this season was planned
-              </h2>
-              <p className="mt-1 text-sm text-[var(--aal-muted)]">
-                Short answers first. The phase dates come from a periodization engine, not a
-                template you have to trust blindly.
-              </p>
-            </div>
-            {SEASON_LEARN.map((topic) => (
-              <LearnRow
-                key={topic.id}
-                topic={topic}
-                open={openLearn === topic.id}
-                onToggle={() =>
-                  setOpenLearn((current) => (current === topic.id ? null : topic.id))
-                }
-              />
-            ))}
-          </motion.section>
-        </motion.div>
-      )}
+          </div>
+        )}
+      </div>
 
       <PhaseDetailModal
         phases={phases}
@@ -728,6 +683,9 @@ export default function SeasonPage() {
         adjusting={adjusting}
         adjustError={adjustError}
         onAdjustWeeks={handleAdjustWeeks}
+        onShiftRecovery={handleShiftRecovery}
+        onDeletePhase={handleDeletePhase}
+        onReplacePhase={handleReplacePhase}
         onClose={() => {
           setPhaseIndex(null)
           setAdjustError('')
@@ -735,6 +693,10 @@ export default function SeasonPage() {
         onNavigate={(next) => {
           setPhaseIndex(next)
           setAdjustError('')
+        }}
+        onPlanRecoveryWeek={(phase) => {
+          setPhaseIndex(null)
+          goPlanWeek({ recoveryPhase: phase })
         }}
       />
 
@@ -744,8 +706,55 @@ export default function SeasonPage() {
         aRace={aRace}
         busy={dialogMode === 'rebuild' ? generating : replanning}
         onCancel={() => setDialogMode(null)}
-        onConfirm={() => (dialogMode === 'rebuild' ? handleGenerate() : handleReplan(true))}
+        onConfirm={() => {
+          if (dialogMode === 'rebuild') {
+            setDialogMode(null)
+            openPreview('rebuild')
+            return
+          }
+          handleReplan(true)
+        }}
         onUseReplan={() => setDialogMode('replan')}
+      />
+
+      <SeasonPlanPreviewModal
+        open={previewOpen}
+        preview={preview}
+        mode={previewMode}
+        planningNotes={planningNotes}
+        onPlanningNotesChange={setPlanningNotes}
+        busy={generating}
+        loading={previewLoading}
+        error={previewError}
+        onCancel={() => {
+          if (generating) return
+          setPreviewOpen(false)
+          setPreviewError('')
+        }}
+        onConfirm={confirmPreview}
+      />
+
+      <SeasonAuditModal
+        open={auditOpen}
+        audit={audit}
+        loading={auditLoading}
+        error={auditError}
+        onClose={() => setAuditOpen(false)}
+        onAction={handleAuditAction}
+      />
+
+      <ReplanResultModal
+        open={Boolean(replanResult)}
+        result={replanResult}
+        onClose={() => setReplanResult(null)}
+      />
+
+      <SeasonFeedbackModal
+        open={Boolean(feedback)}
+        variant={feedback?.variant || 'success'}
+        title={feedback?.title || ''}
+        message={feedback?.message || ''}
+        onClose={() => setFeedback(null)}
       />
     </AppShell>
   )

@@ -1,6 +1,7 @@
 from datetime import date as Date, datetime, timezone
+from typing import Literal
 
-from pydantic import BaseModel, ConfigDict, Field, field_serializer
+from pydantic import BaseModel, ConfigDict, Field, field_serializer, field_validator
 
 
 class AthleteProfileCreate(BaseModel):
@@ -477,6 +478,25 @@ class CoachChatRequest(BaseModel):
     message: str = Field(min_length=1, max_length=16000)
     timezone: str | None = Field(default=None, max_length=64)
     activity_id: int | None = None
+    # week_plan_review = feedback only; week_plan_commit = build + save the week
+    chat_mode: str | None = Field(default=None, max_length=32)
+
+    @field_validator("chat_mode")
+    @classmethod
+    def check_chat_mode(cls, value: str | None) -> str | None:
+        if value is None or not str(value).strip():
+            return None
+        normalized = str(value).strip().lower()
+        if normalized not in {"week_plan_review", "week_plan_commit"}:
+            raise ValueError("chat_mode must be week_plan_review or week_plan_commit")
+        return normalized
+
+
+class WeekPlanContextResponse(BaseModel):
+    week_start: Date
+    has_season: bool = False
+    planning_notes: str | None = None
+    season: dict | None = None
 
 
 class ChatReplyRead(BaseModel):
@@ -605,12 +625,33 @@ class SeasonPhaseRead(BaseModel):
     sort_order: int
     can_grow: bool = False
     can_shrink: bool = False
+    can_delete: bool = False
+    can_drag: bool = False
+    can_replace: bool = False
 
 
 class SeasonPhaseAdjustRequest(BaseModel):
     """Steal or give weeks. The A-race date does not move."""
 
     delta_weeks: int = Field(..., ge=-2, le=2)
+
+
+class SeasonPhaseShiftRequest(BaseModel):
+    """Place a recovery week on a specific calendar Monday."""
+
+    target_week_start: Date
+
+
+class SeasonPhaseDeleteRequest(BaseModel):
+    """Remove a single week and merge it into a neighbor block."""
+
+    merge_into: Literal["prev", "next"] = "next"
+
+
+class SeasonPhaseReplaceRequest(BaseModel):
+    """Swap macro type while keeping dates and week count."""
+
+    phase_type: str = Field(..., pattern="^(base|build|peak|recovery_week)$")
 
 
 class SeasonBaselineRead(BaseModel):
@@ -631,6 +672,12 @@ class SeasonBaselineRead(BaseModel):
     active_injuries: list[str] = []
     confidence: str = "low"
     notes: list[str] = []
+    extended_lookback_weeks: int = 26
+    extended_weeks_with_training: int = 0
+    extended_weekly_avg_minutes: int | None = None
+    load_response_pattern: str = "insufficient_data"
+    load_breakdown_signals: int = 0
+    data_sources: list[str] = []
 
 
 class SeasonFeasibilityRead(BaseModel):
@@ -676,6 +723,95 @@ class SeasonPlanRead(BaseModel):
 class SeasonGenerateResponse(BaseModel):
     plan: SeasonPlanRead
     message: str = "Season plan generated."
+
+
+class SeasonReplanTrigger(BaseModel):
+    code: str
+    message: str
+    severity: str = "info"
+
+
+class SeasonAuditMetric(BaseModel):
+    label: str
+    value: str
+    reference: str | None = None
+
+
+class SeasonAuditFlag(BaseModel):
+    code: str
+    severity: str
+    title: str
+    detail: str
+    action: str = "none"
+    action_label: str | None = None
+    category: str = "general"
+    evidence: str | None = None
+    metric: SeasonAuditMetric | None = None
+
+
+class SeasonAuditDomain(BaseModel):
+    id: str
+    label: str
+    status: str
+    flag_count: int = 0
+
+
+class SeasonAuditSummary(BaseModel):
+    status: str
+    headline: str
+    critical_count: int = 0
+    warning_count: int = 0
+    info_count: int = 0
+
+
+class SeasonAuditResponse(BaseModel):
+    audited_at: str
+    has_plan: bool
+    summary: SeasonAuditSummary
+    domains: list[SeasonAuditDomain] = []
+    flags: list[SeasonAuditFlag] = []
+
+
+class SeasonPreviewPhaseRead(BaseModel):
+    phase_type: str
+    start_date: Date
+    end_date: Date
+    week_count: int
+    intent: str | None = None
+    volume_bias: float | None = None
+    long_session_allowed_min: int | None = None
+
+
+class SeasonPreviewProfileRead(BaseModel):
+    name: str
+    fitness_level: str | None = None
+    days_per_week: int | None = None
+    workout_duration_minutes: int | None = None
+    weekly_minutes_budget: int | None = None
+    training_history_months: int | None = None
+    preferred_workout_time: str | None = None
+    planning_notes: str | None = None
+    active_injuries: list[str] = []
+
+
+class SeasonPreviewConnectionsRead(BaseModel):
+    strava_connected: bool = False
+    coros_connected: bool = False
+
+
+class SeasonPreviewResponse(BaseModel):
+    a_race: AthleteEventRead
+    events: list[AthleteEventRead] = []
+    profile: SeasonPreviewProfileRead
+    connections: SeasonPreviewConnectionsRead
+    baseline: SeasonBaselineRead
+    warnings: list[str] = []
+    triggers: list[SeasonReplanTrigger] = []
+    phase_sketch: list[SeasonPreviewPhaseRead] = []
+    total_weeks: int = 0
+    season_start: Date
+    season_end: Date
+    has_existing_plan: bool = False
 
 
 class CyclePeriodLogCreate(BaseModel):
@@ -731,12 +867,6 @@ class SeasonReplanRequest(BaseModel):
     force: bool = False
     reason: str | None = Field(default=None, max_length=500)
     new_bc_race: bool = False
-
-
-class SeasonReplanTrigger(BaseModel):
-    code: str
-    message: str
-    severity: str = "info"
 
 
 class SeasonReplanResponse(BaseModel):

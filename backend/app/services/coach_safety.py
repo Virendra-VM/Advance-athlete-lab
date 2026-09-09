@@ -15,7 +15,14 @@ from datetime import date, datetime, timedelta
 from sqlalchemy import func
 from sqlalchemy.orm import Session
 
-from app.models import Activity, AthleteInjury, AthleteProfile, DailyHealthMetric
+from app.models import (
+    Activity,
+    AthleteInjury,
+    AthleteProfile,
+    DailyHealthMetric,
+    PlannedWorkout,
+    TrainingPlan,
+)
 from app.services.athlete_profile import load_json_column
 
 HARD_SESSION_TYPES = {"intervals", "vo2", "threshold", "tempo", "race", "hills", "speed", "hard"}
@@ -80,6 +87,11 @@ INJURY_RULES: dict[str, dict] = {
         "avoid_session_types": ["hills", "speed", "intervals"],
         "prefer": ["cycling", "isometric calf loading"],
     },
+    "tendon": {
+        "avoid_keywords": ["jump", "plyometric", "sprint", "hill repeat"],
+        "avoid_session_types": ["hills", "speed", "intervals"],
+        "prefer": ["cycling", "swimming", "pain-free isometrics"],
+    },
     "calf": {
         "avoid_keywords": ["jump", "plyometric", "sprint", "hill repeat"],
         "avoid_session_types": ["hills", "speed"],
@@ -120,7 +132,37 @@ RED_FLAG_PATTERNS = [
     r"\bdizzy\b|\bdizziness\b",
     r"sharp (bone|shin) pain",
     r"\bswollen joint\b",
+    r"audible pop",
+    r"\bcan'?t bear weight\b",
 ]
+
+CLINICAL_PAIN_RE = re.compile(
+    r"\b(sharp|stabbing|shooting|burning)\b.{0,48}\b(pain|hurt|ache)s?\b"
+    r"|\b(pain|hurt|ache)s?\b.{0,32}\b(tendon|achilles|knee|shin|joint|spine|back)\b",
+    re.IGNORECASE,
+)
+CLINICAL_MEDICATION_RE = re.compile(
+    r"\b(ibuprofen|advil|nsaid|nsaids|naproxen|aleve|aspirin|paracetamol|"
+    r"acetaminophen|painkiller|pain killers?|take (a )?(pill|tablet) for)\b",
+    re.IGNORECASE,
+)
+CLINICAL_DIAGNOSIS_RE = re.compile(
+    r"\b(do i have (a )?(tear|fracture|strain)|is it torn|is it a tear|"
+    r"should i (take|get) (an )?mri|diagnose (my|this)|what injury is this)\b",
+    re.IGNORECASE,
+)
+INJURY_REGION_PATTERNS = (
+    ("knee", r"\bknee\b"),
+    ("achilles", r"\bachilles\b"),
+    ("ankle", r"\bankle\b"),
+    ("foot", r"\b(foot|plantar)\b"),
+    ("hip", r"\bhip\b"),
+    ("shoulder", r"\bshoulder\b"),
+    ("lower back", r"\b(lower back|lumbar|spine|spinal)\b"),
+    ("wrist / elbow", r"\b(wrist|elbow)\b"),
+    ("neck", r"\bneck\b"),
+    ("calf", r"\bcalf\b"),
+)
 
 
 SPINE_FORBIDDEN_KEYWORDS = [
@@ -196,6 +238,151 @@ def detect_red_flags(text: str) -> list[str]:
         if match:
             hits.append(match.group(0))
     return hits
+
+
+def infer_injury_region(text: str) -> str | None:
+    haystack = _text(text)
+    for region, pattern in INJURY_REGION_PATTERNS:
+        if re.search(pattern, haystack):
+            return region
+    if re.search(r"\btendon\b", haystack):
+        return "tendon"
+    return None
+
+
+def detect_clinical_boundary(text: str) -> dict | None:
+    """Tissue pain, medication, or diagnosis asks — coaching stops, clinician starts.
+
+    Emergency red flags are handled separately by :func:`detect_red_flags`.
+    """
+    haystack = text or ""
+    hits: list[str] = []
+    kind = None
+    if CLINICAL_PAIN_RE.search(haystack):
+        kind = "tissue_pain"
+        hits.append("tissue pain")
+    if CLINICAL_MEDICATION_RE.search(haystack):
+        kind = kind or "medication"
+        hits.append("medication")
+    if CLINICAL_DIAGNOSIS_RE.search(haystack):
+        kind = kind or "diagnosis_request"
+        hits.append("diagnosis request")
+    if not kind:
+        return None
+    return {
+        "kind": kind,
+        "region": infer_injury_region(haystack),
+        "hits": hits,
+    }
+
+
+def flag_clinical_injury(
+    db: Session,
+    profile_id: int,
+    message: str,
+    *,
+    region: str | None,
+) -> AthleteInjury:
+    """Mark a body region active so later plans inherit contraindications."""
+    body_region = region or "unspecified"
+    existing = (
+        db.query(AthleteInjury)
+        .filter(
+            AthleteInjury.athlete_profile_id == profile_id,
+            AthleteInjury.body_region == body_region,
+            AthleteInjury.status == "active",
+        )
+        .order_by(AthleteInjury.id.desc())
+        .first()
+    )
+    note = (message or "").strip()[:400]
+    if existing:
+        existing.notes = note or existing.notes
+        existing.severity = existing.severity or "moderate"
+        existing.updated_at = datetime.utcnow()
+        db.flush()
+        return existing
+    record = AthleteInjury(
+        athlete_profile_id=profile_id,
+        body_region=body_region,
+        condition="athlete-reported in coach chat",
+        status="active",
+        severity="moderate",
+        onset_date=date.today(),
+        notes=note or None,
+    )
+    db.add(record)
+    db.flush()
+    return record
+
+
+def apply_joint_safe_recovery_mode(
+    db: Session,
+    profile_id: int,
+    *,
+    today: date,
+    week_start: date,
+    region: str | None = None,
+) -> list[str]:
+    """Convert remaining quality sessions this week to joint-safe recovery work."""
+    plan = (
+        db.query(TrainingPlan)
+        .filter(
+            TrainingPlan.athlete_profile_id == profile_id,
+            TrainingPlan.status == "active",
+            TrainingPlan.week_start == week_start,
+        )
+        .order_by(TrainingPlan.week_start.desc())
+        .first()
+    )
+    if plan is None:
+        return []
+    workouts = (
+        db.query(PlannedWorkout)
+        .filter(PlannedWorkout.training_plan_id == plan.id)
+        .order_by(PlannedWorkout.workout_date.asc())
+        .all()
+    )
+    changes: list[str] = []
+    impact_region = (region or "").lower() in {
+        "knee",
+        "achilles",
+        "ankle",
+        "foot",
+        "hip",
+        "calf",
+        "tendon",
+    }
+    for workout in workouts:
+        if workout.workout_date < today:
+            continue
+        payload = {
+            "title": workout.title,
+            "session_type": workout.session_type,
+            "intensity": workout.intensity,
+            "sport": workout.sport,
+            "description": workout.description,
+        }
+        if _is_rest(payload):
+            continue
+        sport = _text(workout.sport)
+        high_impact = _is_high_impact(payload) or sport in {"run", "running", "trail run"}
+        convert = _is_hard(payload) or (impact_region and high_impact)
+        if not convert:
+            continue
+        old_title = workout.title or workout.session_type or "Session"
+        workout.session_type = "mobility" if impact_region and high_impact else "easy"
+        workout.intensity = "Joint-safe / recovery"
+        workout.title = "Joint-safe active recovery"
+        workout.description = (
+            "Auto-converted after athlete-reported tissue pain. No quality, no impact "
+            "progressions, no loaded spinal hinge until a clinician clears the flag. "
+            "Stop if pain returns."
+        )
+        changes.append(f"{workout.workout_date.isoformat()}: {old_title} → {workout.title}")
+    if changes:
+        db.flush()
+    return changes
 
 
 def _injury_rule(body_region: str) -> dict | None:

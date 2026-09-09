@@ -26,6 +26,14 @@ from app.services.training_load import compute_acwr
 # block cannot make an athlete look untrained.
 LOOKBACK_DAYS = 42
 
+# Extended history (~6 months) reveals load-response patterns — how often an athlete
+# breaks down after a loading block — without letting one old season dominate caps.
+EXTENDED_LOOKBACK_DAYS = 180
+EXTENDED_MIN_WEEKS = 8
+LOADING_STREAK_WEEKS = 3
+BREAKDOWN_VOLUME_DROP = 0.40
+RECENT_SPIKE_RATIO = 1.25
+
 # A long day may exceed the longest session the athlete has actually completed,
 # but only by a step. Single-session jumps beyond ~30% are where durability work
 # turns into an injury.
@@ -67,6 +75,89 @@ def _is_beginner(fitness_level: str | None) -> bool:
     return (fitness_level or "").strip().lower().startswith("beginner")
 
 
+def _weekly_training_minutes(
+    db: Session, athlete_profile_id: int, *, window_start: datetime, window_end: datetime
+) -> list[dict[str, Any]]:
+    rows = (
+        db.query(Activity.activity_date, Activity.moving_time_s)
+        .filter(
+            Activity.athlete_profile_id == athlete_profile_id,
+            Activity.activity_date >= window_start,
+            Activity.activity_date <= window_end,
+            Activity.canonical_activity_id.is_(None),
+        )
+        .all()
+    )
+    buckets: dict[date, dict[str, int]] = {}
+    for activity_date, moving_time_s in rows:
+        if activity_date is None:
+            continue
+        day = activity_date.date() if isinstance(activity_date, datetime) else activity_date
+        week_start = day - timedelta(days=day.weekday())
+        bucket = buckets.setdefault(week_start, {"minutes": 0, "sessions": 0})
+        bucket["minutes"] += max(1, int(round(float(moving_time_s or 0) / 60.0)))
+        bucket["sessions"] += 1
+    return [
+        {"week_start": week_start, **values}
+        for week_start, values in sorted(buckets.items())
+    ]
+
+
+def analyze_extended_load_response(weekly_totals: list[dict[str, Any]]) -> dict[str, Any]:
+    """Detect how an athlete responds to loading over ~3–6 months of history."""
+    if len(weekly_totals) < EXTENDED_MIN_WEEKS:
+        return {
+            "extended_lookback_weeks": EXTENDED_LOOKBACK_DAYS // 7,
+            "extended_weeks_with_training": len(weekly_totals),
+            "extended_weekly_avg_minutes": None,
+            "load_response_pattern": "insufficient_data",
+            "load_breakdown_signals": 0,
+            "notes": [],
+        }
+
+    minutes = [int(row.get("minutes") or 0) for row in weekly_totals]
+    sessions = [int(row.get("sessions") or 0) for row in weekly_totals]
+    avg_minutes = round(sum(minutes) / len(minutes)) if minutes else None
+
+    breakdown_signals = 0
+    for index in range(LOADING_STREAK_WEEKS, len(weekly_totals)):
+        prior = minutes[index - LOADING_STREAK_WEEKS : index]
+        if not prior or min(sessions[index - LOADING_STREAK_WEEKS : index]) < 1:
+            continue
+        if sum(1 for value in prior if value > 0) < LOADING_STREAK_WEEKS:
+            continue
+        peak = max(prior)
+        current = minutes[index]
+        if peak > 0 and current <= peak * (1 - BREAKDOWN_VOLUME_DROP):
+            breakdown_signals += 1
+
+    notes: list[str] = []
+    if breakdown_signals >= 2:
+        pattern = "fast_fatiguer"
+        notes.append(
+            f"Over the last {len(weekly_totals)} logged weeks, volume dropped sharply "
+            f"{breakdown_signals} times after loading blocks — recovery weeks every "
+            f"{SHORT_RECOVERY_CYCLE_WEEKS} weeks fit that pattern better."
+        )
+    elif len(weekly_totals) >= EXTENDED_MIN_WEEKS and breakdown_signals == 0:
+        pattern = "steady_loader"
+        notes.append(
+            f"Your last {len(weekly_totals)} weeks of training look steady — a "
+            f"{DEFAULT_RECOVERY_CYCLE_WEEKS}-week loading cycle is reasonable."
+        )
+    else:
+        pattern = "mixed"
+
+    return {
+        "extended_lookback_weeks": EXTENDED_LOOKBACK_DAYS // 7,
+        "extended_weeks_with_training": len(weekly_totals),
+        "extended_weekly_avg_minutes": avg_minutes,
+        "load_response_pattern": pattern,
+        "load_breakdown_signals": breakdown_signals,
+        "notes": notes,
+    }
+
+
 def compose_season_baseline(
     *,
     fitness_level: str | None = None,
@@ -80,9 +171,19 @@ def compose_season_baseline(
     weeks_with_training: int = 0,
     active_injuries: list[str] | None = None,
     has_severe_active_injury: bool = False,
+    extended_weeks_with_training: int = 0,
+    extended_weekly_avg_minutes: int | None = None,
+    extended_lookback_weeks: int = EXTENDED_LOOKBACK_DAYS // 7,
+    load_response_pattern: str = "insufficient_data",
+    load_breakdown_signals: int = 0,
+    extended_notes: list[str] | None = None,
+    training_history_months: int | None = None,
+    max_weekly_minutes_cap: int | None = None,
+    data_sources: list[str] | None = None,
 ) -> dict[str, Any]:
     """Pure baseline rules, so tests and the eval harness share one definition."""
     active_injuries = list(active_injuries or [])
+    sources = list(data_sources or [])
     typical = int(typical_session_minutes or 45)
 
     reported = (
@@ -131,10 +232,21 @@ def compose_season_baseline(
         )
 
     thin_baseline = weeks_with_training < THIN_BASELINE_WEEKS
+    if (
+        training_history_months is not None
+        and training_history_months < 6
+        and weeks_with_training < THIN_BASELINE_WEEKS
+    ):
+        thin_baseline = True
     if thin_baseline:
         notes.append(
             f"Only {weeks_with_training} of the last {LOOKBACK_DAYS // 7} weeks have "
             "logged training, so the plan starts conservative and opens up as you train."
+        )
+    elif training_history_months is not None and training_history_months < 6:
+        notes.append(
+            f"Training history is {training_history_months} months — phase limits stay "
+            "conservative until more is logged."
         )
 
     damp = 1.0
@@ -150,6 +262,13 @@ def compose_season_baseline(
     spiking = acwr is not None and acwr >= HIGH_ACWR and acwr_is_trustworthy
     if spiking:
         damp = min(damp, HIGH_ACWR_DAMP)
+
+    if max_weekly_minutes_cap and chronic_weekly_minutes and chronic_weekly_minutes > max_weekly_minutes_cap:
+        cap_damp = max(0.75, max_weekly_minutes_cap / chronic_weekly_minutes)
+        damp = min(damp, cap_damp)
+        notes.append(
+            f"Volume aligned to your {max_weekly_minutes_cap} min weekly budget from profile."
+        )
 
     if active_injuries and damp < 1.0:
         notes.append(
@@ -171,8 +290,20 @@ def compose_season_baseline(
         short_cycle_reasons.append(f"age {age}")
     if beginner:
         short_cycle_reasons.append("a beginner training history")
+    if training_history_months is not None and training_history_months < 6:
+        short_cycle_reasons.append(f"only {training_history_months} months of training history")
     if thin_baseline:
         short_cycle_reasons.append("a thin training baseline")
+
+    if (
+        not short_cycle_reasons
+        and load_response_pattern == "fast_fatiguer"
+        and load_breakdown_signals >= 2
+    ):
+        short_cycle_reasons.append(
+            f"{load_breakdown_signals} load breakdowns in your last "
+            f"{extended_weeks_with_training} logged weeks"
+        )
 
     cycle = SHORT_RECOVERY_CYCLE_WEEKS if short_cycle_reasons else DEFAULT_RECOVERY_CYCLE_WEEKS
     if short_cycle_reasons:
@@ -186,9 +317,23 @@ def compose_season_baseline(
             "absorb the work."
         )
 
+    if extended_notes:
+        notes.extend(extended_notes)
+
+    if (
+        extended_weekly_avg_minutes
+        and chronic_weekly_minutes
+        and chronic_weekly_minutes > extended_weekly_avg_minutes * RECENT_SPIKE_RATIO
+    ):
+        notes.append(
+            f"Recent weekly volume (~{chronic_weekly_minutes} min) is above your "
+            f"{extended_weeks_with_training}-week average (~{extended_weekly_avg_minutes} min) — "
+            "the plan will not jump further until that settles."
+        )
+
     if weeks_with_training >= 3 and source == "logged":
         confidence = "high"
-    elif weeks_with_training >= 1 or longest:
+    elif weeks_with_training >= 1 or longest or extended_weeks_with_training >= EXTENDED_MIN_WEEKS:
         confidence = "medium"
     else:
         confidence = "low"
@@ -209,6 +354,12 @@ def compose_season_baseline(
         "active_injuries": active_injuries,
         "confidence": confidence,
         "notes": notes,
+        "extended_lookback_weeks": extended_lookback_weeks,
+        "extended_weeks_with_training": extended_weeks_with_training,
+        "extended_weekly_avg_minutes": extended_weekly_avg_minutes,
+        "load_response_pattern": load_response_pattern,
+        "load_breakdown_signals": load_breakdown_signals,
+        "data_sources": sources,
     }
 
 
@@ -269,6 +420,38 @@ def _active_injuries(db: Session, athlete_profile_id: int) -> tuple[list[str], b
     return labels, severe
 
 
+def _stated_weekly_minutes_from_profile(profile: AthleteProfile) -> int | None:
+    from app.services.athlete_profile import load_json_column
+
+    volume = load_json_column(profile.current_weekly_volume)
+    if not isinstance(volume, dict) or not volume:
+        return None
+    total = 0.0
+    for sport, raw in volume.items():
+        try:
+            amount = float(raw)
+        except (TypeError, ValueError):
+            continue
+        label = str(sport).lower()
+        if "bike" in label or "cycl" in label:
+            total += amount * 60
+        elif "swim" in label:
+            total += amount * 25
+        else:
+            total += amount * 6
+    return int(round(total)) if total > 0 else None
+
+
+def _profile_weekly_budget_minutes(profile: AthleteProfile) -> int | None:
+    if profile.weekly_minutes_budget:
+        return int(profile.weekly_minutes_budget)
+    days = profile.days_per_week
+    typical = profile.workout_duration_minutes
+    if days and typical:
+        return int(days * typical)
+    return None
+
+
 def build_season_baseline(
     db: Session,
     profile: AthleteProfile,
@@ -276,29 +459,90 @@ def build_season_baseline(
     as_of: date | None = None,
 ) -> dict[str, Any]:
     """Read the athlete's recent training and turn it into planning limits."""
+    from app.services.athlete_profile import get_profile_sports
+    from app.services.coach_safety import compose_safety_profile
+
     as_of = as_of or date.today()
     window_end = datetime.combine(as_of, time.max)
     window_start = datetime.combine(as_of - timedelta(days=LOOKBACK_DAYS), time.min)
 
     load = compute_acwr(db, profile.id)
     injuries, severe = _active_injuries(db, profile.id)
+    weeks_logged = _weeks_with_training(
+        db, profile.id, window_start=window_start, window_end=window_end
+    )
+
+    chronic_minutes = load.get("chronic_minutes")
+    data_sources: list[str] = []
+    if weeks_logged >= 1 and chronic_minutes:
+        data_sources.append(f"Synced activities ({weeks_logged} of {LOOKBACK_DAYS // 7} weeks)")
+    else:
+        stated = _stated_weekly_minutes_from_profile(profile)
+        budget = _profile_weekly_budget_minutes(profile)
+        if stated:
+            chronic_minutes = stated
+            data_sources.append("Profile weekly volume (before sync)")
+        elif budget:
+            chronic_minutes = budget
+            data_sources.append("Profile time budget (days × session length)")
+
+    if profile.training_history_months:
+        data_sources.append(f"Training history ({profile.training_history_months} months)")
+    if profile.days_per_week:
+        data_sources.append(f"Availability ({profile.days_per_week} days/week)")
+    if profile.weekly_minutes_budget:
+        data_sources.append(f"Weekly minutes budget ({profile.weekly_minutes_budget} min)")
+    if injuries:
+        data_sources.append("Active injuries on file")
+    sports = get_profile_sports(db, profile.id)
+    if sports:
+        data_sources.append(f"Primary sport ({sports[0].sport})")
+    if profile.planning_notes and profile.planning_notes.strip():
+        data_sources.append("Planning notes")
+
+    safety = compose_safety_profile(
+        days_per_week=profile.days_per_week,
+        session_minutes=profile.workout_duration_minutes,
+        weekly_minutes_budget=profile.weekly_minutes_budget,
+        fitness_level=profile.fitness_level,
+        injuries={"has_severe_active": severe, "active": injuries},
+        readiness_flags=[],
+        load={
+            "acute_minutes": load.get("acute_minutes") or 0,
+            "chronic_minutes": chronic_minutes or 0,
+        },
+        longest_recent_session=profile.longest_recent_session,
+    )
+
+    extended_start = datetime.combine(as_of - timedelta(days=EXTENDED_LOOKBACK_DAYS), time.min)
+    extended_totals = _weekly_training_minutes(
+        db, profile.id, window_start=extended_start, window_end=window_end
+    )
+    extended = analyze_extended_load_response(extended_totals)
 
     return compose_season_baseline(
         fitness_level=profile.fitness_level,
         age=profile.age,
         typical_session_minutes=profile.workout_duration_minutes,
         longest_recent_session=profile.longest_recent_session,
-        chronic_weekly_minutes=load.get("chronic_minutes"),
+        chronic_weekly_minutes=chronic_minutes,
         chronic_weekly_km=load.get("chronic_km"),
         acwr=load.get("acwr"),
         longest_logged_minutes=_longest_logged_minutes(
             db, profile.id, window_start=window_start, window_end=window_end
         ),
-        weeks_with_training=_weeks_with_training(
-            db, profile.id, window_start=window_start, window_end=window_end
-        ),
+        weeks_with_training=weeks_logged,
         active_injuries=injuries,
         has_severe_active_injury=severe,
+        extended_weeks_with_training=extended["extended_weeks_with_training"],
+        extended_weekly_avg_minutes=extended["extended_weekly_avg_minutes"],
+        extended_lookback_weeks=extended["extended_lookback_weeks"],
+        load_response_pattern=extended["load_response_pattern"],
+        load_breakdown_signals=extended["load_breakdown_signals"],
+        extended_notes=extended.get("notes") or [],
+        training_history_months=profile.training_history_months,
+        max_weekly_minutes_cap=safety.get("max_weekly_minutes"),
+        data_sources=data_sources,
     )
 
 

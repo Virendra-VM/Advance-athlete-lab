@@ -119,6 +119,14 @@ export async function getChatHistory(token = getStoredToken()) {
   return handleResponse(response)
 }
 
+export async function getWeekPlanContext(token = getStoredToken()) {
+  const params = new URLSearchParams({ timezone: athleteTimezone() })
+  const response = await fetch(`${API_BASE_URL}/api/coach/week-plan/context?${params}`, {
+    headers: authHeaders(token),
+  })
+  return handleResponse(response)
+}
+
 export async function sendChatMessage(message, tokenOrOptions = getStoredToken(), options = {}) {
   let token = tokenOrOptions
   if (tokenOrOptions && typeof tokenOrOptions === 'object') {
@@ -127,10 +135,12 @@ export async function sendChatMessage(message, tokenOrOptions = getStoredToken()
   }
   const body = { message, timezone: athleteTimezone() }
   if (options.activityId) body.activity_id = options.activityId
+  if (options.chatMode) body.chat_mode = options.chatMode
   const response = await fetch(`${API_BASE_URL}/api/coach/chat`, {
     method: 'POST',
     headers: authHeaders(token),
     body: JSON.stringify(body),
+    signal: options.signal,
   })
   return handleResponse(response)
 }

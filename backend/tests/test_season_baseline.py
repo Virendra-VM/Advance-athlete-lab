@@ -13,6 +13,7 @@ from app.services.season_baseline import (  # noqa: E402
     DEFAULT_RECOVERY_CYCLE_WEEKS,
     MIN_LONG_SESSION_MIN,
     SHORT_RECOVERY_CYCLE_WEEKS,
+    analyze_extended_load_response,
     compose_season_baseline,
     scale_long_session,
     scale_volume_bias,
@@ -156,6 +157,31 @@ def test_every_baseline_explains_itself():
         assert all(note.strip().endswith(".") for note in baseline["notes"])
 
 
+def test_extended_load_response_detects_fast_fatiguer_pattern():
+    weekly = []
+    for index in range(12):
+        minutes = 300 if index % 4 != 3 else 120
+        weekly.append({"week_start": index, "minutes": minutes, "sessions": 3})
+    extended = analyze_extended_load_response(weekly)
+    assert extended["load_response_pattern"] == "fast_fatiguer"
+    assert extended["load_breakdown_signals"] >= 2
+
+
+def test_extended_history_shortens_recovery_cycle_when_breakdowns_repeat():
+    baseline = compose_season_baseline(
+        fitness_level="intermediate",
+        typical_session_minutes=60,
+        longest_logged_minutes=120,
+        weeks_with_training=5,
+        extended_weeks_with_training=12,
+        load_response_pattern="fast_fatiguer",
+        load_breakdown_signals=3,
+        extended_notes=["Extended history note."],
+    )
+    assert baseline["recovery_cycle_weeks"] == SHORT_RECOVERY_CYCLE_WEEKS
+    assert any("load breakdowns" in note for note in baseline["notes"])
+
+
 def run() -> None:
     tests = [
         test_long_day_ceiling_steps_up_from_the_longest_logged_session,
@@ -174,6 +200,8 @@ def run() -> None:
         test_only_loading_phases_are_damped,
         test_confidence_tracks_how_much_history_exists,
         test_every_baseline_explains_itself,
+        test_extended_load_response_detects_fast_fatiguer_pattern,
+        test_extended_history_shortens_recovery_cycle_when_breakdowns_repeat,
     ]
     for test in tests:
         test()

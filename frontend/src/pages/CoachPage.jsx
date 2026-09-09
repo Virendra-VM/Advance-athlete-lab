@@ -1,17 +1,22 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
 import {
   addWeekPlanToSchedule,
   applyChatWeek,
   confirmWearableBaseline,
-  generateWeekPlan,
   getChatHistory,
   getCoachStatus,
   getDailyAdvice,
   getTodaysCall,
   getWeekPlan,
+  getWeekPlanContext,
   sendChatMessage,
 } from '../api/coach'
+import {
+  buildRecoveryShiftMessage,
+  buildWeekCommitMessage,
+  buildWeekReviewMessage,
+} from '../utils/weekPlanFlow'
 import { getCoachContext } from '../api/coros'
 import { useAuth } from '../context/AuthContext'
 import CoachChat from '../components/coach/CoachChat'
@@ -22,6 +27,12 @@ import AppShell from '../components/layout/AppShell'
 import EmptyState from '../components/ui/EmptyState'
 import LoadingDots from '../components/ui/LoadingDots'
 import { addDaysISO, toISODateLocal } from '../utils/formatters'
+import {
+  clearWeekFlowState,
+  loadComposerDraft,
+  loadComposerStorage,
+  saveWeekFlowState,
+} from '../utils/coachComposerStorage'
 
 function mondayOf(iso) {
   const date = new Date(`${iso}T12:00:00`)
@@ -44,21 +55,114 @@ export default function CoachPage() {
   const [messages, setMessages] = useState([])
   const [loading, setLoading] = useState(true)
   const [adviceLoading, setAdviceLoading] = useState(false)
-  const [generating, setGenerating] = useState(false)
   const [publishing, setPublishing] = useState(false)
   const [sending, setSending] = useState(false)
   const [confirmingBaseline, setConfirmingBaseline] = useState(false)
   const [error, setError] = useState('')
   const [adviceError, setAdviceError] = useState('')
+  const [pendingWeekFlow, setPendingWeekFlow] = useState(false)
+  const [weekFlowContext, setWeekFlowContext] = useState(null)
+  const [weekFlowStep, setWeekFlowStep] = useState(null)
+  const [weekConstraints, setWeekConstraints] = useState('')
+  const [chatDraft, setChatDraft] = useState('')
+  const [draftSeed, setDraftSeed] = useState(null)
+  const [recoveryShift, setRecoveryShift] = useState(false)
+  const [recoveryPhase, setRecoveryPhase] = useState(null)
+  const abortRef = useRef(null)
+  const weekFlowRestoreSkipped = useRef(Boolean(location.state?.weekPlanFlow))
 
   const consented = Boolean(status?.ai_consent)
 
   useEffect(() => {
-    if (!location.state?.activityId) return
-    setFocalActivityId(location.state.activityId)
-    setFocalActivityName(location.state.activityName || null)
-    navigate(location.pathname, { replace: true, state: {} })
+    if (!profile?.id || weekFlowRestoreSkipped.current) return undefined
+    weekFlowRestoreSkipped.current = true
+    const stored = loadComposerStorage(profile.id)
+    if (!stored?.weekFlowStep) return undefined
+    setWeekFlowStep(stored.weekFlowStep)
+    setWeekConstraints(stored.weekConstraints || '')
+    setRecoveryShift(Boolean(stored.recoveryShift))
+    setRecoveryPhase(stored.recoveryPhase || null)
+    let cancelled = false
+    getWeekPlanContext()
+      .then((ctx) => {
+        if (cancelled) return
+        setWeekFlowContext(ctx)
+        const notes = stored.weekConstraints || ctx?.planning_notes || profile?.planning_notes || ''
+        const savedDraft = loadComposerDraft(profile.id)
+        if (savedDraft.trim()) return
+        let draft
+        if (stored.recoveryShift && stored.recoveryPhase) {
+          draft = buildRecoveryShiftMessage(stored.recoveryPhase, notes)
+        } else if (stored.weekFlowStep === 'commit') {
+          draft = buildWeekCommitMessage(ctx, notes)
+        } else {
+          draft = buildWeekReviewMessage(ctx, notes)
+        }
+        setChatDraft(draft)
+        setDraftSeed(Date.now())
+      })
+      .catch(() => {})
+    return () => {
+      cancelled = true
+    }
+  }, [profile?.id])
+
+  useEffect(() => {
+    if (!profile?.id) return
+    saveWeekFlowState(profile.id, {
+      weekFlowStep,
+      weekConstraints,
+      recoveryShift,
+      recoveryPhase,
+    })
+  }, [profile?.id, weekFlowStep, weekConstraints, recoveryShift, recoveryPhase])
+
+  useEffect(() => {
+    const state = location.state || {}
+    if (state.activityId) {
+      setFocalActivityId(state.activityId)
+      setFocalActivityName(state.activityName || null)
+    }
+    if (state.weekPlanFlow) {
+      weekFlowRestoreSkipped.current = true
+      setPendingWeekFlow(true)
+      setRecoveryShift(Boolean(state.recoveryShift))
+      setRecoveryPhase(state.recoveryPhase || null)
+      setWeekFlowStep('review')
+    }
+    if (state.activityId || state.weekPlanFlow) {
+      navigate(location.pathname, { replace: true, state: {} })
+    }
   }, [location.pathname, location.state, navigate])
+
+  useEffect(() => {
+    if (!pendingWeekFlow || !consented) return undefined
+    let cancelled = false
+    async function loadWeekFlowDraft() {
+      try {
+        const ctx = await getWeekPlanContext()
+        if (cancelled) return
+        setWeekFlowContext(ctx)
+        const notes = ctx?.planning_notes || profile?.planning_notes || ''
+        setWeekConstraints(notes)
+        const draft = recoveryShift
+          ? buildRecoveryShiftMessage(recoveryPhase, notes)
+          : buildWeekReviewMessage(ctx, notes)
+        setChatDraft(draft)
+        setDraftSeed(Date.now())
+        setPendingWeekFlow(false)
+      } catch (err) {
+        if (!cancelled) {
+          setError(err.message || 'Could not load season context for this week.')
+          setPendingWeekFlow(false)
+        }
+      }
+    }
+    loadWeekFlowDraft()
+    return () => {
+      cancelled = true
+    }
+  }, [pendingWeekFlow, consented, recoveryShift, recoveryPhase, profile?.planning_notes])
 
   const loadAdvice = useCallback(async (force = false) => {
     setAdviceLoading(true)
@@ -110,19 +214,6 @@ export default function CoachPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [loadAdvice])
 
-  async function handleGenerate() {
-    setGenerating(true)
-    setError('')
-    try {
-      setPlan(await generateWeekPlan(weekStart))
-      setStatus((current) => (current ? { ...current, has_active_plan: true } : current))
-    } catch (err) {
-      setError(err.message || 'Plan generation failed.')
-    } finally {
-      setGenerating(false)
-    }
-  }
-
   async function handleAddToSchedule() {
     if (!plan?.plan_id) return
     setPublishing(true)
@@ -170,32 +261,79 @@ export default function CoachPage() {
     }
   }
 
-  async function handleSend(message) {
+  function handleStopSend() {
+    abortRef.current?.abort()
+  }
+
+  async function handleSend(message, { restoreOnCancel } = {}) {
+    const controller = new AbortController()
+    abortRef.current = controller
     setSending(true)
     setError('')
+    const optimisticId = `pending-${Date.now()}`
     const optimistic = {
-      id: `pending-${Date.now()}`,
+      id: optimisticId,
       role: 'user',
       content: message,
       created_at: new Date().toISOString(),
     }
     setMessages((current) => [...current, optimistic])
+
+    let chatMode
+    if (weekFlowStep === 'review') {
+      chatMode = 'week_plan_review'
+    } else if (weekFlowStep === 'commit') {
+      chatMode = 'week_plan_commit'
+    }
+
     try {
-      const result = await sendChatMessage(message, { activityId: focalActivityId })
+      const result = await sendChatMessage(message, {
+        activityId: focalActivityId,
+        chatMode,
+        signal: controller.signal,
+      })
       setMessages(result.history || [])
       if (result.plan) {
         setPlan(result.plan)
         setStatus((current) => (current ? { ...current, has_active_plan: true } : current))
       }
+
+      if (weekFlowStep === 'review' && !recoveryShift) {
+        setWeekFlowStep('commit')
+        const commitDraft = buildWeekCommitMessage(weekFlowContext, weekConstraints)
+        setChatDraft(commitDraft)
+        setDraftSeed(Date.now())
+      } else if (weekFlowStep === 'review' && recoveryShift) {
+        setWeekFlowStep(null)
+        setRecoveryShift(false)
+        setRecoveryPhase(null)
+        if (profile?.id) clearWeekFlowState(profile.id)
+      } else if (weekFlowStep === 'commit') {
+        setWeekFlowStep(null)
+        setRecoveryShift(false)
+        setRecoveryPhase(null)
+        if (profile?.id) clearWeekFlowState(profile.id)
+      }
     } catch (err) {
-      setMessages((current) => current.filter((item) => item.id !== optimistic.id))
+      setMessages((current) => current.filter((item) => item.id !== optimisticId))
+      if (err.name === 'AbortError') {
+        restoreOnCancel?.(message)
+        return
+      }
       setError(err.message || 'Message failed to send.')
     } finally {
+      abortRef.current = null
       setSending(false)
     }
   }
 
   const fitness = context?.coros?.fitness
+  const composerHint =
+    weekFlowStep === 'commit'
+      ? 'Coach reviewed your week — edit if needed, then send to build the plan.'
+      : weekFlowStep === 'review' && !recoveryShift
+        ? 'Edit your schedule notes if needed, then send for a coach review.'
+        : ''
 
   return (
     <AppShell title="Coach" fill>
@@ -238,11 +376,8 @@ export default function CoachPage() {
               <CyclePhaseChip compact />
               <PlanActions
                 plan={plan}
-                generating={generating}
                 publishing={publishing}
-                onGenerate={handleGenerate}
                 onAddToSchedule={handleAddToSchedule}
-                canGenerate={consented}
               />
               <TodayAlertButton
                 advice={advice}
@@ -288,17 +423,20 @@ export default function CoachPage() {
             <CoachChat
               messages={messages}
               onSend={handleSend}
+              onStop={handleStopSend}
               sending={sending}
               disabled={!consented}
               disabledReason="Enable AI coaching consent to chat."
               plan={plan}
               weekStart={weekStart}
-              generating={generating}
               profileId={profile?.id}
               focalLabel={focalActivityName}
               onApplyWeek={handleApplyChatWeek}
               applyingWeek={publishing}
               onAddToSchedule={handleAddToSchedule}
+              initialDraft={chatDraft}
+              draftSeed={draftSeed}
+              composerHint={composerHint}
             />
           </div>
         </div>

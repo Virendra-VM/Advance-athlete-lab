@@ -16,22 +16,35 @@ from app.schemas import (
     SeasonFeasibilityRead,
     SeasonGenerateResponse,
     SeasonPhaseAdjustRequest,
+    SeasonPhaseDeleteRequest,
+    SeasonPhaseReplaceRequest,
+    SeasonPhaseShiftRequest,
     SeasonPhaseRead,
     SeasonPlanRead,
+    SeasonPreviewConnectionsRead,
+    SeasonPreviewPhaseRead,
+    SeasonPreviewProfileRead,
+    SeasonPreviewResponse,
+    SeasonAuditResponse,
     SeasonReplanRequest,
     SeasonReplanResponse,
     SeasonReplanTrigger,
     SeasonWeekOutlineRead,
 )
+from app.services.season_audit import audit_season_plan
 from app.services.b_race_calibration import complete_b_race_event
 from app.services.periodization import (
     VALID_PRIORITIES,
     VALID_SPORTS,
     adjust_phase_weeks,
     build_season_context,
+    delete_season_phase,
+    replace_season_phase,
+    shift_recovery_phase_to_week,
     generate_season_plan,
     get_active_season_plan,
     list_planned_events,
+    preview_season_plan,
     serialize_event,
     sync_a_race_from_profile,
     sync_profile_from_a_race,
@@ -139,6 +152,39 @@ def read_season(
     return _season_read(db, profile)
 
 
+@router.get("/preview", response_model=SeasonPreviewResponse)
+def read_season_preview(
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    profile = _require_profile(current_user, db)
+    sync_a_race_from_profile(db, profile)
+    db.commit()
+    try:
+        payload = preview_season_plan(db, profile)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+    a = payload["a_race"]
+    return SeasonPreviewResponse(
+        a_race=AthleteEventRead(**{**a, "date": date.fromisoformat(a["date"])}),
+        events=[
+            AthleteEventRead(**{**event, "date": date.fromisoformat(event["date"])})
+            for event in payload.get("events") or []
+        ],
+        profile=SeasonPreviewProfileRead(**payload["profile"]),
+        connections=SeasonPreviewConnectionsRead(**payload["connections"]),
+        baseline=SeasonBaselineRead(**payload["baseline"]),
+        warnings=payload.get("warnings") or [],
+        triggers=[SeasonReplanTrigger(**trigger) for trigger in payload.get("triggers") or []],
+        phase_sketch=[SeasonPreviewPhaseRead(**phase) for phase in payload.get("phase_sketch") or []],
+        total_weeks=payload.get("total_weeks") or 0,
+        season_start=payload["season_start"],
+        season_end=payload["season_end"],
+        has_existing_plan=bool(payload.get("has_existing_plan")),
+    )
+
+
 @router.post("/generate", response_model=SeasonGenerateResponse)
 def generate_season(
     current_user: User = Depends(get_current_user),
@@ -156,6 +202,24 @@ def generate_season(
     if plan_read is None:
         raise HTTPException(status_code=500, detail="Season plan was not persisted.")
     return SeasonGenerateResponse(plan=plan_read)
+
+
+@router.get("/audit", response_model=SeasonAuditResponse)
+def read_season_audit(
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    profile = _require_profile(current_user, db)
+    sync_a_race_from_profile(db, profile)
+    db.commit()
+    payload = audit_season_plan(db, profile)
+    return SeasonAuditResponse(
+        audited_at=payload["audited_at"],
+        has_plan=payload["has_plan"],
+        summary=payload["summary"],
+        domains=payload.get("domains") or [],
+        flags=payload["flags"],
+    )
 
 
 @router.get("/replan/triggers", response_model=list[SeasonReplanTrigger])
@@ -202,6 +266,74 @@ def replan_season_route(
         summary=result.get("summary") or [],
         reason=result.get("reason"),
     )
+
+
+@router.post("/phases/{phase_id}/shift", response_model=SeasonPlanRead)
+def shift_recovery_phase(
+    phase_id: int,
+    payload: SeasonPhaseShiftRequest,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Move a recovery week to the Monday the athlete picks."""
+    profile = _require_profile(current_user, db)
+    try:
+        shift_recovery_phase_to_week(
+            db, profile, phase_id, payload.target_week_start
+        )
+        db.commit()
+    except ValueError as exc:
+        db.rollback()
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+    plan_read = _season_read(db, profile)
+    if plan_read is None:
+        raise HTTPException(status_code=404, detail="Season plan not found.")
+    return plan_read
+
+
+@router.post("/phases/{phase_id}/replace", response_model=SeasonPlanRead)
+def replace_phase(
+    phase_id: int,
+    payload: SeasonPhaseReplaceRequest,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Swap a block's macro type (base/build/peak/recovery) without moving dates."""
+    profile = _require_profile(current_user, db)
+    try:
+        replace_season_phase(db, profile, phase_id, payload.phase_type)
+        db.commit()
+    except ValueError as exc:
+        db.rollback()
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+    plan_read = _season_read(db, profile)
+    if plan_read is None:
+        raise HTTPException(status_code=404, detail="Season plan not found.")
+    return plan_read
+
+
+@router.delete("/phases/{phase_id}", response_model=SeasonPlanRead)
+def remove_phase(
+    phase_id: int,
+    payload: SeasonPhaseDeleteRequest,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Remove a recovery week and merge it into the block before or after."""
+    profile = _require_profile(current_user, db)
+    try:
+        delete_season_phase(db, profile, phase_id, merge_into=payload.merge_into)
+        db.commit()
+    except ValueError as exc:
+        db.rollback()
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+    plan_read = _season_read(db, profile)
+    if plan_read is None:
+        raise HTTPException(status_code=404, detail="Season plan not found.")
+    return plan_read
 
 
 @router.patch("/phases/{phase_id}", response_model=SeasonPlanRead)

@@ -1,6 +1,16 @@
-import { useEffect, useId } from 'react'
+import { useEffect, useId, useState } from 'react'
 import { AnimatePresence, motion } from 'framer-motion'
-import { CalendarDays, ChevronLeft, ChevronRight, Flag, Minus, Plus, X } from 'lucide-react'
+import {
+  CalendarDays,
+  ChevronLeft,
+  ChevronRight,
+  Flag,
+  Minus,
+  Plus,
+  RefreshCw,
+  Trash2,
+  X,
+} from 'lucide-react'
 import {
   PRIORITY_GUIDES,
   formatRange,
@@ -44,11 +54,18 @@ export default function PhaseDetailModal({
   adjusting = false,
   adjustError = '',
   onAdjustWeeks,
+  onShiftRecovery,
+  onDeletePhase,
+  onReplacePhase,
+  onPlanRecoveryWeek,
   onClose,
   onNavigate,
 }) {
   const titleId = useId()
   const open = index != null && phases[index] != null
+  const [shiftDate, setShiftDate] = useState('')
+  const [replaceType, setReplaceType] = useState('')
+  const [guideOpen, setGuideOpen] = useState(false)
 
   useEffect(() => {
     if (!open) return undefined
@@ -68,6 +85,16 @@ export default function PhaseDetailModal({
 
   const phase = open ? phases[index] : null
   const guide = phase ? phaseGuide(phase.phase_type) : null
+
+  useEffect(() => {
+    if (!phase?.start_date) {
+      setShiftDate('')
+      return
+    }
+    setShiftDate(phase.start_date)
+    setReplaceType(phase.phase_type)
+    setGuideOpen(false)
+  }, [phase?.id, phase?.start_date, phase?.phase_type])
   const accent = phase ? phaseAccent(phase.phase_type) : null
   const current = phase ? isCurrentPhase(phase) : false
   const phaseEvents = phase ? eventsInsidePhase(phase, events) : []
@@ -146,10 +173,10 @@ export default function PhaseDetailModal({
               </div>
             </div>
 
-            <div className="space-y-5 px-5 py-5 sm:px-6">
-              <p className="text-sm leading-relaxed text-[var(--aal-ink)]/90">{guide.why}</p>
+            <div className="space-y-4 px-5 py-4 sm:px-6">
+              <p className="text-sm leading-snug text-[var(--aal-muted)]">{guide.why}</p>
 
-              <div className="grid gap-2.5 sm:grid-cols-3">
+              <div className="grid gap-2 sm:grid-cols-3">
                 <StatBlock
                   label="Volume"
                   value={volumeBiasLabel(phase.volume_bias)}
@@ -164,83 +191,179 @@ export default function PhaseDetailModal({
                 />
               </div>
 
-              {onAdjustWeeks && (phase.can_grow || phase.can_shrink) ? (
+              {(onReplacePhase || onAdjustWeeks || onDeletePhase || onShiftRecovery) &&
+              (phase.can_replace || phase.can_grow || phase.can_shrink || phase.can_delete) ? (
                 <div className="rounded-xl border border-indigo-500/25 bg-indigo-500/5 px-3 py-3">
                   <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-indigo-500 dark:text-indigo-300">
-                    Move a week
+                    Edit this block
                   </p>
                   <p className="mt-1 text-xs leading-relaxed text-[var(--aal-muted)]">
-                    Trade a week with a later block. Your A-race date does not move, and finished
-                    weeks stay as they were.
+                    Replace the block type, change length, remove a single week, or move a recovery
+                    week. Taper, restore, and finished weeks stay fixed — your A-race date does not
+                    move.
                   </p>
-                  <div className="mt-3 flex flex-wrap items-center gap-2">
+
+                  {onReplacePhase && phase.can_replace ? (
+                    <div className="mt-3 flex flex-col gap-2 sm:flex-row sm:items-end">
+                      <label className="flex min-w-0 flex-1 flex-col gap-1">
+                        <span className="text-[10px] font-semibold uppercase tracking-[0.12em] text-[var(--aal-muted)]">
+                          Replace as
+                        </span>
+                        <select
+                          value={replaceType}
+                          disabled={adjusting}
+                          onChange={(event) => setReplaceType(event.target.value)}
+                          className="rounded-xl border border-[var(--aal-line)] bg-[var(--aal-card)] px-3 py-2 text-sm text-[var(--aal-ink)]"
+                        >
+                          <option value="base">Base</option>
+                          <option value="build">Build</option>
+                          <option value="peak">Peak</option>
+                          <option value="recovery_week">Recovery week</option>
+                        </select>
+                      </label>
+                      <button
+                        type="button"
+                        disabled={
+                          adjusting || !replaceType || replaceType === phase.phase_type
+                        }
+                        onClick={() => onReplacePhase(phase.id, replaceType)}
+                        className="inline-flex shrink-0 items-center justify-center gap-1.5 rounded-xl bg-indigo-600 px-3 py-2 text-xs font-semibold text-white transition hover:bg-indigo-500 disabled:opacity-40"
+                      >
+                        <RefreshCw className="h-3.5 w-3.5" />
+                        {adjusting ? 'Replacing…' : 'Replace block'}
+                      </button>
+                    </div>
+                  ) : null}
+
+                  {onAdjustWeeks ? (
+                    <div className="mt-3 flex flex-wrap items-center gap-2">
+                      <button
+                        type="button"
+                        onClick={() => onAdjustWeeks(phase.id, -1)}
+                        disabled={adjusting || !phase.can_shrink}
+                        className="inline-flex items-center gap-1.5 rounded-xl border border-[var(--aal-line)] bg-[var(--aal-card)] px-3 py-1.5 text-xs font-semibold text-[var(--aal-ink)] transition hover:border-indigo-300 disabled:opacity-40"
+                      >
+                        <Minus className="h-3.5 w-3.5" />
+                        Shorter
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => onAdjustWeeks(phase.id, 1)}
+                        disabled={adjusting || !phase.can_grow}
+                        className="inline-flex items-center gap-1.5 rounded-xl border border-[var(--aal-line)] bg-[var(--aal-card)] px-3 py-1.5 text-xs font-semibold text-[var(--aal-ink)] transition hover:border-indigo-300 disabled:opacity-40"
+                      >
+                        <Plus className="h-3.5 w-3.5" />
+                        Longer
+                      </button>
+                      {phase.week_count === 1 && phase.can_delete && onDeletePhase ? (
+                        <>
+                          <button
+                            type="button"
+                            disabled={adjusting}
+                            onClick={() => onDeletePhase(phase.id, 'prev')}
+                            className="inline-flex items-center gap-1.5 rounded-xl border border-red-500/30 bg-red-500/10 px-3 py-1.5 text-xs font-semibold text-red-700 transition hover:bg-red-500/15 disabled:opacity-40 dark:text-red-200"
+                          >
+                            <Trash2 className="h-3.5 w-3.5" />
+                            Remove · merge prev
+                          </button>
+                          <button
+                            type="button"
+                            disabled={adjusting}
+                            onClick={() => onDeletePhase(phase.id, 'next')}
+                            className="inline-flex items-center gap-1.5 rounded-xl border border-red-500/30 bg-red-500/10 px-3 py-1.5 text-xs font-semibold text-red-700 transition hover:bg-red-500/15 disabled:opacity-40 dark:text-red-200"
+                          >
+                            <Trash2 className="h-3.5 w-3.5" />
+                            Remove · merge next
+                          </button>
+                        </>
+                      ) : null}
+                    </div>
+                  ) : null}
+
+                  {phase.phase_type === 'recovery_week' && onShiftRecovery ? (
+                    <div className="mt-3 flex flex-col gap-2 sm:flex-row sm:items-end">
+                      <label className="flex min-w-0 flex-1 flex-col gap-1">
+                        <span className="text-[10px] font-semibold uppercase tracking-[0.12em] text-[var(--aal-muted)]">
+                          Move to week starting
+                        </span>
+                        <input
+                          type="date"
+                          value={shiftDate}
+                          disabled={adjusting}
+                          onChange={(event) => setShiftDate(event.target.value)}
+                          className="rounded-xl border border-[var(--aal-line)] bg-[var(--aal-card)] px-3 py-2 text-sm text-[var(--aal-ink)]"
+                        />
+                      </label>
+                      <button
+                        type="button"
+                        disabled={adjusting || !shiftDate || shiftDate === phase.start_date}
+                        onClick={() => onShiftRecovery(phase.id, shiftDate)}
+                        className="inline-flex shrink-0 items-center justify-center rounded-xl border border-sage/40 bg-sage/10 px-3 py-2 text-xs font-semibold text-sage transition hover:bg-sage/20 disabled:opacity-40"
+                      >
+                        {adjusting ? 'Moving…' : 'Move week'}
+                      </button>
+                    </div>
+                  ) : null}
+
+                  {onPlanRecoveryWeek && phase.phase_type === 'recovery_week' ? (
                     <button
                       type="button"
-                      onClick={() => onAdjustWeeks(phase.id, -1)}
-                      disabled={adjusting || !phase.can_shrink}
-                      className="inline-flex items-center gap-1.5 rounded-xl border border-[var(--aal-line)] bg-[var(--aal-card)] px-3 py-1.5 text-xs font-semibold text-[var(--aal-ink)] transition hover:border-indigo-300 disabled:opacity-40"
+                      onClick={() => onPlanRecoveryWeek(phase)}
+                      className="mt-3 inline-flex items-center gap-1.5 text-xs font-semibold text-sage transition hover:underline"
                     >
-                      <Minus className="h-3.5 w-3.5" />
-                      One week shorter
+                      Ask coach about timing
                     </button>
-                    <button
-                      type="button"
-                      onClick={() => onAdjustWeeks(phase.id, 1)}
-                      disabled={adjusting || !phase.can_grow}
-                      className="inline-flex items-center gap-1.5 rounded-xl border border-[var(--aal-line)] bg-[var(--aal-card)] px-3 py-1.5 text-xs font-semibold text-[var(--aal-ink)] transition hover:border-indigo-300 disabled:opacity-40"
-                    >
-                      <Plus className="h-3.5 w-3.5" />
-                      One week longer
-                    </button>
-                    {adjusting ? (
-                      <span className="text-xs text-[var(--aal-muted)]">Updating…</span>
-                    ) : null}
-                  </div>
+                  ) : null}
+
                   {adjustError ? (
                     <p className="mt-2 text-xs text-danger-muted">{adjustError}</p>
                   ) : null}
                 </div>
               ) : null}
 
-              <div>
-                <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-indigo-500 dark:text-indigo-300">
-                  What this block is for
-                </p>
-                <ul className="mt-2 space-y-1.5">
-                  {guide.focus.map((item) => (
-                    <li
-                      key={item}
-                      className="flex gap-2 text-sm leading-snug text-[var(--aal-ink)]/85"
-                    >
-                      <span
-                        className={`mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full ${accent.dot}`}
-                        aria-hidden="true"
-                      />
-                      <span>{item}</span>
-                    </li>
-                  ))}
-                </ul>
-              </div>
+              <button
+                type="button"
+                onClick={() => setGuideOpen((current) => !current)}
+                className="flex w-full items-center justify-between rounded-xl border border-[var(--aal-line)] px-3 py-2.5 text-left text-sm font-semibold text-[var(--aal-ink)] transition hover:border-indigo-300/50"
+              >
+                Phase guide
+                <span className="text-xs font-medium text-indigo-500">
+                  {guideOpen ? 'Hide' : 'Show'}
+                </span>
+              </button>
 
-              <div>
-                <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-[var(--aal-muted)]">
-                  Common mistakes here
-                </p>
-                <ul className="mt-2 space-y-1.5">
-                  {guide.avoid.map((item) => (
-                    <li
-                      key={item}
-                      className="flex gap-2 text-sm leading-snug text-[var(--aal-muted)]"
-                    >
-                      <span
-                        className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-[var(--aal-muted)]/50"
-                        aria-hidden="true"
-                      />
-                      <span>{item}</span>
-                    </li>
-                  ))}
-                </ul>
-              </div>
+              {guideOpen ? (
+                <div className="space-y-3 rounded-xl border border-[var(--aal-line)] bg-[var(--aal-bg)]/30 px-3 py-3">
+                  <div>
+                    <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-indigo-500 dark:text-indigo-300">
+                      Focus
+                    </p>
+                    <ul className="mt-1.5 space-y-1">
+                      {guide.focus.map((item) => (
+                        <li key={item} className="text-xs leading-snug text-[var(--aal-ink)]/85">
+                          {item}
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                  <div>
+                    <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-[var(--aal-muted)]">
+                      Avoid
+                    </p>
+                    <ul className="mt-1.5 space-y-1">
+                      {guide.avoid.map((item) => (
+                        <li key={item} className="text-xs leading-snug text-[var(--aal-muted)]">
+                          {item}
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                  <p className="text-xs leading-relaxed text-[var(--aal-muted)]">
+                    <span className="font-semibold text-[var(--aal-ink)]/80">Science. </span>
+                    {guide.science}
+                  </p>
+                </div>
+              ) : null}
 
               {phaseEvents.length ? (
                 <div>
@@ -285,10 +408,6 @@ export default function PhaseDetailModal({
                 </div>
               ) : null}
 
-              <p className="border-t border-[var(--aal-line)] pt-4 text-xs leading-relaxed text-[var(--aal-muted)]">
-                <span className="font-semibold text-[var(--aal-ink)]/80">The science. </span>
-                {guide.science}
-              </p>
             </div>
 
             <div className="flex items-center justify-between gap-2 border-t border-[var(--aal-line)] px-5 py-3 sm:px-6">

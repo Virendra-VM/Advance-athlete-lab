@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { CalendarPlus, ChevronDown, Pin, ShieldCheck, Sparkles } from 'lucide-react'
+import { CalendarPlus, ChevronDown, Pin, ShieldCheck } from 'lucide-react'
 import LoadingDots from '../ui/LoadingDots'
 import SectionCard from '../ui/SectionCard'
 import { addDaysISO, formatDistanceKm, toISODateLocal } from '../../utils/formatters'
@@ -239,29 +239,17 @@ function PlanBody({ plan, weekStart, loading, compact }) {
 
 function PlanActions({
   plan,
-  generating,
   publishing,
-  onGenerate,
   onAddToSchedule,
-  canGenerate,
 }) {
   const workouts = plan?.plan?.workouts || []
   return (
     <div className="flex flex-wrap items-center gap-2">
       <button
         type="button"
-        onClick={onGenerate}
-        disabled={generating || publishing || !canGenerate}
-        className="inline-flex items-center gap-2 rounded-xl bg-sage px-3 py-2 text-sm font-semibold text-white disabled:opacity-60"
-      >
-        <Sparkles className={`h-4 w-4 ${generating ? 'sync-spin' : ''}`} />
-        {generating ? 'Building…' : workouts.length ? 'Rebuild week' : 'Generate week'}
-      </button>
-      <button
-        type="button"
         onClick={onAddToSchedule}
         disabled={
-          generating || publishing || !plan?.plan_id || !workouts.length || Boolean(plan?.on_schedule)
+          publishing || !plan?.plan_id || !workouts.length || Boolean(plan?.on_schedule)
         }
         className="inline-flex items-center gap-2 rounded-xl border border-[var(--aal-line)] bg-[var(--aal-card)] px-3 py-2 text-sm font-semibold disabled:opacity-60"
       >
@@ -276,11 +264,8 @@ export default function WeekPlan({
   plan,
   weekStart,
   loading,
-  generating,
   publishing,
-  onGenerate,
   onAddToSchedule,
-  canGenerate,
   embedded = false,
   pinned = false,
   onPin = null,
@@ -288,7 +273,7 @@ export default function WeekPlan({
   const title = plan?.plan?.title || `Week of ${dayLabel(weekStart)}`
   const subtitle =
     plan?.plan?.summary ||
-    'This week only — generate a plan, then add it to Schedule if you want it on the calendar.'
+    'This week only — add it to Schedule if you want it on the calendar.'
 
   if (embedded) {
     return (
@@ -306,7 +291,7 @@ export default function WeekPlan({
               <button
                 type="button"
                 onClick={onAddToSchedule}
-                disabled={generating || publishing || !plan?.plan_id || Boolean(plan?.on_schedule)}
+                disabled={publishing || !plan?.plan_id || Boolean(plan?.on_schedule)}
                 className="inline-flex items-center gap-2 rounded-xl bg-sage px-3 py-2 text-sm font-semibold text-white disabled:opacity-60"
               >
                 <CalendarPlus className={`h-4 w-4 ${publishing ? 'sync-spin' : ''}`} />
@@ -335,8 +320,8 @@ export default function WeekPlan({
             ) : null}
           </div>
         </div>
-        {generating ? (
-          <LoadingDots label="Building this week…" />
+        {loading ? (
+          <LoadingDots label="Loading this week…" />
         ) : (
           <PlanBody plan={plan} weekStart={weekStart} loading={loading} compact />
         )}
@@ -351,11 +336,8 @@ export default function WeekPlan({
       actions={
         <PlanActions
           plan={plan}
-          generating={generating}
           publishing={publishing}
-          onGenerate={onGenerate}
           onAddToSchedule={onAddToSchedule}
-          canGenerate={canGenerate}
         />
       }
     >

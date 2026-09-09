@@ -26,6 +26,13 @@ export async function getSeason(token = getStoredToken()) {
   return handleResponse(response)
 }
 
+export async function getSeasonPreview(token = getStoredToken()) {
+  const response = await fetch(`${API_BASE_URL}/api/season/preview`, {
+    headers: authHeaders(token),
+  })
+  return handleResponse(response)
+}
+
 export async function generateSeason(token = getStoredToken()) {
   const response = await fetch(`${API_BASE_URL}/api/season/generate`, {
     method: 'POST',
@@ -83,6 +90,13 @@ export async function getEventProtocol(eventId, token = getStoredToken()) {
   return handleResponse(response)
 }
 
+export async function getSeasonAudit(token = getStoredToken()) {
+  const response = await fetch(`${API_BASE_URL}/api/season/audit`, {
+    headers: authHeaders(token),
+  })
+  return handleResponse(response)
+}
+
 export async function getReplanTriggers(token = getStoredToken()) {
   const response = await fetch(`${API_BASE_URL}/api/season/replan/triggers`, {
     headers: authHeaders(token),
@@ -104,6 +118,33 @@ export async function adjustSeasonPhase(phaseId, deltaWeeks, token = getStoredTo
     method: 'PATCH',
     headers: authHeaders(token),
     body: JSON.stringify({ delta_weeks: deltaWeeks }),
+  })
+  return handleResponse(response)
+}
+
+export async function shiftRecoveryPhase(phaseId, targetWeekStart, token = getStoredToken()) {
+  const response = await fetch(`${API_BASE_URL}/api/season/phases/${phaseId}/shift`, {
+    method: 'POST',
+    headers: authHeaders(token),
+    body: JSON.stringify({ target_week_start: targetWeekStart }),
+  })
+  return handleResponse(response)
+}
+
+export async function replaceSeasonPhase(phaseId, phaseType, token = getStoredToken()) {
+  const response = await fetch(`${API_BASE_URL}/api/season/phases/${phaseId}/replace`, {
+    method: 'POST',
+    headers: authHeaders(token),
+    body: JSON.stringify({ phase_type: phaseType }),
+  })
+  return handleResponse(response)
+}
+
+export async function deleteSeasonPhase(phaseId, mergeInto = 'next', token = getStoredToken()) {
+  const response = await fetch(`${API_BASE_URL}/api/season/phases/${phaseId}`, {
+    method: 'DELETE',
+    headers: authHeaders(token),
+    body: JSON.stringify({ merge_into: mergeInto }),
   })
   return handleResponse(response)
 }

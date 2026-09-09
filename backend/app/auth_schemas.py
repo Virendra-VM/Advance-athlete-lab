@@ -131,6 +131,7 @@ class OnboardingSubmitRequest(BaseModel):
     goal_event_name: str | None = Field(default=None, max_length=255)
     goal_event_date: date | None = None
     goal_metric: str | None = Field(default=None, max_length=255)
+    planning_notes: str | None = Field(default=None, max_length=2000)
 
     ftp_watts: float | None = Field(default=None, ge=50, le=500)
     lthr_bpm: float | None = Field(default=None, ge=90, le=230)
@@ -186,6 +187,7 @@ class ProfileUpdateRequest(BaseModel):
     goal_event_name: str | None = Field(default=None, max_length=255)
     goal_event_date: date | None = None
     goal_metric: str | None = Field(default=None, max_length=255)
+    planning_notes: str | None = Field(default=None, max_length=2000)
     sports: list[SportPayload] | None = None
     injuries: list[InjuryPayload] | None = None
     consents: ConsentPayload | None = None
@@ -251,6 +253,7 @@ class AthleteProfileResponse(BaseModel):
     goal_event_name: str | None = None
     goal_event_date: date | None = None
     goal_metric: str | None = None
+    planning_notes: str | None = None
     units: str = "metric"
     baseline_confirmed_at: datetime | None = None
     ftp_watts: float | None = None

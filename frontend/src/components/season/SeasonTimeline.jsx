@@ -1,4 +1,4 @@
-import { useMemo } from 'react'
+import { useCallback, useRef, useState } from 'react'
 import { motion } from 'framer-motion'
 import {
   PRIORITY_GUIDES,
@@ -9,11 +9,12 @@ import {
   phaseLabel,
   spanDays,
   todayPositionPct,
+  weekStartFromTimelinePct,
 } from '../../utils/seasonGuides'
 
 /**
- * Proportional season bar: one clickable segment per phase, a today marker,
- * and a pin for every race that lands inside the plan window.
+ * Proportional season bar: clickable segments, drag recovery weeks, today marker,
+ * and race pins inside the plan window.
  */
 export default function SeasonTimeline({
   phases = [],
@@ -21,38 +22,93 @@ export default function SeasonTimeline({
   endDate,
   events = [],
   onSelectPhase,
+  onShiftPhase,
+  shifting = false,
 }) {
+  const trackRef = useRef(null)
+  const [drag, setDrag] = useState(null)
+
   const totalDays = spanDays(startDate, endDate)
 
-  const segments = useMemo(
-    () =>
-      phases.map((phase, index) => {
-        const offset = daysBetween(startDate, phase.start_date)
-        const width = (spanDays(phase.start_date, phase.end_date) / totalDays) * 100
-        return {
-          phase,
-          index,
-          left: Math.max(0, (offset / totalDays) * 100),
-          width: Math.max(1.5, Math.min(width, 100)),
-          current: isCurrentPhase(phase),
-        }
-      }),
-    [phases, startDate, totalDays],
-  )
+  const segments = phases.map((phase, index) => {
+    const offset = daysBetween(startDate, phase.start_date)
+    const width = (spanDays(phase.start_date, phase.end_date) / totalDays) * 100
+    return {
+      phase,
+      index,
+      left: Math.max(0, (offset / totalDays) * 100),
+      width: Math.max(1.5, Math.min(width, 100)),
+      current: isCurrentPhase(phase),
+      draggable: Boolean(phase.can_drag && onShiftPhase),
+    }
+  })
 
-  const pins = useMemo(
-    () =>
-      (events || [])
-        .map((event) => {
-          const offset = daysBetween(startDate, event.date)
-          if (offset < 0 || offset > totalDays) return null
-          return { event, left: (offset / totalDays) * 100 }
-        })
-        .filter(Boolean),
-    [events, startDate, totalDays],
-  )
+  const pins = (events || [])
+    .map((event) => {
+      const offset = daysBetween(startDate, event.date)
+      if (offset < 0 || offset > totalDays) return null
+      return { event, left: (offset / totalDays) * 100 }
+    })
+    .filter(Boolean)
 
   const todayPct = todayPositionPct(startDate, endDate)
+
+  const pctFromClientX = useCallback(
+    (clientX) => {
+      const track = trackRef.current
+      if (!track) return null
+      const rect = track.getBoundingClientRect()
+      if (rect.width <= 0) return null
+      return Math.max(0, Math.min(100, ((clientX - rect.left) / rect.width) * 100))
+    },
+    [],
+  )
+
+  const finishDrag = useCallback(
+    (phase, pct) => {
+      if (!phase || pct == null) return
+      const target = weekStartFromTimelinePct(startDate, endDate, pct)
+      if (target && target !== phase.start_date) {
+        onShiftPhase?.(phase.id, target)
+      }
+    },
+    [endDate, onShiftPhase, startDate],
+  )
+
+  const onPointerDown = useCallback(
+    (event, segment) => {
+      if (!segment.draggable || shifting) return
+      event.preventDefault()
+      event.currentTarget.setPointerCapture(event.pointerId)
+      setDrag({
+        phaseId: segment.phase.id,
+        pointerId: event.pointerId,
+        hoverPct: pctFromClientX(event.clientX) ?? segment.left,
+      })
+    },
+    [pctFromClientX, shifting],
+  )
+
+  const onPointerMove = useCallback(
+    (event) => {
+      if (!drag || drag.pointerId !== event.pointerId) return
+      const pct = pctFromClientX(event.clientX)
+      if (pct != null) setDrag((current) => ({ ...current, hoverPct: pct }))
+    },
+    [drag, pctFromClientX],
+  )
+
+  const onPointerUp = useCallback(
+    (event, segment) => {
+      if (!drag || drag.phaseId !== segment.phase.id) return
+      event.currentTarget.releasePointerCapture(event.pointerId)
+      finishDrag(segment.phase, drag.hoverPct)
+      setDrag(null)
+    },
+    [drag, finishDrag],
+  )
+
+  const dragHoverPct = drag?.hoverPct ?? null
 
   return (
     <div>
@@ -77,34 +133,61 @@ export default function SeasonTimeline({
         })}
       </div>
 
-      <div className="relative">
+      <div className="relative" ref={trackRef}>
         <div className="relative h-6 overflow-hidden rounded-full bg-slate-900/10 dark:bg-white/10">
-          {segments.map(({ phase, index, left, width, current }) => {
+          {segments.map(({ phase, index, left, width, current, draggable }) => {
             const accent = phaseAccent(phase.phase_type)
+            const isDragging = drag?.phaseId === phase.id
             return (
               <motion.button
                 key={`${phase.id}-${phase.start_date}`}
                 type="button"
-                onClick={() => onSelectPhase?.(index)}
+                onClick={() => {
+                  if (isDragging) return
+                  onSelectPhase?.(index)
+                }}
+                onPointerDown={(event) => onPointerDown(event, { phase, draggable })}
+                onPointerMove={onPointerMove}
+                onPointerUp={(event) => onPointerUp(event, { phase })}
+                onPointerCancel={(event) => onPointerUp(event, { phase })}
                 title={`${phaseLabel(phase.phase_type)} · ${formatSeasonDate(
                   phase.start_date,
-                )} – ${formatSeasonDate(phase.end_date)}`}
-                aria-label={`${phaseLabel(phase.phase_type)}, ${phase.week_count} weeks, open details`}
-                className={`absolute inset-y-0 cursor-pointer border-r border-[var(--aal-card)]/40 outline-none transition-[filter] last:border-r-0 hover:brightness-110 focus-visible:brightness-125 ${accent.bar} ${
-                  current ? '' : 'opacity-75'
+                )} – ${formatSeasonDate(phase.end_date)}${
+                  draggable ? ' · Drag to reschedule' : ''
                 }`}
+                aria-label={`${phaseLabel(phase.phase_type)}, ${phase.week_count} weeks${
+                  draggable ? ', drag to move' : ', open details'
+                }`}
+                className={`absolute inset-y-0 border-r border-[var(--aal-card)]/40 outline-none transition-[filter] last:border-r-0 hover:brightness-110 focus-visible:brightness-125 ${accent.bar} ${
+                  current ? '' : 'opacity-75'
+                } ${draggable ? 'cursor-grab touch-none active:cursor-grabbing' : 'cursor-pointer'} ${
+                  isDragging ? 'z-10 brightness-125 ring-2 ring-sage/60' : ''
+                } ${shifting ? 'pointer-events-none opacity-60' : ''}`}
                 style={{ left: `${left}%` }}
                 initial={{ width: 0 }}
                 animate={{ width: `${width}%` }}
                 transition={{
-                  duration: 0.5,
-                  delay: 0.06 * index,
+                  duration: isDragging ? 0 : 0.5,
+                  delay: isDragging ? 0 : 0.06 * index,
                   ease: [0.22, 1, 0.36, 1],
                 }}
               />
             )
           })}
         </div>
+
+        {dragHoverPct != null ? (
+          <div
+            className="pointer-events-none absolute -top-1 -bottom-1 w-[2px] rounded-full bg-sage"
+            style={{ left: `${dragHoverPct}%` }}
+          >
+            <span className="absolute -top-5 left-1/2 -translate-x-1/2 whitespace-nowrap rounded-full bg-sage px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wide text-white">
+              {formatSeasonDate(weekStartFromTimelinePct(startDate, endDate, dragHoverPct), {
+                withYear: false,
+              })}
+            </span>
+          </div>
+        ) : null}
 
         {todayPct != null ? (
           <motion.div
@@ -123,7 +206,9 @@ export default function SeasonTimeline({
 
       <div className="mt-2 flex items-center justify-between text-[11px] text-[var(--aal-muted)]">
         <span>{formatSeasonDate(startDate)}</span>
-        <span className="hidden sm:inline">Tap any block to see what it is for</span>
+        <span className="hidden text-center sm:inline">
+          Tap a block for details · drag recovery weeks to reschedule
+        </span>
         <span>{formatSeasonDate(endDate)}</span>
       </div>
     </div>

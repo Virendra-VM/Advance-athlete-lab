@@ -12,6 +12,7 @@ from sqlalchemy.orm import Session
 from app.models import AthleteEvent, AthleteProfile, SeasonPhase, SeasonPlan
 from app.services.b_race_calibration import calibrate_from_b_race
 from app.services.season_baseline import (
+    SHORT_RECOVERY_CYCLE_WEEKS,
     build_season_baseline,
     is_loading_phase,
     recovery_cycle_weeks,
@@ -305,7 +306,39 @@ def validate_events(events: list[AthleteEvent], a_race: AthleteEvent | None) -> 
     return warnings
 
 
-def infer_sport_type(profile: AthleteProfile) -> str:
+_SPORT_LABEL_TO_TYPE = {
+    "running": "run",
+    "run": "run",
+    "cycling": "bike",
+    "bike": "bike",
+    "swimming": "swim",
+    "swim": "swim",
+    "strength": "strength",
+}
+
+
+def infer_sport_type(profile: AthleteProfile, db: Session | None = None) -> str:
+    """Primary sport from AthleteSport rows, profile JSON, then goal-event text."""
+    from app.services.athlete_profile import get_profile_sports, load_json_column
+
+    if db is not None:
+        sports = get_profile_sports(db, profile.id)
+        if sports:
+            primary = next(
+                (row for row in sports if (row.priority or "").lower() != "secondary"),
+                sports[0],
+            )
+            mapped = _SPORT_LABEL_TO_TYPE.get((primary.sport or "").strip().lower())
+            if mapped:
+                return mapped
+
+    primary_json = load_json_column(profile.primary_sports)
+    if isinstance(primary_json, list) and primary_json:
+        label = str(primary_json[0]).strip().lower()
+        mapped = _SPORT_LABEL_TO_TYPE.get(label)
+        if mapped:
+            return mapped
+
     goal = (profile.primary_goal or "").lower()
     if "event" in goal or profile.goal_event_name:
         name = (profile.goal_event_name or "").lower()
@@ -340,7 +373,7 @@ def sync_a_race_from_profile(db: Session, profile: AthleteProfile) -> AthleteEve
         )
         .first()
     )
-    sport = infer_sport_type(profile)
+    sport = infer_sport_type(profile, db)
     if existing:
         existing.name = profile.goal_event_name
         existing.target_metric = profile.goal_metric
@@ -452,6 +485,48 @@ def _phase_adjustability(
     return grow, shrink
 
 
+REPLACEABLE_PHASE_TYPES = frozenset({"base", "build", "peak", "recovery_week"})
+LOCKED_PHASE_TYPES = frozenset({"restore", "taper"})
+
+
+def _phase_neighbor_after(phases: list, index: int):
+    for row in phases[index + 1 :]:
+        later_type = getattr(row, "phase_type", None) or row.get("phase_type")
+        if later_type == "restore":
+            break
+        return row
+    return None
+
+
+def _phase_deletability(phases: list, index: int, *, today: date) -> bool:
+    """Whether a single future week can be removed (merged into a neighbor)."""
+    if index < 0 or index >= len(phases):
+        return False
+    target = phases[index]
+    phase_type = getattr(target, "phase_type", None) or target.get("phase_type")
+    end = getattr(target, "end_date", None) or date.fromisoformat(str(target["end_date"])[:10])
+    weeks = int(getattr(target, "week_count", None) or target.get("week_count") or 0)
+    if phase_type in LOCKED_PHASE_TYPES or end < today or index == 0 or weeks != 1:
+        return False
+
+    pred = phases[index - 1]
+    pred_type = getattr(pred, "phase_type", None) or pred.get("phase_type")
+    pred_end = getattr(pred, "end_date", None) or date.fromisoformat(str(pred["end_date"])[:10])
+    if pred_type == "restore" or pred_end < today:
+        return False
+
+    return _phase_neighbor_after(phases, index) is not None
+
+
+def _phase_replaceability(phases: list, index: int, *, today: date) -> bool:
+    if index < 0 or index >= len(phases):
+        return False
+    target = phases[index]
+    phase_type = getattr(target, "phase_type", None) or target.get("phase_type")
+    end = getattr(target, "end_date", None) or date.fromisoformat(str(target["end_date"])[:10])
+    return phase_type not in LOCKED_PHASE_TYPES and end >= today
+
+
 def annotate_phase_adjustability(
     serialized: list[dict[str, Any]], *, today: date | None = None
 ) -> list[dict[str, Any]]:
@@ -460,6 +535,13 @@ def annotate_phase_adjustability(
         grow, shrink = _phase_adjustability(serialized, index, today=today)
         row["can_grow"] = grow
         row["can_shrink"] = shrink
+        deletable = _phase_deletability(serialized, index, today=today)
+        row["can_delete"] = deletable
+        row["can_drag"] = (
+            row.get("phase_type") == "recovery_week"
+            and _phase_replaceability(serialized, index, today=today)
+        )
+        row["can_replace"] = _phase_replaceability(serialized, index, today=today)
     return serialized
 
 
@@ -550,6 +632,188 @@ def adjust_phase_weeks(
     return plan
 
 
+def shift_recovery_phase_to_week(
+    db: Session,
+    profile: AthleteProfile,
+    phase_id: int,
+    target_week_start: date,
+    *,
+    today: date | None = None,
+) -> SeasonPlan:
+    """Place a recovery week on a specific calendar Monday.
+
+    The A-race date stays fixed. Weeks trade between the block before recovery
+    and the block after it — the same total runway, just slid earlier or later.
+    """
+    today = today or date.today()
+    target = monday_of(target_week_start)
+    if target.weekday() != 0:
+        raise ValueError("Pick the Monday that recovery week should start on.")
+
+    plan = get_active_season_plan(db, profile.id)
+    if plan is None:
+        raise ValueError("No active season plan to edit.")
+
+    phases = get_phases_for_plan(db, plan.id)
+    index = next((i for i, row in enumerate(phases) if row.id == phase_id), None)
+    if index is None:
+        raise ValueError("That phase is not on the active season.")
+
+    recovery = phases[index]
+    if recovery.phase_type != "recovery_week":
+        raise ValueError("Only recovery weeks can be placed on a calendar week.")
+    if recovery.end_date < today:
+        raise ValueError("That recovery week has already passed.")
+    if index == 0:
+        raise ValueError("This recovery week has no earlier block to trade with.")
+
+    delta_weeks = (target - monday_of(recovery.start_date)).days // 7
+    if delta_weeks == 0:
+        return plan
+    if abs(delta_weeks) > 8:
+        raise ValueError("Move recovery at most eight weeks at a time.")
+
+    pred = phases[index - 1]
+    if pred.phase_type == "restore" or pred.end_date < today:
+        raise ValueError("The block before recovery cannot move.")
+
+    succ = None
+    for row in phases[index + 1 :]:
+        if row.phase_type == "restore":
+            break
+        succ = row
+        break
+    if succ is None:
+        raise ValueError("There is no block after recovery to trade weeks with.")
+
+    n = abs(delta_weeks)
+    succ_end_anchor = succ.end_date
+    if delta_weeks < 0:
+        if pred.week_count <= n:
+            raise ValueError(
+                "Not enough weeks in the block before recovery to move it earlier."
+            )
+        pred.end_date = pred.end_date - timedelta(days=7 * n)
+        pred.week_count = pred.week_count - n
+        recovery.start_date = pred.end_date + timedelta(days=1)
+        recovery.end_date = recovery.start_date + timedelta(days=6)
+        succ.start_date = recovery.end_date + timedelta(days=1)
+        succ.week_count = succ.week_count + n
+        succ.end_date = succ_end_anchor
+    else:
+        if succ.week_count <= n:
+            raise ValueError(
+                "Not enough weeks in the block after recovery to move it later."
+            )
+        pred.week_count = pred.week_count + n
+        pred.end_date = pred.end_date + timedelta(days=7 * n)
+        recovery.start_date = pred.end_date + timedelta(days=1)
+        recovery.end_date = recovery.start_date + timedelta(days=6)
+        succ.start_date = recovery.end_date + timedelta(days=1)
+        succ.week_count = succ.week_count - n
+        succ.end_date = succ_end_anchor
+
+    for row in phases:
+        if row.phase_type != "restore":
+            row.week_count = weeks_between_inclusive(row.start_date, row.end_date)
+
+    _assert_phases_contiguous(phases)
+
+    db.flush()
+    return plan
+
+
+def replace_season_phase(
+    db: Session,
+    profile: AthleteProfile,
+    phase_id: int,
+    new_phase_type: str,
+    *,
+    today: date | None = None,
+) -> SeasonPlan:
+    """Swap a block's macro type while keeping its dates and week count."""
+    today = today or date.today()
+    new_phase_type = (new_phase_type or "").strip().lower()
+    if new_phase_type not in REPLACEABLE_PHASE_TYPES:
+        raise ValueError("Pick base, build, peak, or recovery week.")
+
+    plan = get_active_season_plan(db, profile.id)
+    if plan is None:
+        raise ValueError("No active season plan to edit.")
+
+    phases = get_phases_for_plan(db, plan.id)
+    index = next((i for i, row in enumerate(phases) if row.id == phase_id), None)
+    if index is None:
+        raise ValueError("That phase is not on the active season.")
+
+    if not _phase_replaceability(phases, index, today=today):
+        raise ValueError("Taper, restore, and finished blocks cannot be replaced.")
+
+    target = phases[index]
+    if target.phase_type == new_phase_type:
+        return plan
+
+    defaults = phase_defaults_for_type(new_phase_type)
+    target.phase_type = new_phase_type
+    target.intent = defaults["intent"]
+    target.volume_bias = defaults["volume_bias"]
+    target.intensity_bias = defaults["intensity_bias"]
+    db.flush()
+    return plan
+
+
+def delete_season_phase(
+    db: Session,
+    profile: AthleteProfile,
+    phase_id: int,
+    *,
+    merge_into: str = "next",
+    today: date | None = None,
+) -> SeasonPlan:
+    """Remove a single future week and merge its calendar span into a neighbor block."""
+    today = today or date.today()
+    if merge_into not in {"prev", "next"}:
+        raise ValueError("merge_into must be 'prev' or 'next'.")
+
+    plan = get_active_season_plan(db, profile.id)
+    if plan is None:
+        raise ValueError("No active season plan to edit.")
+
+    phases = get_phases_for_plan(db, plan.id)
+    index = next((i for i, row in enumerate(phases) if row.id == phase_id), None)
+    if index is None:
+        raise ValueError("That phase is not on the active season.")
+
+    if not _phase_deletability(phases, index, today=today):
+        raise ValueError(
+            "Only a single future week can be removed. Taper, restore, multi-week blocks, "
+            "and finished weeks stay fixed — shorten multi-week blocks first, or replace the block type."
+        )
+
+    recovery = phases[index]
+    pred = phases[index - 1]
+    succ = _phase_neighbor_after(phases, index)
+    if succ is None:
+        raise ValueError("There is no block after this week to merge into.")
+
+    if merge_into == "next":
+        succ.start_date = recovery.start_date
+        succ.week_count = weeks_between_inclusive(succ.start_date, succ.end_date)
+    else:
+        pred.end_date = recovery.end_date
+        pred.week_count = weeks_between_inclusive(pred.start_date, pred.end_date)
+        succ.start_date = pred.end_date + timedelta(days=1)
+
+    db.delete(recovery)
+    remaining = [row for row in phases if row.id != phase_id]
+    for sort_order, row in enumerate(remaining):
+        row.sort_order = sort_order
+
+    _assert_phases_contiguous(remaining)
+    db.flush()
+    return plan
+
+
 def build_phase_blocks(
     profile: AthleteProfile,
     season_start: date,
@@ -613,38 +877,45 @@ def restore_weeks_for_season(total_weeks: int) -> int:
     return 2 if total_weeks >= LONG_SEASON_WEEKS else 1
 
 
-def generate_season_plan(
+def _compute_season_phase_payloads(
     db: Session,
     profile: AthleteProfile,
     *,
     today: date | None = None,
-) -> SeasonPlan:
-    """Build or rebuild the active season plan from A-race + events."""
+) -> tuple[list[dict[str, Any]], dict[str, Any], list[str], list[AthleteEvent], AthleteEvent, list[dict[str, Any]]]:
+    """Shared dry-run inputs for preview and generate — no DB writes."""
     today = today or date.today()
     a_race = sync_a_race_from_profile(db, profile)
     if a_race is None:
         raise ValueError("No A-race configured. Set a goal event on your profile first.")
-
     if a_race.event_date <= today:
         raise ValueError("A-race date must be in the future to generate a season plan.")
 
     events = list_planned_events(db, profile.id)
     warnings = validate_events(events, a_race)
+    from app.services.planning_notes import parse_planning_notes
 
-    for old in db.query(SeasonPlan).filter(
-        SeasonPlan.athlete_profile_id == profile.id,
-        SeasonPlan.status == "active",
-    ):
-        old.status = "archived"
+    note_parse = parse_planning_notes(profile.planning_notes)
+    for warning in note_parse["warnings"]:
+        if warning not in warnings:
+            warnings.append(warning)
 
-    # Lazy import avoids circular dependency (season_replan imports periodization).
-    from app.services.season_replan import (
-        _build_future_payloads,
-        _collect_raw_triggers,
-        acknowledge_current_season_triggers,
-    )
+    from app.services.season_replan import _build_future_payloads, _collect_raw_triggers
 
     baseline = build_season_baseline(db, profile, as_of=today)
+    note_flags = set(note_parse.get("flags") or [])
+    if note_flags & {"travel", "limited_time"}:
+        baseline["volume_damp"] = round(min(float(baseline.get("volume_damp") or 1.0), 0.85), 2)
+        baseline["notes"].append(
+            "Planning notes mention travel or limited time — volume held slightly below phase targets."
+        )
+    if "recovery_requested" in note_flags:
+        baseline["recovery_cycle_weeks"] = min(
+            int(baseline.get("recovery_cycle_weeks") or 4), SHORT_RECOVERY_CYCLE_WEEKS
+        )
+        baseline["notes"].append(
+            "Planning notes request recovery — shorter loading cycles are applied."
+        )
     context_triggers = _collect_raw_triggers(
         db, profile, as_of=today, new_bc_race=False, plan=None
     )
@@ -662,6 +933,116 @@ def generate_season_plan(
         phase_payloads = build_phase_blocks(
             profile, today, a_race.event_date, baseline=baseline
         )
+    return phase_payloads, baseline, warnings, events, a_race, context_triggers
+
+
+def preview_season_plan(
+    db: Session,
+    profile: AthleteProfile,
+    *,
+    today: date | None = None,
+) -> dict[str, Any]:
+    """Return everything the athlete should review before committing a season plan."""
+    today = today or date.today()
+    (
+        phase_payloads,
+        baseline,
+        warnings,
+        events,
+        a_race,
+        context_triggers,
+    ) = _compute_season_phase_payloads(db, profile, today=today)
+
+    from app.models import StravaConnection
+    from app.services.athlete_profile import get_profile_injuries
+    from app.services.coros_sync import get_coros_connection
+    from app.services.season_replan import detect_replan_triggers
+
+    strava = (
+        db.query(StravaConnection)
+        .filter(StravaConnection.athlete_profile_id == profile.id)
+        .order_by(StravaConnection.id.desc())
+        .first()
+    )
+    coros = get_coros_connection(db, profile.id)
+    injuries = get_profile_injuries(db, profile.id)
+    active_injury_labels = [
+        f"{row.body_region}{f' ({row.condition})' if row.condition else ''}"
+        for row in injuries
+        if row.status == "active"
+    ]
+
+    existing = get_active_season_plan(db, profile.id)
+    triggers = detect_replan_triggers(db, profile, as_of=today, plan=existing)
+
+    restore_end = phase_payloads[-1]["end_date"] if phase_payloads else a_race.event_date
+    phase_sketch = [
+        {
+            "phase_type": payload["phase_type"],
+            "start_date": payload["start_date"],
+            "end_date": payload["end_date"],
+            "week_count": payload["week_count"],
+            "intent": payload.get("intent"),
+            "volume_bias": payload.get("volume_bias"),
+            "long_session_allowed_min": payload.get("long_session_allowed_min"),
+        }
+        for payload in phase_payloads
+    ]
+
+    return {
+        "a_race": serialize_event(a_race),
+        "events": [serialize_event(event) for event in events if event.status == "planned"],
+        "profile": {
+            "name": profile.name,
+            "fitness_level": profile.fitness_level,
+            "days_per_week": profile.days_per_week,
+            "workout_duration_minutes": profile.workout_duration_minutes,
+            "weekly_minutes_budget": profile.weekly_minutes_budget,
+            "training_history_months": profile.training_history_months,
+            "preferred_workout_time": profile.preferred_workout_time,
+            "planning_notes": profile.planning_notes,
+            "active_injuries": active_injury_labels or list(baseline.get("active_injuries") or []),
+        },
+        "connections": {
+            "strava_connected": strava is not None and bool(strava.access_token),
+            "coros_connected": coros is not None,
+        },
+        "baseline": baseline,
+        "warnings": warnings,
+        "triggers": triggers,
+        "phase_sketch": phase_sketch,
+        "total_weeks": weeks_between_inclusive(today, a_race.event_date),
+        "season_start": today,
+        "season_end": restore_end,
+        "has_existing_plan": existing is not None,
+    }
+
+
+def generate_season_plan(
+    db: Session,
+    profile: AthleteProfile,
+    *,
+    today: date | None = None,
+) -> SeasonPlan:
+    """Build or rebuild the active season plan from A-race + events."""
+    today = today or date.today()
+    (
+        phase_payloads,
+        baseline,
+        warnings,
+        _events,
+        a_race,
+        _context_triggers,
+    ) = _compute_season_phase_payloads(db, profile, today=today)
+
+    for old in db.query(SeasonPlan).filter(
+        SeasonPlan.athlete_profile_id == profile.id,
+        SeasonPlan.status == "active",
+    ):
+        old.status = "archived"
+
+    from app.services.season_replan import acknowledge_current_season_triggers
+
     restore_end = phase_payloads[-1]["end_date"] if phase_payloads else a_race.event_date
 
     plan = SeasonPlan(
@@ -670,7 +1051,7 @@ def generate_season_plan(
         start_date=today,
         end_date=restore_end,
         status="active",
-        template_key=f"{infer_sport_type(profile)}_{(profile.fitness_level or 'intermediate').lower()}",
+        template_key=f"{infer_sport_type(profile, db)}_{(profile.fitness_level or 'intermediate').lower()}",
         warnings_json=json.dumps(warnings),
     )
     db.add(plan)
@@ -924,6 +1305,9 @@ def build_season_context(
         if match:
             current_payload["can_grow"] = match["can_grow"]
             current_payload["can_shrink"] = match["can_shrink"]
+            current_payload["can_delete"] = match["can_delete"]
+            current_payload["can_drag"] = match["can_drag"]
+            current_payload["can_replace"] = match["can_replace"]
 
     return {
         "has_plan": True,

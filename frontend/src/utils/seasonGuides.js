@@ -461,6 +461,26 @@ export function isCurrentPhase(phase, on = new Date()) {
 }
 
 /** 0-100 position of today across the whole season, or null when outside it. */
+/** ISO Monday on or before the given day. */
+export function mondayOf(value) {
+  const parsed = toDate(value)
+  if (!parsed) return null
+  const day = parsed.getDay()
+  const diff = day === 0 ? -6 : 1 - day
+  parsed.setDate(parsed.getDate() + diff)
+  return parsed.toISOString().slice(0, 10)
+}
+
+/** Map a horizontal position (0–100%) on the season bar to a week-start Monday. */
+export function weekStartFromTimelinePct(startDate, endDate, pct) {
+  const total = spanDays(startDate, endDate)
+  const offsetDays = Math.round((Math.max(0, Math.min(100, pct)) / 100) * total)
+  const anchor = toDate(startDate)
+  if (!anchor) return null
+  anchor.setDate(anchor.getDate() + offsetDays)
+  return mondayOf(anchor.toISOString().slice(0, 10))
+}
+
 export function todayPositionPct(startDate, endDate, on = new Date()) {
   const total = spanDays(startDate, endDate)
   const elapsed = daysBetween(startDate, on.toISOString().slice(0, 10))

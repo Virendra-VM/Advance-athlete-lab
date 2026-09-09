@@ -77,6 +77,8 @@ class AthleteProfile(Base):
     goal_event_name = Column(String(255), nullable=True)
     goal_event_date = Column(Date, nullable=True)
     goal_metric = Column(String(255), nullable=True)
+    # Free-text context for season + weekly planning (travel, schedule, preferences).
+    planning_notes = Column(Text, nullable=True)
 
     # --- Profile v2: presentation ---
     units = Column(String(16), nullable=False, default="metric")

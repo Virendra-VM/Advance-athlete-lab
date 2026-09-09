@@ -27,16 +27,21 @@ function Stat({ icon: Icon, label, value, hint }) {
   )
 }
 
-export default function SeasonBaselineCard({ baseline }) {
+export default function SeasonBaselineCard({ baseline, compact = false }) {
   if (!baseline) return null
 
   const confidence = confidenceGuide(baseline.confidence)
   const damped = Number(baseline.volume_damp) < 1
   const lookback = baseline.lookback_weeks || 6
+  const extendedWeeks = baseline.extended_weeks_with_training || 0
+  const extendedLookback = baseline.extended_lookback_weeks || 26
+  const showExtended = extendedWeeks >= 8
 
   return (
     <div className="space-y-4">
-      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+      <div
+        className={`grid gap-2 ${compact ? 'grid-cols-2' : 'gap-3 sm:grid-cols-2 xl:grid-cols-4'}`}
+      >
         <Stat
           icon={Timer}
           label="Long day up to"
@@ -75,7 +80,26 @@ export default function SeasonBaselineCard({ baseline }) {
         />
       </div>
 
-      {baseline.notes?.length ? (
+      {showExtended ? (
+        <div className="rounded-xl border border-indigo-500/20 bg-indigo-500/5 px-3.5 py-3">
+          <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-indigo-500 dark:text-indigo-300">
+            Longer history ({extendedLookback} weeks)
+          </p>
+          <p className="mt-1 text-sm text-[var(--aal-ink)]/90">
+            {extendedWeeks} weeks logged
+            {baseline.extended_weekly_avg_minutes
+              ? ` · about ${formatMinutes(baseline.extended_weekly_avg_minutes)} per week on average`
+              : ''}
+            {baseline.load_response_pattern === 'fast_fatiguer'
+              ? ' · you tend to need recovery after loading blocks'
+              : baseline.load_response_pattern === 'steady_loader'
+                ? ' · steady loading pattern'
+                : ''}
+          </p>
+        </div>
+      ) : null}
+
+      {!compact && baseline.notes?.length ? (
         <ul className="space-y-2">
           {baseline.notes.map((note) => (
             <li
@@ -92,10 +116,35 @@ export default function SeasonBaselineCard({ baseline }) {
         </ul>
       ) : null}
 
-      <p className="rounded-lg border border-[var(--aal-line)] bg-[var(--aal-accent-soft)] px-3 py-2 text-xs leading-relaxed text-[var(--aal-muted)]">
-        <span className="font-semibold text-[var(--aal-ink)]">{confidence.label}.</span>{' '}
-        {confidence.plain}
-      </p>
+      {baseline.data_sources?.length ? (
+        <div className="rounded-xl border border-[var(--aal-line)] bg-[var(--aal-bg)]/30 px-3 py-2.5">
+          <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-[var(--aal-muted)]">
+            Profile &amp; history used
+          </p>
+          <ul className="mt-1.5 flex flex-wrap gap-1.5">
+            {baseline.data_sources.map((source) => (
+              <li
+                key={source}
+                className="rounded-full border border-indigo-500/20 bg-indigo-500/8 px-2 py-0.5 text-[11px] text-[var(--aal-ink)]/90"
+              >
+                {source}
+              </li>
+            ))}
+          </ul>
+        </div>
+      ) : null}
+
+      {compact ? (
+        <p className="text-xs leading-relaxed text-[var(--aal-muted)]">
+          <span className="font-semibold text-[var(--aal-ink)]">{confidence.label}.</span>{' '}
+          {confidence.plain}
+        </p>
+      ) : (
+        <p className="rounded-lg border border-[var(--aal-line)] bg-[var(--aal-accent-soft)] px-3 py-2 text-xs leading-relaxed text-[var(--aal-muted)]">
+          <span className="font-semibold text-[var(--aal-ink)]">{confidence.label}.</span>{' '}
+          {confidence.plain}
+        </p>
+      )}
     </div>
   )
 }

@@ -18,6 +18,7 @@ from app.models import AthleteProfile  # noqa: E402
 from app.services.periodization import (  # noqa: E402
     adjust_phase_weeks,
     annotate_phase_adjustability,
+    delete_season_phase,
     generate_season_plan,
     get_phases_for_plan,
 )
@@ -198,12 +199,38 @@ def test_adjustability_flags_match_the_rules():
     assert now[0]["can_grow"] is True
 
 
+def test_delete_recovery_week_merges_into_next():
+    engine, db = _open()
+    try:
+        today = date(2026, 9, 7)
+        profile, plan = _profile_with_plan(db, today=today, weeks=20)
+        phases = get_phases_for_plan(db, plan.id)
+        recovery = next(row for row in phases if row.phase_type == "recovery_week")
+        succ = phases[phases.index(recovery) + 1]
+        succ_weeks_before = succ.week_count
+
+        delete_season_phase(db, profile, recovery.id, merge_into="next", today=today)
+        db.commit()
+
+        after = get_phases_for_plan(db, plan.id)
+        _assert_contiguous(after)
+        assert all(row.phase_type != "recovery_week" or row.id != recovery.id for row in after)
+        assert not any(row.id == recovery.id for row in after)
+        merged = next(row for row in after if row.id == succ.id)
+        assert merged.week_count == succ_weeks_before + recovery.week_count
+        assert merged.start_date == recovery.start_date
+    finally:
+        db.close()
+        engine.dispose()
+
+
 def run() -> None:
     tests = [
         test_growing_base_steals_from_a_later_block,
         test_shrinking_hands_the_week_to_the_next_block,
         test_restore_and_finished_blocks_stay_locked,
         test_adjustability_flags_match_the_rules,
+        test_delete_recovery_week_merges_into_next,
     ]
     for test in tests:
         test()

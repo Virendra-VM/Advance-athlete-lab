@@ -691,6 +691,14 @@ export function PreferencesView({ form }) {
   )
 }
 
+export function PlanningNotesView({ form }) {
+  return (
+    <FactorItem label="Anything else your coach should know" wide>
+      <DisplayValue>{form.planning_notes}</DisplayValue>
+    </FactorItem>
+  )
+}
+
 export function SettingsHint() {
   return (
     <p className="text-sm text-[var(--aal-muted)]">

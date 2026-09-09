@@ -11,10 +11,20 @@ export const HEALTH_CHART = {
   primarySoft: 'rgba(91, 141, 239, 0.18)',
   secondary: '#FB7185',
   secondarySoft: 'rgba(251, 113, 133, 0.14)',
+  tooltipBg: 'var(--aal-card)',
+  tooltipBorder: 'var(--aal-line)',
 }
 
 /** Metric-specific line colors (primary = main series, secondary = companion). */
 export const HEALTH_METRIC_COLORS = {
+  sleep: {
+    primary: '#5B8DEF',
+    primarySoft: 'rgba(91, 141, 239, 0.18)',
+    secondary: '#14B8A6',
+    secondarySoft: 'rgba(20, 184, 166, 0.16)',
+    sleepHr: '#FB7185',
+    sleepHrSoft: 'rgba(251, 113, 133, 0.14)',
+  },
   recovery: {
     primary: '#6366F1',
     primarySoft: 'rgba(99, 102, 241, 0.18)',
@@ -56,6 +66,19 @@ export const HEALTH_METRIC_COLORS = {
     primarySoft: 'rgba(251, 113, 133, 0.14)',
     secondary: null,
   },
+  volume: {
+    primary: '#5B8DEF',
+    primarySoft: 'rgba(91, 141, 239, 0.18)',
+    secondary: '#6366F1',
+    secondarySoft: 'rgba(99, 102, 241, 0.18)',
+    muted: '#94A3B8',
+  },
+  load: {
+    primary: '#6366F1',
+    primarySoft: 'rgba(99, 102, 241, 0.18)',
+    secondary: '#5B8DEF',
+    secondarySoft: 'rgba(91, 141, 239, 0.18)',
+  },
 }
 
 export function healthColorsForMetric(metric) {
@@ -67,4 +90,22 @@ export function healthColorsForMetric(metric) {
       secondarySoft: HEALTH_CHART.secondarySoft,
     }
   )
+}
+
+/** Sleep chart aliases — same tokens as Sleep page, sourced from shared theme. */
+export function sleepChartColors() {
+  const sleep = healthColorsForMetric('sleep')
+  const hrv = healthColorsForMetric('hrv')
+  return {
+    duration: sleep.primary,
+    durationSoft: sleep.primarySoft,
+    hrv: hrv.primary,
+    hrvSoft: hrv.primarySoft,
+    sleepHr: sleep.sleepHr,
+    sleepHrSoft: sleep.sleepHrSoft,
+    grid: HEALTH_CHART.grid,
+    cursor: HEALTH_CHART.cursor,
+    tooltipBg: HEALTH_CHART.tooltipBg,
+    tooltipBorder: HEALTH_CHART.tooltipBorder,
+  }
 }

@@ -22,8 +22,11 @@ import LoadEquation from '../components/training/LoadEquation'
 import EmptyState from '../components/ui/EmptyState'
 import LoadingDots from '../components/ui/LoadingDots'
 import SectionCard from '../components/ui/SectionCard'
+import { HEALTH_CHART, healthColorsForMetric } from '../utils/healthTheme'
 import { EFFORT_LEARN, EFFORT_ZONES, interpretEffortLoad } from '../utils/loadGuides'
 import { staggerContainer, staggerItem } from '../utils/statusColors'
+
+const LOAD_COLORS = healthColorsForMetric('load')
 
 function formatLoad(value, digits = 0) {
   if (value == null || Number.isNaN(Number(value))) return '—'
@@ -165,7 +168,9 @@ export default function TrainingLoadPage() {
       <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
         <header className="relative z-20 flex shrink-0 flex-wrap items-center justify-between gap-2 border-b border-[var(--aal-line)] bg-[var(--aal-card)]/85 px-3 py-2 backdrop-blur-sm sm:px-5">
           <div className="min-w-0 pl-10 lg:pl-0">
-            <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-sage">Training</p>
+            <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-indigo-500 dark:text-indigo-300">
+              Training
+            </p>
             <p className="truncate text-sm font-semibold text-[var(--aal-ink)]">Training Load</p>
             <p className="truncate text-[11px] text-[var(--aal-muted)]">
               Recent effort vs the fitness COROS has stored
@@ -286,7 +291,7 @@ export default function TrainingLoadPage() {
                     <div className="h-72">
                       <ResponsiveContainer width="100%" height="100%">
                         <LineChart data={chartData} margin={{ top: 12, right: 8, left: 0, bottom: 0 }}>
-                          <CartesianGrid stroke="var(--aal-line)" strokeDasharray="3 3" vertical={false} />
+                          <CartesianGrid stroke={HEALTH_CHART.grid} strokeDasharray="4 6" vertical={false} />
                           <XAxis
                             dataKey="labelShort"
                             tick={{ fontSize: 12, fill: 'var(--aal-muted)' }}
@@ -301,7 +306,10 @@ export default function TrainingLoadPage() {
                             domain={[0, (dataMax) => Math.max(2, Number(dataMax) || 0)]}
                             allowDecimals
                           />
-                          <Tooltip cursor={{ stroke: 'var(--aal-line)' }} content={<RatioTooltip />} />
+                          <Tooltip
+                            cursor={{ stroke: HEALTH_CHART.cursorStroke, strokeWidth: 1 }}
+                            content={<RatioTooltip />}
+                          />
                           <ReferenceLine
                             y={1}
                             stroke="var(--aal-muted)"
@@ -317,7 +325,7 @@ export default function TrainingLoadPage() {
                             type="monotone"
                             dataKey="ratio"
                             name="Load ratio"
-                            stroke="#6b9080"
+                            stroke={LOAD_COLORS.primary}
                             strokeWidth={2.5}
                             dot={chartData.length <= 14}
                             connectNulls

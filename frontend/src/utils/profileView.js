@@ -6,6 +6,7 @@ export const PROFILE_SECTIONS = [
   { id: 'body', label: 'Body' },
   { id: 'health', label: 'Health' },
   { id: 'preferences', label: 'Preferences' },
+  { id: 'planning', label: 'More info' },
 ]
 
 export const COMPLETENESS_ITEMS = [

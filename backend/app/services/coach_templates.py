@@ -63,11 +63,14 @@ def build_template_week(
     remaining = [offset for offset in offsets if week_start + timedelta(days=offset) >= today]
     if not remaining:
         remaining = [max(0, (today - week_start).days)]
-    session_minutes = min(
-        safety["max_session_minutes"],
-        max(20, round(safety["max_weekly_minutes"] / max(1, days))),
+    typical = safety.get("typical_session_minutes") or 45
+    max_session = safety["max_session_minutes"]
+    # Weekday sessions use typical length; the long day may run 90–240 min when allowed.
+    session_minutes = typical
+    long_minutes = min(
+        max_session,
+        max(round(typical * 2), typical + 60, 90),
     )
-    long_minutes = min(safety["max_session_minutes"], round(session_minutes * 1.4))
     readiness = safety["readiness"]
     hard_budget = safety["max_hard_sessions"]
     quality_slot = remaining[len(remaining) // 2] if len(remaining) > 1 else None

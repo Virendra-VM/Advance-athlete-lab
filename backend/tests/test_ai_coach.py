@@ -24,6 +24,8 @@ from app.services.ai_coach import (  # noqa: E402
     template_general_chat,
     today_call_status,
     readiness_score,
+    week_review_system_prompt,
+    week_review_task,
 )
 from app.services.session_telemetry import detect_chat_intent, match_activity_for_message  # noqa: E402
 
@@ -220,6 +222,7 @@ def test_today_call_bands():
 def test_chat_and_schedule_prompts_skip_autopsy_sections():
     chat = chat_system_prompt()
     schedule = schedule_system_prompt()
+    review = week_review_system_prompt()
     task = chat_task()
     assert "THE BOTTOM LINE" in chat
     assert "skip" in chat.lower()
@@ -232,6 +235,10 @@ def test_chat_and_schedule_prompts_skip_autopsy_sections():
     assert "two consecutive sentences" in schedule.lower()
     assert "last synced" in task.lower() or "telemetry" in task.lower()
     assert "BOTTOM LINE" in task
+    assert "WEEK GRADE" in review
+    assert "WHAT LANDED" in review
+    assert "skip" in review.lower()
+    assert "NP" in week_review_task()
 
 
 def test_template_general_chat_is_bullets_not_an_autopsy():
@@ -322,6 +329,12 @@ def test_intent_covers_non_bike_sessions():
     assert detect_chat_intent("How was today's swim?") == "WORKOUT_AUDIT"
     assert detect_chat_intent("analyse this lift") == "WORKOUT_AUDIT"
     assert detect_chat_intent("How was yoga?") == "WORKOUT_AUDIT"
+    assert (
+        detect_chat_intent(
+            "Done with the Week coach take a look at my week and tell me how did i do this week."
+        )
+        == "WEEK_REVIEW"
+    )
 
 
 def test_match_picks_named_sport_family():
