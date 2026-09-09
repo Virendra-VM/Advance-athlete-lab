@@ -18,6 +18,7 @@ WORKOUT_AUDIT = "WORKOUT_AUDIT"
 SCHEDULE_UPDATE = "SCHEDULE_UPDATE"
 WEEK_REVIEW = "WEEK_REVIEW"
 WEEK_PLAN_REVIEW = "WEEK_PLAN_REVIEW"
+DAY_ADJUST = "DAY_ADJUST"
 SCIENCE_LOOKUP = "SCIENCE_LOOKUP"
 CLINICAL_VETO = "CLINICAL_VETO"
 OFF_TOPIC = "OFF_TOPIC"
@@ -26,6 +27,7 @@ GENERAL_CHAT = "GENERAL_CHAT"
 INTENTS = (
     WORKOUT_AUDIT,
     SCHEDULE_UPDATE,
+    DAY_ADJUST,
     WEEK_REVIEW,
     WEEK_PLAN_REVIEW,
     SCIENCE_LOOKUP,
@@ -41,6 +43,8 @@ LEGACY_INTENT = {
     "schedule": SCHEDULE_UPDATE,
     "week_review": WEEK_REVIEW,
     "week_recap": WEEK_REVIEW,
+    "day_adjust": DAY_ADJUST,
+    "today_adjust": DAY_ADJUST,
     "science": SCIENCE_LOOKUP,
     "science_rag_lookup": SCIENCE_LOOKUP,
     "clinical_safety_veto": CLINICAL_VETO,
@@ -172,6 +176,11 @@ SCIENCE_HINTS = (
     "explain acwr",
     "mitochondrial",
     "lactate threshold",
+    "lactate clearance",
+    "carbohydrate periodization",
+    "zone 2 carbohydrate",
+    "tapering strategies",
+    "polarized training",
     "periodization",
 )
 
@@ -231,11 +240,35 @@ SCHEDULE_HINTS = (
     "build my week",
 )
 
+DAY_ADJUST_HINTS = (
+    "adjust today",
+    "today only",
+    "skip today",
+    "swap today",
+    "downgrade today",
+    "should i still do",
+    "should i still train",
+    "can i still do",
+    "can i still train",
+    "train today with",
+)
+
+HEALTH_FACTOR_RE = re.compile(
+    r"\b(hrv|rmssd|readiness|acwr|sleep score|slept (bad|poor)|poor sleep|bad sleep|"
+    r"high stress|stress(?:ed| score)?|overreached)\b",
+    re.IGNORECASE,
+)
+TODAY_SCOPE_RE = re.compile(
+    r"\b(today|tonight|this morning|this afternoon)\b",
+    re.IGNORECASE,
+)
+
 CLASSIFIER_SYSTEM = """You classify athlete coach-chat messages. Reply with JSON only.
 Choose exactly one intent:
 - WORKOUT_AUDIT: one named or implied session (today's ride, this run, laps, watts, "how was yoga").
 - WEEK_REVIEW: recap of a completed or current training week ("how did I do this week", "look at my week").
-- SCHEDULE_UPDATE: proposing, asking to see, or asking to change this week's training plan going forward.
+- DAY_ADJUST: today's session only because HRV, readiness, stress, ACWR, or sleep is poor. Do not pick this for a full-week rewrite.
+- SCHEDULE_UPDATE: proposing, asking to see, or asking to change this week's training plan going forward (calendar, sports, rest days) — not a one-day health tweak.
 - CLINICAL_VETO: sharp/tissue pain, injury diagnosis requests, or asking the coach to prescribe medication.
 - OFF_TOPIC: stocks, politics, generic homework, anything outside athletic performance / recovery / sports science.
 - SCIENCE_LOOKUP: asking what a training concept is, or how a method works (ACWR, heat acclimation, zones, HRV).
@@ -243,9 +276,10 @@ Choose exactly one intent:
 Never pick WORKOUT_AUDIT just because a ride exists or they said "how did I do".
 If they said "this week" / "my week" / "the week" and want a recap, pick WEEK_REVIEW, not WORKOUT_AUDIT.
 Never pick SCHEDULE_UPDATE for a retrospective week recap.
+Never pick SCHEDULE_UPDATE when the only reason is today's HRV, readiness, stress, or ACWR — that is DAY_ADJUST.
 Never invent a paper. CLINICAL_VETO always beats a science explanation if they report sharp pain."""
 
-CLASSIFIER_SCHEMA = """{"intent": "WORKOUT_AUDIT|WEEK_REVIEW|SCHEDULE_UPDATE|SCIENCE_LOOKUP|CLINICAL_VETO|OFF_TOPIC|GENERAL_CHAT"}"""
+CLASSIFIER_SCHEMA = """{"intent": "WORKOUT_AUDIT|WEEK_REVIEW|DAY_ADJUST|SCHEDULE_UPDATE|SCIENCE_LOOKUP|CLINICAL_VETO|OFF_TOPIC|GENERAL_CHAT"}"""
 
 
 @dataclass(frozen=True)
@@ -395,6 +429,31 @@ def _classify_structural(message: str) -> IntentDecision:
     if SCIENCE_QUESTION_RE.search(text) and not week_scoped and audit < 3 and schedule < 3:
         science += 3
 
+    day_adjust = 0
+    health = bool(HEALTH_FACTOR_RE.search(text))
+    today_scoped = bool(TODAY_SCOPE_RE.search(text))
+    science_question = bool(SCIENCE_QUESTION_RE.search(text))
+    full_week_build = (
+        "plan my week" in text
+        or "build my week" in text
+        or "weekly plan" in text
+        or len(weekdays) >= 3
+    )
+    if health and not science_question:
+        day_adjust += 3
+    if any(hint in text for hint in DAY_ADJUST_HINTS):
+        day_adjust += 4
+    if health and today_scoped and not science_question:
+        day_adjust += 3
+    if health and looking_forward and not full_week_build and not science_question:
+        day_adjust += 3
+    if health and re.search(
+        r"\b(should i|can i|skip|swap|downgrade|still train|still do)\b",
+        text,
+    ):
+        day_adjust += 2
+        audit = min(audit, 2)
+
     # A past-session correction that also mentions the week plan is still an autopsy.
     if audit >= 3 and schedule >= 2 and (
         pasted_laps or "analyse" in text or "analyze" in text or "you got it wrong" in text
@@ -410,6 +469,10 @@ def _classify_structural(message: str) -> IntentDecision:
             return IntentDecision(SCHEDULE_UPDATE, confidence, "structural", audit, schedule, review)
         confidence = 0.92 if review >= 5 else 0.85
         return IntentDecision(WEEK_REVIEW, confidence, "structural", audit, schedule, review)
+
+    if day_adjust >= 3 and not full_week_build and day_adjust >= audit and review < 3:
+        confidence = 0.92 if day_adjust >= 5 else 0.8
+        return IntentDecision(DAY_ADJUST, confidence, "structural_day_adjust", audit, schedule, review)
 
     if schedule >= 3 and schedule > audit and schedule >= review:
         confidence = 0.92 if schedule >= 5 else 0.8

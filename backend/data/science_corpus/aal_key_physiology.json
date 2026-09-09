@@ -1,0 +1,52 @@
+{
+  "slug": "aal-key-physiology",
+  "title": "Advance Athlete Lab Key Physiology Playbook",
+  "authors": "Advance Athlete Lab coaching team",
+  "year": 2026,
+  "publisher": "Advance Athlete Lab",
+  "license": "Owned content — cleared for AI retrieval",
+  "url": null,
+  "source_type": "playbook",
+  "chunks": [
+    {
+      "key": "zone-2-carbohydrate-periodization",
+      "heading": "Zone 2 carbohydrate periodization",
+      "audience": "endurance",
+      "sport_tags": ["run", "ride", "triathlon", "general"],
+      "topic_tags": ["carbohydrate", "fueling", "zone-2", "glycogen", "periodization", "sessions"],
+      "body": "Zone 2 carbohydrate periodization means matching carbohydrate availability to the session, not eating the same fueling plan every day. Easy aerobic Zone 2 work can be done with moderate carbohydrate — a normal mixed meal beforehand is enough; extra gels are usually unnecessary under about 75 minutes. Quality days (threshold, VO2, race-pace) should be carbohydrate-fed: glycogen availability supports the high-intensity work and the session is not a weight-loss experiment. Do not stack 'train low' fasted Zone 2 on a day that also has intervals, a long ride over 90 minutes, or poor sleep. Overnight-fasted easy spinning is optional for well-fueled athletes who tolerate it; it is not required for mitochondrial adaptation. If readiness, HRV, or stress is already suppressed, skip fasted work and eat a normal breakfast. This is coaching practice, not a low-carb diet prescription."
+    },
+    {
+      "key": "lactate-clearance",
+      "heading": "Lactate clearance between intervals",
+      "audience": "endurance",
+      "sport_tags": ["run", "ride", "swim", "triathlon"],
+      "topic_tags": ["lactate", "clearance", "threshold", "intervals", "recovery", "sessions"],
+      "body": "Lactate clearance is the ability to shuttle and reuse lactate during and after hard efforts, not a toxin flush. Between threshold or VO2 intervals, active recovery at easy aerobic intensity (Zone 1–low Zone 2, conversational, easy spin or jog) clears lactate faster than standing still because working muscle continues to oxidise it. Recoveries that are too hard leave residual fatigue into the next rep and the set stops being repeatable. Recoveries that are completely static can make the next effort feel like a cold start. Practical rule: recoveries should let the athlete hit the next prescribed watt or pace; if they cannot, lengthen the easy bout or drop a rep rather than grinding. Easy days after quality are lactate-clearance and glycogen-restore days — keep them genuinely easy. This coach does not interpret lab lactate curves from chat."
+    },
+    {
+      "key": "race-week-taper-strategies",
+      "heading": "Tapering strategies in race week",
+      "audience": "endurance",
+      "sport_tags": ["run", "ride", "swim", "triathlon", "general"],
+      "topic_tags": ["taper", "race-prep", "periodization", "volume", "neuromuscular"],
+      "body": "Tapering strategies cut training volume about 40–60% across the final 7–14 days while keeping short race-pace or neuromuscular touches so the athlete stays sharp. Frequency can stay similar; duration of each session drops. Do not introduce new exercises, long novel efforts, or a first-time heat block in race week. Carbohydrate availability and sleep matter more than squeezing extra quality. If the athlete arrives overreached — suppressed HRV, high stress, poor sleep — cut volume harder and keep only one very short race-pace reminder, not a full interval session. Race-week taper is shedding fatigue, not building fitness. A-race date stays fixed; the taper absorbs the last training errors rather than trying to make them up."
+    },
+    {
+      "key": "heat-acclimation-block-design",
+      "heading": "Heat acclimation block design",
+      "audience": "endurance",
+      "sport_tags": ["run", "ride", "triathlon"],
+      "topic_tags": ["heat", "acclimation", "environment", "sessions", "recovery"],
+      "body": "A heat acclimation block is usually 7–14 consecutive days of training in the heat or with extra clothing so plasma volume expands, sweating starts earlier, and heart rate at a given pace or power falls. Easy aerobic sessions are the usual vehicle. Do not stack heat on threshold or VO2 work unless the athlete is already well acclimated and the quality is shortened. Hydrate, shorten the session if dizziness, cessation of sweating, or confusion appear, and treat those as stop-and-refer. Finish the block several days before an A-race so the athlete is not carrying extra heat strain into taper. Heat acclimation does not replace race-specific endurance. This is coaching practice, not a clinical heat-illness protocol."
+    },
+    {
+      "key": "polarized-intensity-distribution",
+      "heading": "Polarized intensity distribution",
+      "audience": "endurance",
+      "sport_tags": ["run", "ride", "swim", "triathlon", "general"],
+      "topic_tags": ["polarized", "intensity", "zones", "periodization", "sessions"],
+      "body": "Polarized intensity distribution keeps most weekly volume easy (Zone 1–2) and a small, protected share truly hard (threshold or VO2), with little time in the moderately hard grey zone. For most endurance athletes that looks like about 80% easy and 20% quality, not a week of all-tempo. Easy days must stay easy or the hard days stop being hard. Stacking threshold on poor HRV or high ACWR turns a polarized week into junk moderate strain. Strength and mobility sit beside the polarized endurance load; they are not a third intensity peak on the same day as VO2. Beginners need even more easy volume before they earn a second quality session."
+    }
+  ]
+}

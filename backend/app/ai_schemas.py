@@ -33,6 +33,7 @@ class PlanSegment(BaseModel):
     segment: str
     duration_min: float | None = None
     intensity: str | None = None
+    detail: str | None = None
 
 
 class PlannedWorkoutJSON(BaseModel):

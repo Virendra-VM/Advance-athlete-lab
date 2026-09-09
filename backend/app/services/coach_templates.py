@@ -170,8 +170,11 @@ def build_template_week(
             }
         )
 
+    from app.services.session_blueprints import enrich_plan
+
     goal = context.get("profile", {}).get("primary_goal") or "general fitness"
-    return {
+    return enrich_plan(
+        {
         "title": f"Week of {week_start.strftime('%b %d')}",
         "summary": (
             f"{len(workouts)} sessions across {', '.join(sports)} aimed at {goal}, sized to "
@@ -187,7 +190,9 @@ def build_template_week(
             "Set AI_PROVIDER and an API key for personalised generation."
         ),
         "citations": [],
-    }
+        },
+        safety,
+    )
 
 
 def build_template_advice(context: dict, safety: dict) -> dict:

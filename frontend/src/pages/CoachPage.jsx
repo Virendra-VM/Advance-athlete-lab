@@ -352,17 +352,18 @@ export default function CoachPage() {
         </div>
       ) : (
         <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
-          <header className="relative z-20 flex shrink-0 flex-wrap items-center justify-between gap-2 border-b border-[var(--aal-line)] bg-[var(--aal-card)]/85 px-3 py-2 backdrop-blur-sm sm:px-5">
-            <div className="min-w-0 pl-10 lg:pl-0">
-              <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-sage">Coach</p>
-              <p className="truncate text-sm font-semibold text-[var(--aal-ink)]">
-                {status?.mode === 'ai' ? status.active_provider : 'Rules coach'}
+          <header className="relative z-20 flex shrink-0 flex-wrap items-center justify-between gap-2 border-b border-[var(--aal-line)] bg-[var(--aal-card)]/90 px-3 py-2 backdrop-blur-sm sm:px-5">
+            <div className="min-w-0 flex-1 pl-10 lg:pl-0">
+              <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-indigo-500 dark:text-indigo-300">
+                Training
               </p>
-              {status?.active_model ? (
-                <p className="truncate text-[11px] text-[var(--aal-muted)]">
-                  {status.active_provider} · {status.active_model}
-                </p>
-              ) : null}
+              <p className="truncate text-sm font-semibold text-[var(--aal-ink)]">AI Coach</p>
+              <p className="truncate text-[11px] text-[var(--aal-muted)]">
+                {status?.mode === 'ai'
+                  ? [status.active_provider, status.active_model].filter(Boolean).join(' · ') ||
+                    'Connected coach'
+                  : 'Rules-based coach — add an AI provider in settings for live generation'}
+              </p>
               {status?.ai_debug ? (
                 <details className="mt-1 text-[10px] text-[var(--aal-muted)]">
                   <summary className="cursor-pointer select-none">AI debug</summary>
@@ -395,13 +396,13 @@ export default function CoachPage() {
           </header>
 
           {error ? (
-            <p className="shrink-0 border-b border-red-200/60 bg-red-50/80 px-4 py-2 text-sm text-danger-muted">
+            <p className="shrink-0 border-b border-red-200/60 bg-red-50/80 px-4 py-2 text-sm text-danger-muted dark:bg-red-950/30">
               {error}
             </p>
           ) : null}
 
           {fitness && !profile?.baseline_confirmed_at ? (
-            <div className="flex shrink-0 flex-col gap-2 border-b border-sage/25 bg-sage/5 px-4 py-2.5 sm:flex-row sm:items-center sm:justify-between">
+            <div className="flex shrink-0 flex-col gap-2 border-b border-indigo-300/30 bg-indigo-50/50 px-4 py-2.5 dark:bg-indigo-950/20 sm:flex-row sm:items-center sm:justify-between">
               <p className="text-sm">
                 <span className="font-semibold">Confirm your baseline. </span>
                 Your device estimates{' '}
@@ -412,7 +413,7 @@ export default function CoachPage() {
                 type="button"
                 onClick={handleConfirmBaseline}
                 disabled={confirmingBaseline}
-                className="shrink-0 rounded-xl bg-sage px-3 py-1.5 text-sm font-semibold text-white disabled:opacity-60"
+                className="shrink-0 rounded-xl bg-indigo-600 px-3 py-1.5 text-sm font-semibold text-white transition hover:bg-indigo-500 disabled:opacity-60"
               >
                 {confirmingBaseline ? 'Saving…' : 'Confirm baseline'}
               </button>

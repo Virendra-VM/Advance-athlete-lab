@@ -68,21 +68,26 @@ function WorkoutRow({ workout }) {
         <div className="border-t border-[var(--aal-line)] px-3 py-3 text-sm">
           {workout.description ? <p>{workout.description}</p> : null}
           {(workout.structure || []).length ? (
-            <ul className="mt-3 space-y-1">
+            <ul className="mt-3 space-y-2">
               {workout.structure.map((segment, index) => (
                 <li
                   key={`${segment.segment}-${index}`}
-                  className="flex justify-between gap-3 text-[var(--aal-muted)]"
+                  className="rounded-lg bg-[var(--aal-card)]/60 px-2.5 py-2"
                 >
-                  <span>{segment.segment}</span>
-                  <span>
-                    {[
-                      segment.duration_min ? `${Math.round(segment.duration_min)} min` : null,
-                      segment.intensity,
-                    ]
-                      .filter(Boolean)
-                      .join(' · ')}
-                  </span>
+                  <p className="flex justify-between gap-3 text-[var(--aal-ink)]">
+                    <span className="font-medium">{segment.segment}</span>
+                    <span className="text-[var(--aal-muted)]">
+                      {[
+                        segment.duration_min ? `${Math.round(segment.duration_min)} min` : null,
+                        segment.intensity,
+                      ]
+                        .filter(Boolean)
+                        .join(' · ')}
+                    </span>
+                  </p>
+                  {segment.detail ? (
+                    <p className="mt-1 text-[var(--aal-muted)]">{segment.detail}</p>
+                  ) : null}
                 </li>
               ))}
             </ul>
@@ -122,7 +127,7 @@ function PlanBody({ plan, weekStart, loading, compact }) {
   if (!workouts.length) {
     return (
       <p className="rounded-xl border border-dashed border-[var(--aal-line)] px-3 py-4 text-sm text-[var(--aal-muted)]">
-        No week built yet. Generate this week from the bar below — it stays a draft until you add
+        No week built yet. Ask Coach to plan this week in the chat — it stays a draft until you add
         it to Schedule.
       </p>
     )
@@ -251,7 +256,11 @@ function PlanActions({
         disabled={
           publishing || !plan?.plan_id || !workouts.length || Boolean(plan?.on_schedule)
         }
-        className="inline-flex items-center gap-2 rounded-xl border border-[var(--aal-line)] bg-[var(--aal-card)] px-3 py-2 text-sm font-semibold disabled:opacity-60"
+        className={`inline-flex items-center gap-2 rounded-xl px-3 py-2 text-sm font-semibold transition disabled:cursor-default ${
+          plan?.on_schedule
+            ? 'border border-indigo-300/40 bg-indigo-50/50 text-indigo-700 dark:border-indigo-500/30 dark:bg-indigo-950/25 dark:text-indigo-200'
+            : 'border border-indigo-300/40 bg-indigo-50/50 text-indigo-700 hover:bg-indigo-100/80 dark:border-indigo-500/30 dark:bg-indigo-950/25 dark:text-indigo-200 dark:hover:bg-indigo-950/40'
+        } disabled:opacity-100`}
       >
         <CalendarPlus className={`h-4 w-4 ${publishing ? 'sync-spin' : ''}`} />
         {publishing ? 'Adding…' : plan?.on_schedule ? 'On schedule' : 'Add to Schedule'}
@@ -277,10 +286,10 @@ export default function WeekPlan({
 
   if (embedded) {
     return (
-      <div className="rounded-2xl border border-sage/25 bg-[var(--aal-card)] p-3 shadow-sm sm:p-4">
+      <div className="rounded-2xl border border-[var(--aal-line)] bg-[var(--aal-card)] p-3 shadow-sm sm:p-4">
         <div className="mb-3 flex items-start justify-between gap-3">
           <div className="min-w-0">
-            <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-sage">
+            <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-indigo-500 dark:text-indigo-300">
               This week
             </p>
             <h3 className="mt-1 text-base font-semibold text-[var(--aal-ink)]">{title}</h3>
@@ -292,7 +301,11 @@ export default function WeekPlan({
                 type="button"
                 onClick={onAddToSchedule}
                 disabled={publishing || !plan?.plan_id || Boolean(plan?.on_schedule)}
-                className="inline-flex items-center gap-2 rounded-xl bg-sage px-3 py-2 text-sm font-semibold text-white disabled:opacity-60"
+                className={`inline-flex items-center gap-2 rounded-xl px-3 py-2 text-sm font-semibold transition disabled:opacity-60 ${
+                  plan?.on_schedule
+                    ? 'border border-indigo-300/40 bg-indigo-50/50 text-indigo-700 dark:border-indigo-500/30 dark:bg-indigo-950/25 dark:text-indigo-200'
+                    : 'bg-indigo-600 text-white hover:bg-indigo-500'
+                }`}
               >
                 <CalendarPlus className={`h-4 w-4 ${publishing ? 'sync-spin' : ''}`} />
                 {publishing
@@ -308,7 +321,7 @@ export default function WeekPlan({
                 onClick={onPin}
                 className={`inline-flex shrink-0 items-center gap-1.5 rounded-lg border px-2.5 py-1.5 text-xs font-medium transition ${
                   pinned
-                    ? 'border-sage/40 bg-sage/10 text-sage'
+                    ? 'border-indigo-300/40 bg-indigo-50/80 text-indigo-600 dark:bg-indigo-950/30 dark:text-indigo-300'
                     : 'border-[var(--aal-line)] text-[var(--aal-muted)] hover:text-[var(--aal-ink)]'
                 }`}
                 aria-pressed={pinned}

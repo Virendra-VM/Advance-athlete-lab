@@ -66,6 +66,7 @@ from app.services.ai_coach import (
     science_sports_for_modality,
     schedule_system_prompt,
     schedule_task,
+    day_adjust_task,
     week_plan_review_task,
     science_system_prompt,
     science_task,
@@ -75,6 +76,7 @@ from app.services.ai_coach import (
     template_general_chat,
     template_off_topic,
     template_schedule,
+    template_day_adjust,
     template_week_plan_review,
     template_science_lookup,
     template_week_review,
@@ -85,6 +87,7 @@ from app.services.ai_coach import (
 )
 from app.services.coach_intent import (
     CLINICAL_VETO,
+    DAY_ADJUST,
     GENERAL_CHAT,
     OFF_TOPIC,
     SCHEDULE_UPDATE,
@@ -102,6 +105,7 @@ from app.services.session_telemetry import (
     laps_are_uninformative,
     match_activity_for_message,
 )
+from app.services.session_blueprints import downgrade_today_workout, enrich_plan, enrich_workout
 from app.services.week_from_chat import coerce_week_plan, parse_week_plan_from_text
 
 logger = logging.getLogger(__name__)
@@ -120,8 +124,8 @@ WEEK_PLAN_SCHEMA = """{
       "duration_min": number,
       "distance_m": number or null,
       "intensity": "string",
-      "description": "string with warm-up, main set, cool-down",
-      "structure": [{"segment": "string", "duration_min": number, "intensity": "string"}]
+      "description": "string with warm-up, named main set, cool-down stretches/foam roll",
+      "structure": [{"segment": "Warm-up|Main set|Cool-down", "duration_min": number, "intensity": "string", "detail": "named work: exercises, intervals, poses, stretches"}]
     }
   ],
   "coach_notes": "string",
@@ -280,7 +284,34 @@ SCHEDULE_SCHEMA = """{
         "session_type": "rest|easy|long|tempo|threshold|intervals|hills|speed|strength|mobility|cross-training|race",
         "duration_min": number,
         "intensity": "string",
-        "description": "string"
+        "description": "string with warm-up, named main set, cool-down",
+        "structure": [{"segment": "Warm-up|Main set|Cool-down", "duration_min": number, "intensity": "string", "detail": "named exercises, intervals, poses, stretches, foam roll"}]
+      }
+    ]
+  }
+}"""
+
+DAY_ADJUST_SCHEMA = """{
+  "reply": "string, today-only call: TODAY'S CALL, one locker-room sentence, today's session change, warmup/main/cooldown detail. Do not rewrite other days.",
+  "citations": ["S1"],
+  "escalate": false,
+  "escalation_reason": null,
+  "intent": "DAY_ADJUST",
+  "week_plan": {
+    "title": "string",
+    "summary": "string",
+    "focus": "string",
+    "week_start": "YYYY-MM-DD",
+    "workouts": [
+      {
+        "date": "YYYY-MM-DD (TODAY only)",
+        "sport": "string",
+        "title": "string",
+        "session_type": "rest|easy|long|tempo|threshold|intervals|hills|speed|strength|mobility|cross-training|race",
+        "duration_min": number,
+        "intensity": "string",
+        "description": "string with warm-up, named main set, cool-down",
+        "structure": [{"segment": "Warm-up|Main set|Cool-down", "duration_min": number, "intensity": "string", "detail": "named work"}]
       }
     ]
   }
@@ -918,6 +949,8 @@ Today is {clock['weekday']} {clock['local_date']}. Do not prescribe new training
 — those days already happened. Plan only {remaining_start.isoformat()} through {remaining_end.isoformat()}.
 If they already trained today, do not stack another hard session on top.
 Give every remaining session a concrete main set, not a vague label. Respect every safety limit above.
+Every workout must include structure with Warm-up, Main set, and Cool-down. Main set names the actual work
+(exercises, interval reps, swim sets, yoga poses). Cool-down includes stretches, foam roll, or mobility.
 
 Respond with JSON matching exactly this shape:
 {WEEK_PLAN_SCHEMA}"""
@@ -993,6 +1026,7 @@ def generate_week_plan(
 
     plan_data = validation["plan"]
     issues = validation["issues"]
+    plan_data = enrich_plan(plan_data, safety)
     citations = citation_slugs(hits) if provider_name != "rules" else []
 
     stored_id = None
@@ -1006,6 +1040,7 @@ def generate_week_plan(
             model_name,
             issues,
             citations,
+            safety=safety,
         )
 
     return {
@@ -1031,6 +1066,7 @@ def _persist_plan(
     model: str,
     issues: list[dict],
     citations: list[str],
+    safety: dict | None = None,
 ) -> int:
     existing = (
         db.query(TrainingPlan)
@@ -1066,19 +1102,20 @@ def _persist_plan(
             workout_date = date.fromisoformat(str(workout.get("date"))[:10])
         except (TypeError, ValueError):
             continue
+        filled = enrich_workout(workout, safety)
         db.add(
             PlannedWorkout(
                 training_plan_id=record.id,
                 athlete_profile_id=profile.id,
                 workout_date=workout_date,
-                sport=workout.get("sport"),
-                title=workout.get("title"),
-                session_type=workout.get("session_type"),
-                duration_min=workout.get("duration_min"),
-                distance_m=workout.get("distance_m"),
-                intensity=workout.get("intensity"),
-                description=workout.get("description"),
-                structure_json=json.dumps(workout.get("structure") or []),
+                sport=filled.get("sport"),
+                title=filled.get("title"),
+                session_type=filled.get("session_type"),
+                duration_min=filled.get("duration_min"),
+                distance_m=filled.get("distance_m"),
+                intensity=filled.get("intensity"),
+                description=filled.get("description"),
+                structure_json=json.dumps(filled.get("structure") or []),
             )
         )
 
@@ -1123,19 +1160,21 @@ def get_active_plan(db: Session, profile_id: int, week_start: date | None = None
             "focus": record.focus,
             "week_start": record.week_start.isoformat(),
             "workouts": [
-                {
-                    "id": workout.id,
-                    "date": workout.workout_date.isoformat(),
-                    "sport": workout.sport,
-                    "title": workout.title,
-                    "session_type": workout.session_type,
-                    "duration_min": workout.duration_min,
-                    "distance_m": workout.distance_m,
-                    "intensity": workout.intensity,
-                    "description": workout.description,
-                    "structure": _load(workout.structure_json, []),
-                    "completed_activity_id": workout.completed_activity_id,
-                }
+                enrich_workout(
+                    {
+                        "id": workout.id,
+                        "date": workout.workout_date.isoformat(),
+                        "sport": workout.sport,
+                        "title": workout.title,
+                        "session_type": workout.session_type,
+                        "duration_min": workout.duration_min,
+                        "distance_m": workout.distance_m,
+                        "intensity": workout.intensity,
+                        "description": workout.description,
+                        "structure": _load(workout.structure_json, []),
+                        "completed_activity_id": workout.completed_activity_id,
+                    }
+                )
                 for workout in workouts
             ],
             "coach_notes": (_load(record.raw_json, {}) or {}).get("coach_notes"),
@@ -1200,7 +1239,7 @@ def persist_week_from_chat(
     plan_data = dict(plan_data)
     plan_data["week_start"] = start.isoformat()
     validation = validate_plan(plan_data, safety)
-    plan_data = validation["plan"]
+    plan_data = enrich_plan(validation["plan"], safety)
     issues = validation["issues"]
     citations = citation_slugs(hits or []) if provider != "rules" else []
     plan_id = _persist_plan(
@@ -1212,12 +1251,185 @@ def persist_week_from_chat(
         model,
         issues,
         citations,
+        safety=safety,
     )
     _copy_completions_from_superseded(db, profile.id, start, plan_id)
     payload = get_active_plan(db, profile.id, start) or {}
     payload["disclaimer"] = safety.get("disclaimer")
     payload["generation_notes"] = payload.get("generation_notes") or []
     payload["safety_issues"] = issues
+    return payload
+
+
+def _workout_date(value) -> date | None:
+    if isinstance(value, date):
+        return value
+    try:
+        return date.fromisoformat(str(value)[:10])
+    except (TypeError, ValueError):
+        return None
+
+
+def _row_as_workout(row: PlannedWorkout) -> dict:
+    try:
+        structure = json.loads(row.structure_json) if row.structure_json else []
+    except json.JSONDecodeError:
+        structure = []
+    return {
+        "date": row.workout_date.isoformat(),
+        "sport": row.sport,
+        "title": row.title,
+        "session_type": row.session_type,
+        "duration_min": row.duration_min,
+        "distance_m": row.distance_m,
+        "intensity": row.intensity,
+        "description": row.description,
+        "structure": structure,
+        "completed_activity_id": row.completed_activity_id,
+    }
+
+
+def persist_today_adjustment(
+    db: Session,
+    profile: AthleteProfile,
+    *,
+    today: date,
+    week_start: date,
+    plan_data: dict | None,
+    safety: dict,
+    hits: list[dict] | None,
+    provider: str,
+    model: str,
+) -> dict:
+    """Rewrite only today's PlannedWorkout rows. Other days stay put."""
+    proposed = []
+    for workout in (plan_data or {}).get("workouts") or []:
+        if _workout_date(workout.get("date")) == today:
+            proposed.append(dict(workout))
+
+    record = (
+        db.query(TrainingPlan)
+        .filter(
+            TrainingPlan.athlete_profile_id == profile.id,
+            TrainingPlan.week_start == week_start,
+            TrainingPlan.status == "active",
+        )
+        .order_by(TrainingPlan.id.desc())
+        .first()
+    )
+    if record is None:
+        seed = proposed or [
+            downgrade_today_workout(
+                {
+                    "date": today.isoformat(),
+                    "sport": "Mobility",
+                    "title": "Restore / mobility",
+                    "session_type": "mobility",
+                    "duration_min": 30,
+                    "intensity": "Recovery",
+                    "description": None,
+                    "structure": [],
+                },
+                safety,
+            )
+        ]
+        draft = {
+            "title": f"Week of {week_start.isoformat()}",
+            "summary": "Today's session adjusted for readiness. Other days were not rewritten.",
+            "focus": "Today only",
+            "week_start": week_start.isoformat(),
+            "workouts": [enrich_workout(item, safety) for item in seed],
+        }
+        validation = validate_plan(draft, safety)
+        plan_id = _persist_plan(
+            db,
+            profile,
+            enrich_plan(validation["plan"], safety),
+            week_start,
+            provider,
+            model,
+            validation["issues"],
+            citation_slugs(hits or []) if provider != "rules" else [],
+            safety=safety,
+        )
+        payload = get_active_plan(db, profile.id, week_start) or {}
+        payload["disclaimer"] = safety.get("disclaimer")
+        payload["safety_issues"] = validation["issues"]
+        payload["generation_notes"] = ["Adjusted today only — no full-week rewrite."]
+        payload["plan_id"] = plan_id
+        return payload
+
+    existing = (
+        db.query(PlannedWorkout)
+        .filter(
+            PlannedWorkout.training_plan_id == record.id,
+            PlannedWorkout.workout_date == today,
+        )
+        .order_by(PlannedWorkout.id.asc())
+        .all()
+    )
+    keep_completed = [row for row in existing if row.completed_activity_id]
+    open_rows = [row for row in existing if not row.completed_activity_id]
+    if keep_completed and not open_rows:
+        payload = get_active_plan(db, profile.id, week_start) or {}
+        payload["disclaimer"] = safety.get("disclaimer")
+        payload["generation_notes"] = [
+            "Today's planned session is already completed — no further change."
+        ]
+        return payload
+    if not proposed:
+        proposed = [downgrade_today_workout(_row_as_workout(row), safety) for row in open_rows]
+        if not proposed:
+            proposed = [
+                downgrade_today_workout(
+                    {
+                        "date": today.isoformat(),
+                        "sport": "Mobility",
+                        "title": "Restore / mobility",
+                        "session_type": "mobility",
+                        "duration_min": 30,
+                        "intensity": "Recovery",
+                        "structure": [],
+                    },
+                    safety,
+                )
+            ]
+    else:
+        proposed = [downgrade_today_workout(item, safety) for item in proposed]
+
+    for row in open_rows:
+        db.delete(row)
+    db.flush()
+    for workout in proposed:
+        filled = enrich_workout(workout, safety)
+        db.add(
+            PlannedWorkout(
+                training_plan_id=record.id,
+                athlete_profile_id=profile.id,
+                workout_date=today,
+                sport=filled.get("sport"),
+                title=filled.get("title"),
+                session_type=filled.get("session_type"),
+                duration_min=filled.get("duration_min"),
+                distance_m=filled.get("distance_m"),
+                intensity=filled.get("intensity"),
+                description=filled.get("description"),
+                structure_json=json.dumps(filled.get("structure") or []),
+            )
+        )
+    notes = [
+        {
+            "level": "info",
+            "code": "today_only_adjustment",
+            "message": "Only today's session was changed for readiness. The rest of the week was left as planned.",
+        }
+    ]
+    record.safety_notes = json.dumps(notes)
+    db.commit()
+    payload = get_active_plan(db, profile.id, week_start) or {}
+    payload["disclaimer"] = safety.get("disclaimer")
+    payload["safety_issues"] = notes
+    payload["generation_notes"] = ["Adjusted today only — other days were left as planned."]
     return payload
 
 
@@ -2433,6 +2645,7 @@ def coach_chat(
         WEEK_REVIEW,
         WEEK_PLAN_REVIEW,
         SCHEDULE_UPDATE,
+        DAY_ADJUST,
         SCIENCE_LOOKUP,
         CLINICAL_VETO,
         OFF_TOPIC,
@@ -2441,7 +2654,7 @@ def coach_chat(
         intent = GENERAL_CHAT
 
     if persist_plan is None:
-        persist_plan = intent == SCHEDULE_UPDATE
+        persist_plan = intent in {SCHEDULE_UPDATE, DAY_ADJUST}
 
     clinical = detect_clinical_boundary(message)
     if clinical:
@@ -2551,7 +2764,7 @@ def coach_chat(
             profile,
             k=5,
         )
-    elif intent in {SCHEDULE_UPDATE, WEEK_PLAN_REVIEW}:
+    elif intent in {SCHEDULE_UPDATE, WEEK_PLAN_REVIEW, DAY_ADJUST}:
         hits = _retrieve(
             db,
             "weekly training plan ACWR consecutive hard days spinal load recovery sleep HRV "
@@ -2635,6 +2848,21 @@ Do not write essays or paragraphs. Never more than two consecutive sentences per
 Bullets, key-values, and the week table only.
 Use CURRENT WEEK PLAN plus the athlete's proposed calendar.
 Copy TODAY'S CALL status line exactly. Guard active back/spine limits with non-negotiable DO NOT lifts on strength days.
+Every session needs Warm-up, a named Main set, and Cool-down (stretches / foam roll / mobility).
+If the athlete's only reason is today's HRV, readiness, stress, or ACWR, do not rewrite other days — that is a today-only change.
+"""
+    elif intent == DAY_ADJUST:
+        extra_block = f"""
+{today_call_prompt_block(context, safety)}
+
+{athlete_state_block(context, safety)}
+
+ROUTING (hard)
+Intent is DAY_ADJUST. Change TODAY only. Do not rewrite the rest of the week.
+Do not autopsy a past ride. Skip ⚡ THE BOTTOM LINE, 🔬 MECHANICAL PRECISION, and 🫀 CARDIOVASCULAR COST.
+Poor HRV, readiness, stress, or ACWR today: convert today's quality to easy (same duration) or mobility if REST.
+Fill Warm-up, named Main set, Cool-down for today's session only.
+week_plan.workouts must contain only today's date.
 """
     elif intent == SCIENCE_LOOKUP:
         extra_block = f"""
@@ -2672,6 +2900,10 @@ If they feel they failed or cut a session short: 💬 REFRAME as spaced **bold**
     elif intent == SCHEDULE_UPDATE:
         task = schedule_task()
         chat_schema = SCHEDULE_SCHEMA
+        system_prompt = schedule_system_prompt()
+    elif intent == DAY_ADJUST:
+        task = day_adjust_task()
+        chat_schema = DAY_ADJUST_SCHEMA
         system_prompt = schedule_system_prompt()
     elif intent == SCIENCE_LOOKUP:
         task = science_task(grounded=science_grounded)
@@ -2765,6 +2997,15 @@ Respond with JSON matching exactly this shape:
                 context=context,
                 clock=clock,
             )
+        elif intent == DAY_ADJUST:
+            reply = template_day_adjust(
+                message,
+                safety,
+                hits,
+                current_plan=current_plan,
+                context=context,
+                clock=clock,
+            )
         elif intent == SCIENCE_LOOKUP:
             reply = template_science_lookup(
                 message,
@@ -2778,7 +3019,28 @@ Respond with JSON matching exactly this shape:
 
     reply["intent"] = intent
     applied_plan = None
-    if intent == SCHEDULE_UPDATE and persist_plan:
+    if intent == DAY_ADJUST and persist_plan:
+        plan_data = extract_week_plan_from_chat(
+            raw=raw_payload or reply,
+            reply_text=reply.get("reply") or "",
+            week_start=clock["week_start"],
+        )
+        try:
+            applied_plan = persist_today_adjustment(
+                db,
+                profile,
+                today=clock["today"],
+                week_start=clock["week_start"],
+                plan_data=plan_data,
+                safety=safety,
+                hits=hits,
+                provider=provider_name,
+                model=model_name,
+            )
+            reply["plan_id"] = applied_plan.get("plan_id")
+        except Exception as exc:  # noqa: BLE001 — chat must still return
+            logger.warning("Could not persist today-only adjustment: %s", exc)
+    elif intent == SCHEDULE_UPDATE and persist_plan:
         plan_data = extract_week_plan_from_chat(
             raw=raw_payload or reply,
             reply_text=reply.get("reply") or "",

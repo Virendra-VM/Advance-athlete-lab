@@ -1,4 +1,5 @@
 from datetime import date, timedelta
+import json
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
@@ -45,6 +46,7 @@ from app.services.coach_intent import (
 )
 from app.services.periodization import build_season_context
 from app.services.schedule_completion import match_planned_workout_completions
+from app.services.session_blueprints import enrich_workout
 
 router = APIRouter(prefix="/coach", tags=["coach"])
 
@@ -353,6 +355,20 @@ def list_planned_workouts(
     rows = []
     for workout in workouts:
         activity = activities.get(workout.completed_activity_id)
+        try:
+            structure = json.loads(workout.structure_json) if workout.structure_json else []
+        except json.JSONDecodeError:
+            structure = []
+        filled = enrich_workout(
+            {
+                "sport": workout.sport,
+                "title": workout.title,
+                "session_type": workout.session_type,
+                "duration_min": workout.duration_min,
+                "description": workout.description,
+                "structure": structure,
+            }
+        )
         rows.append(
             CoachPlannedWorkoutRead(
                 external_id=f"coach-{workout.id}",
@@ -371,7 +387,8 @@ def list_planned_workouts(
                 plan_id=workout.training_plan_id,
                 session_type=workout.session_type,
                 intensity=workout.intensity,
-                description=workout.description,
+                description=filled.get("description") or workout.description,
+                structure=filled.get("structure") or [],
             )
         )
     return rows

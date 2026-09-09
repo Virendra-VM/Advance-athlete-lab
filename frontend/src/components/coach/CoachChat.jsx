@@ -1,17 +1,13 @@
-import { useEffect, useRef, useState } from 'react'
+import { Fragment, useEffect, useMemo, useRef, useState } from 'react'
 import { AnimatePresence, motion } from 'framer-motion'
 import { Pin, Send, Sparkles, Square, X, CalendarPlus } from 'lucide-react'
 import { loadComposerDraft, saveComposerDraft } from '../../utils/coachComposerStorage'
 import { parseUtcDate } from '../../utils/formatters'
 import WeekPlan from './WeekPlan'
-import {
-  loadPins,
-  pinFromMessage,
-  pinFromWeek,
-  removePin,
-  savePins,
-  upsertPin,
-} from './chatPins'
+import { loadPins, pinFromMessage, removePin, savePins, upsertPin } from './chatPins'
+
+/** Centered reading column — same pattern as ChatGPT / Claude / Gemini (~768px). */
+const CHAT_COLUMN = 'mx-auto w-full max-w-3xl'
 
 const PROMPTS = [
   "How was today's session?",
@@ -52,7 +48,7 @@ function ThinkingIndicator() {
 
   return (
     <div
-      className="mx-auto w-full max-w-3xl px-1"
+      className={`${CHAT_COLUMN} px-1`}
       role="status"
       aria-live="polite"
       aria-label="Coach is thinking"
@@ -251,7 +247,7 @@ function ApplyWeekButton({ onApply, applying, weekOnSchedule }) {
       type="button"
       onClick={onApply}
       disabled={applying}
-      className="inline-flex shrink-0 items-center justify-center gap-2 rounded-xl bg-sage px-3.5 py-2 text-sm font-semibold text-white shadow-sm transition hover:brightness-105 disabled:opacity-60"
+      className="inline-flex shrink-0 items-center justify-center gap-2 rounded-xl bg-indigo-600 px-3.5 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-indigo-500 disabled:opacity-60"
     >
       <CalendarPlus className={`h-4 w-4 ${applying ? 'sync-spin' : ''}`} />
       {applying
@@ -432,16 +428,16 @@ function pinSnippet(pin) {
 function PinnedBar({ pin, onJump, onUnpin }) {
   return (
     <div className="flex items-stretch border-b border-[var(--aal-line)] bg-[var(--aal-card)]/90">
-      <div className="w-[3px] shrink-0 bg-sage" />
+      <div className="w-[3px] shrink-0 bg-indigo-500" />
       <button
         type="button"
         onClick={onJump}
-        className="mx-auto flex min-w-0 w-full max-w-3xl items-center gap-3 px-4 py-2 text-left transition hover:bg-sage/5"
+        className={`${CHAT_COLUMN} flex min-w-0 items-center gap-3 px-4 py-2 text-left transition hover:bg-indigo-50/60 dark:hover:bg-indigo-950/20`}
       >
-        <Pin className="h-3.5 w-3.5 shrink-0 fill-current text-sage" />
+        <Pin className="h-3.5 w-3.5 shrink-0 fill-current text-indigo-500 dark:text-indigo-300" />
         <div className="min-w-0 flex-1">
-          <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-sage">
-            Pinned message
+          <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-indigo-500 dark:text-indigo-300">
+            {pin.type === 'week' ? 'Pinned week' : 'Pinned message'}
           </p>
           <p className="truncate text-[13px] leading-5 text-[var(--aal-ink)]">
             <span className="text-[var(--aal-muted)]">{pinWho(pin)} · </span>
@@ -473,6 +469,24 @@ function looksLikeWeekTable(content) {
   )
 }
 
+function findWeekAnchorMessageId(messages, plan) {
+  const workouts = plan?.plan?.workouts
+  if (!plan?.plan_id || !Array.isArray(workouts) || !workouts.length) return null
+
+  for (let i = messages.length - 1; i >= 0; i--) {
+    const message = messages[i]
+    if (message.role === 'user') continue
+    if (message.plan_id === plan.plan_id) return message.id
+  }
+
+  for (let i = messages.length - 1; i >= 0; i--) {
+    const message = messages[i]
+    if (message.role !== 'user' && looksLikeWeekTable(message.content)) return message.id
+  }
+
+  return null
+}
+
 function MessageRow({
   message,
   mine,
@@ -500,17 +514,19 @@ function MessageRow({
 
   if (mine) {
     return (
-      <div id={`coach-msg-${message.id}`} className="group mx-auto flex w-full max-w-3xl justify-end px-1">
-        <div className="max-w-[min(85%,36rem)] rounded-3xl rounded-br-lg bg-sage px-4 py-2.5 text-[15px] text-white shadow-sm">
+      <div id={`coach-msg-${message.id}`} className={`group ${CHAT_COLUMN} flex justify-end px-1`}>
+        <div className="max-w-[min(85%,36rem)] rounded-2xl rounded-br-md border border-indigo-300/40 bg-indigo-50/80 px-4 py-3 text-[15px] text-[var(--aal-ink)] shadow-sm dark:border-indigo-500/30 dark:bg-indigo-950/30">
           <CoachReplyBody content={body} mine />
-          <div className="mt-1 flex items-center justify-end gap-2 text-[10px] text-white/70">
+          <div className="mt-1 flex items-center justify-end gap-2 text-[10px] text-[var(--aal-muted)]">
             <span>{timeLabel(message.created_at)}</span>
             {canPin ? (
               <button
                 type="button"
                 onClick={onPin}
                 className={`inline-flex items-center gap-1 rounded-md px-1 py-0.5 ${
-                  pinned ? 'text-white' : 'opacity-80 hover:opacity-100 sm:opacity-0 sm:group-hover:opacity-100'
+                  pinned
+                    ? 'text-indigo-600 dark:text-indigo-300'
+                    : 'opacity-80 hover:opacity-100 sm:opacity-0 sm:group-hover:opacity-100'
                 }`}
                 aria-pressed={pinned}
                 aria-label={pinned ? 'Unpin message' : 'Pin message'}
@@ -526,11 +542,12 @@ function MessageRow({
   }
 
   return (
-    <div id={`coach-msg-${message.id}`} className="group mx-auto w-full max-w-3xl px-1">
+    <div id={`coach-msg-${message.id}`} className={`group ${CHAT_COLUMN} px-1`}>
       <motion.div
         initial={streaming ? { opacity: 0.55 } : false}
         animate={{ opacity: 1 }}
         transition={{ duration: 0.18 }}
+        className="rounded-2xl border border-[var(--aal-line)] bg-[var(--aal-card)] px-4 py-3 shadow-sm"
       >
         <CoachReplyBody
           content={body}
@@ -547,7 +564,9 @@ function MessageRow({
               type="button"
               onClick={onPin}
               className={`inline-flex items-center gap-1 rounded-md px-1 py-0.5 ${
-                pinned ? 'text-sage' : 'opacity-80 hover:opacity-100 sm:opacity-0 sm:group-hover:opacity-100'
+                pinned
+                  ? 'text-indigo-500 dark:text-indigo-300'
+                  : 'opacity-80 hover:opacity-100 sm:opacity-0 sm:group-hover:opacity-100'
               }`}
               aria-pressed={pinned}
               aria-label={pinned ? 'Unpin message' : 'Pin message'}
@@ -589,7 +608,11 @@ export default function CoachChat({
   const stickToBottom = useRef(true)
   const seenIds = useRef(new Set())
   const primed = useRef(false)
-  const weekPinId = weekStart ? `week-${weekStart}` : null
+  const hasWeek = Boolean((plan?.plan?.workouts || []).length)
+  const weekAnchorMessageId = useMemo(
+    () => findWeekAnchorMessageId(messages, plan),
+    [messages, plan],
+  )
 
   useEffect(() => {
     setPins(loadPins(profileId))
@@ -630,27 +653,6 @@ export default function CoachChat({
   useEffect(() => {
     savePins(profileId, pins)
   }, [profileId, pins])
-
-  useEffect(() => {
-    if (!weekStart) return
-    setPins((current) => {
-      let changed = false
-      const nextWeek = pinFromWeek(plan, weekStart)
-      const mapped = current.map((pin) => {
-        if (pin.id !== weekPinId) return pin
-        if (
-          pin.title === nextWeek.title &&
-          pin.summary === nextWeek.summary &&
-          pin.planId === nextWeek.planId
-        ) {
-          return pin
-        }
-        changed = true
-        return { ...pin, ...nextWeek, id: weekPinId }
-      })
-      return changed ? mapped : current
-    })
-  }, [plan, weekStart, weekPinId])
 
   useEffect(() => {
     if (!primed.current) {
@@ -714,7 +716,7 @@ export default function CoachChat({
     const node = listRef.current
     if (!node || !stickToBottom.current) return
     node.scrollTop = node.scrollHeight
-  }, [messages.length, sending, stream?.shown])
+  }, [messages.length, sending, stream?.shown, weekAnchorMessageId])
 
   function resizeInput() {
     const node = inputRef.current
@@ -731,8 +733,8 @@ export default function CoachChat({
   function jumpToPinned(pin) {
     stickToBottom.current = false
     const target =
-      pin.type === 'week'
-        ? document.getElementById('coach-week-artifact')
+      pin.type === 'week' && weekAnchorMessageId
+        ? document.getElementById(`coach-week-artifact-${weekAnchorMessageId}`)
         : document.getElementById(`coach-msg-${pin.messageId}`)
     target?.scrollIntoView({ behavior: 'smooth', block: 'center' })
   }
@@ -787,7 +789,7 @@ export default function CoachChat({
 
   return (
     <section
-      className="coach-chat-canvas flex h-full min-h-0 flex-col overflow-hidden"
+      className="flex h-full min-h-0 flex-col overflow-hidden bg-[var(--aal-bg)]"
       aria-busy={sending || activelyStreaming || holdingReply}
     >
       {pins.length ? (
@@ -804,7 +806,7 @@ export default function CoachChat({
       ) : null}
 
       {focalLabel ? (
-        <div className="shrink-0 border-b border-[var(--aal-line)] bg-sage/5 px-4 py-2 text-center text-xs text-[var(--aal-muted)]">
+        <div className="shrink-0 border-b border-[var(--aal-line)] bg-indigo-50/50 px-4 py-2 text-center text-xs text-[var(--aal-muted)] dark:bg-indigo-950/20">
           Analysing <span className="font-medium text-[var(--aal-ink)]">{focalLabel}</span>
         </div>
       ) : null}
@@ -816,46 +818,40 @@ export default function CoachChat({
         }}
         className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 py-6 sm:px-6"
       >
-        <div className="mx-auto flex min-h-full w-full max-w-3xl flex-col gap-6">
-          {weekStart ? (
-            <div id="coach-week-artifact">
-              <WeekPlan
-                plan={plan}
-                weekStart={weekStart}
-                loading={false}
-                publishing={applyingWeek}
-                onAddToSchedule={onAddToSchedule}
-                embedded
-                pinned={pins.some((pin) => pin.id === weekPinId)}
-                onPin={() => togglePin(pinFromWeek(plan, weekStart))}
-              />
-            </div>
-          ) : null}
-
+        <div className={`${CHAT_COLUMN} flex min-h-full flex-col gap-6`}>
           {empty ? (
-            <div className="flex flex-1 flex-col items-center justify-center px-4 py-10 text-center">
-              <div className="mb-5 flex h-12 w-12 items-center justify-center rounded-2xl bg-sage/15 text-sage">
-                <Sparkles className="h-6 w-6" />
-              </div>
-              <h2 className="font-display text-3xl tracking-tight text-[var(--aal-ink)]">
-                What should we look at?
-              </h2>
-              <p className="mt-2 max-w-md text-sm text-[var(--aal-muted)]">
-                Ask about today, remaining days, or how you feel. Your week, wearables, and profile
-                are already in context.
-              </p>
-              <div className="mt-8 flex w-full max-w-xl flex-col gap-2 sm:grid sm:grid-cols-2">
-                {PROMPTS.map((prompt) => (
-                  <button
-                    key={prompt}
-                    type="button"
-                    disabled={disabled || sending}
-                    onClick={() => submit(prompt)}
-                    className="rounded-2xl border border-[var(--aal-line)] bg-[var(--aal-card)]/80 px-4 py-3 text-left text-sm text-[var(--aal-ink)]/90 shadow-sm transition hover:border-sage/40 hover:bg-[var(--aal-card)] disabled:opacity-60"
-                  >
-                    {prompt}
-                  </button>
-                ))}
+            <div className="relative overflow-hidden rounded-2xl border border-[var(--aal-line)] px-4 py-10 text-center sm:px-8">
+              <div
+                className="pointer-events-none absolute inset-0"
+                style={{
+                  background:
+                    'radial-gradient(120% 80% at 0% 0%, rgba(55,48,163,0.12), transparent 55%), radial-gradient(90% 70% at 100% 20%, rgba(56,189,248,0.08), transparent 50%), linear-gradient(165deg, var(--aal-card), color-mix(in srgb, #312e81 5%, var(--aal-card)))',
+                }}
+              />
+              <div className="relative flex flex-col items-center">
+                <div className="mb-5 flex h-12 w-12 items-center justify-center rounded-xl bg-indigo-600/15 text-indigo-600 dark:text-indigo-300">
+                  <Sparkles className="h-6 w-6" />
+                </div>
+                <h2 className="font-display text-3xl tracking-tight text-[var(--aal-ink)]">
+                  What should we look at?
+                </h2>
+                <p className="mt-2 max-w-md text-sm text-[var(--aal-muted)]">
+                  Ask about today, remaining days, or how you feel. Your week, wearables, and profile
+                  are already in context.
+                </p>
+                <div className="mt-8 flex w-full max-w-xl flex-col gap-2 sm:grid sm:grid-cols-2">
+                  {PROMPTS.map((prompt) => (
+                    <button
+                      key={prompt}
+                      type="button"
+                      disabled={disabled || sending}
+                      onClick={() => submit(prompt)}
+                      className="rounded-xl border border-[var(--aal-line)] bg-[var(--aal-card)]/90 px-4 py-3 text-left text-sm text-[var(--aal-ink)]/90 shadow-sm transition hover:border-indigo-300 hover:bg-[var(--aal-card)] disabled:opacity-60 dark:hover:border-indigo-500/40"
+                    >
+                      {prompt}
+                    </button>
+                  ))}
+                </div>
               </div>
             </div>
           ) : (
@@ -865,19 +861,34 @@ export default function CoachChat({
                 return null
               }
               const pinId = `msg-${message.id}`
+              const showWeekAfter =
+                weekAnchorMessageId === message.id && hasWeek && weekStart
               return (
-                <MessageRow
-                  key={message.id}
-                  message={message}
-                  mine={mine}
-                  pinned={pins.some((pin) => pin.id === pinId)}
-                  onPin={() => togglePin(pinFromMessage(message))}
-                  streamed={stream?.id === message.id ? stream.shown : null}
-                  streaming={stream?.id === message.id && !stream.done}
-                  onApplyWeek={mine ? undefined : onApplyWeek}
-                  applying={Boolean(applyingWeek)}
-                  weekOnSchedule={Boolean(plan?.on_schedule)}
-                />
+                <Fragment key={message.id}>
+                  <MessageRow
+                    message={message}
+                    mine={mine}
+                    pinned={pins.some((pin) => pin.id === pinId)}
+                    onPin={() => togglePin(pinFromMessage(message))}
+                    streamed={stream?.id === message.id ? stream.shown : null}
+                    streaming={stream?.id === message.id && !stream.done}
+                    onApplyWeek={mine ? undefined : onApplyWeek}
+                    applying={Boolean(applyingWeek)}
+                    weekOnSchedule={Boolean(plan?.on_schedule)}
+                  />
+                  {showWeekAfter ? (
+                    <div id={`coach-week-artifact-${message.id}`}>
+                      <WeekPlan
+                        plan={plan}
+                        weekStart={weekStart}
+                        loading={false}
+                        publishing={applyingWeek}
+                        onAddToSchedule={onAddToSchedule}
+                        embedded
+                      />
+                    </div>
+                  ) : null}
+                </Fragment>
               )
             })
           )}
@@ -889,6 +900,7 @@ export default function CoachChat({
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0, y: -4 }}
                 transition={{ duration: 0.2 }}
+                className="rounded-2xl border border-[var(--aal-line)] bg-[var(--aal-card)] px-4 py-3 shadow-sm"
               >
                 <ThinkingIndicator />
               </motion.div>
@@ -899,7 +911,7 @@ export default function CoachChat({
 
       <div className="shrink-0 bg-gradient-to-t from-[var(--aal-bg)] via-[var(--aal-bg)] to-transparent px-3 pb-4 pt-2 sm:px-6">
         <form
-          className="mx-auto w-full max-w-3xl"
+          className={CHAT_COLUMN}
           onSubmit={(event) => {
             event.preventDefault()
             submit()
@@ -908,7 +920,7 @@ export default function CoachChat({
           {composerHint ? (
             <p className="mb-2 text-center text-xs text-[var(--aal-muted)]">{composerHint}</p>
           ) : null}
-          <div className="flex items-end gap-2 rounded-[1.75rem] border border-[var(--aal-line)] bg-[var(--aal-card)] px-3 py-2 shadow-[0_10px_40px_-18px_rgba(15,23,42,0.45)] focus-within:border-sage/50">
+          <div className="flex items-end gap-2 rounded-2xl border border-indigo-300/40 bg-indigo-50/50 px-3 py-2 shadow-sm transition focus-within:border-indigo-300/60 focus-within:bg-indigo-50/80 dark:border-indigo-500/30 dark:bg-indigo-950/25 dark:focus-within:border-indigo-500/50 dark:focus-within:bg-indigo-950/35">
             <textarea
               ref={inputRef}
               rows={1}
@@ -925,7 +937,7 @@ export default function CoachChat({
                 }
               }}
               placeholder={disabled ? disabledReason : 'Message Coach'}
-              className="max-h-40 min-h-11 flex-1 resize-none bg-transparent px-2 py-2.5 text-[15px] leading-6 outline-none"
+              className="max-h-40 min-h-11 flex-1 resize-none bg-transparent px-2 py-2.5 text-[15px] leading-6 text-[var(--aal-ink)] outline-none placeholder:text-[var(--aal-muted)]"
             />
             {sending ? (
               <button
@@ -940,7 +952,7 @@ export default function CoachChat({
               <button
                 type="submit"
                 disabled={disabled || !draft.trim()}
-                className="mb-0.5 inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-sage text-white transition hover:brightness-105 disabled:opacity-40"
+                className="mb-0.5 inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-indigo-600 text-white transition hover:bg-indigo-500 disabled:opacity-40"
                 aria-label="Send"
               >
                 <Send className="h-4 w-4" />

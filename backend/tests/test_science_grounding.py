@@ -64,6 +64,36 @@ def test_heat_and_bfr_have_playbook_chunks():
         db.close()
 
 
+def test_key_physiology_topics_are_grounded():
+    db = _db()
+    try:
+        ingest_corpus(db)
+        cho = grounded_hits(
+            retrieve_science(
+                db, "How should I periodize carbohydrates around zone 2 training?"
+            )
+        )
+        lactate = grounded_hits(
+            retrieve_science(db, "How do I improve lactate clearance between intervals?")
+        )
+        taper = grounded_hits(
+            retrieve_science(db, "What tapering strategies should I use in race week?")
+        )
+        polarized = grounded_hits(
+            retrieve_science(db, "What is polarized intensity distribution?")
+        )
+        assert cho, "zone 2 carbohydrate periodization should retrieve"
+        assert lactate, "lactate clearance should retrieve"
+        assert taper, "tapering strategies should retrieve"
+        assert polarized, "polarized distribution should retrieve"
+        cho_blob = " ".join(hit["body"].lower() for hit in cho)
+        lactate_blob = " ".join(hit["body"].lower() for hit in lactate)
+        assert "carbohydrate" in cho_blob or "glycogen" in cho_blob
+        assert "lactate" in lactate_blob
+    finally:
+        db.close()
+
+
 def test_nonsense_query_is_not_grounded():
     db = _db()
     try:
@@ -94,6 +124,7 @@ def run() -> None:
     tests = [
         test_acwr_query_is_grounded,
         test_heat_and_bfr_have_playbook_chunks,
+        test_key_physiology_topics_are_grounded,
         test_nonsense_query_is_not_grounded,
         test_ungrounded_template_refuses_fake_papers,
     ]

@@ -96,6 +96,21 @@ def test_parses_five_column_call_table():
     sunday = [item for item in plan["workouts"] if str(item["date"]) == "2026-09-06"][0]
     assert sunday["title"] == "Long Z2 Endurance Ride"
     assert "sing" in (sunday["description"] or "").lower()
+    thursday_strength = next(
+        item for item in thursday if item["session_type"] == "strength"
+    )
+    assert any(
+        "Warm-up" == (seg.get("segment") or "")
+        for seg in thursday_strength.get("structure") or []
+    )
+    main = next(
+        seg
+        for seg in thursday_strength["structure"]
+        if seg.get("segment") == "Main set"
+    )
+    assert "squat" in (main.get("detail") or "").lower() or "bridge" in (
+        main.get("detail") or ""
+    ).lower()
 
 
 def run() -> None:

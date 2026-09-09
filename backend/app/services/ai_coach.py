@@ -443,7 +443,21 @@ Bypass the workout-autopsy template completely. Skip ⚡ THE BOTTOM LINE, 🔬 M
 🔬 2-3 Metric → Locker-room → Analogy triplets for the week's load/safety calls (ACWR, sleep/HRV, stacking, impact).
 
 If the athlete pasted a proposed week, use that as the draft and correct it. If they only asked to adjust, edit CURRENT WEEK PLAN. Do not invent a sport they do not do.
-Also fill week_plan.workouts — one object per session with real YYYY-MM-DD dates (even though the visible table omits Date). Split doubles onto the same date so Schedule can store them."""
+Also fill week_plan.workouts — one object per session with real YYYY-MM-DD dates (even though the visible table omits Date). Split doubles onto the same date so Schedule can store them.
+Every workout must include structure: Warm-up, Main set with named work (exercises, intervals, swim sets, yoga poses), and Cool-down with stretches, foam roll, or mobility."""
+
+
+def day_adjust_task() -> str:
+    return """Issue a TODAY-ONLY adjustment. Follow OUTPUT FORMAT exactly.
+BAN essays. Never more than two consecutive sentences.
+
+🟢 TODAY'S CALL — copy the precomputed TODAY'S CALL block status line exactly.
+🗣️ One locker-room sentence for today.
+🛠️ TODAY'S SESSION — what changes for TODAY only. Keep duration unless the call is REST.
+Warm-up, named Main set, Cool-down (stretches / foam roll / mobility).
+Do NOT rewrite Tuesday–Sunday or any day that is not today. Do not output a full week table.
+
+Fill week_plan.workouts with TODAY's date only. Other days stay as CURRENT WEEK PLAN."""
 
 
 def coach_modality(sport_type: str | None, family: str | None = None) -> str:
@@ -1237,6 +1251,87 @@ def template_schedule(
         "escalate": False,
         "escalation_reason": None,
         "intent": "SCHEDULE_UPDATE",
+    }
+
+
+def template_day_adjust(
+    message: str,
+    safety: dict,
+    science_hits: list[dict],
+    *,
+    current_plan: dict | None = None,
+    context: dict | None = None,
+    clock: dict | None = None,
+) -> dict[str, Any]:
+    """Deterministic today-only fallback when HRV/readiness/stress/ACWR is poor."""
+    from app.services.session_blueprints import downgrade_today_workout
+
+    today = (clock or {}).get("today")
+    health = ((context or {}).get("coros") or {}).get("latest_health") or {}
+    load = safety.get("load") or {}
+    score, source = readiness_score(health, safety)
+    band, status_label = today_call_status(score)
+    today_iso = today.isoformat() if today is not None else ""
+    today_workout = None
+    for workout in ((current_plan or {}).get("plan") or {}).get("workouts") or []:
+        if str(workout.get("date") or "")[:10] == today_iso:
+            today_workout = workout
+            break
+    if today_workout is None:
+        today_workout = {
+            "date": today_iso,
+            "sport": "Mobility",
+            "title": "Restore / mobility",
+            "session_type": "mobility",
+            "duration_min": 30,
+            "intensity": "Recovery",
+            "structure": [],
+        }
+    adjusted = downgrade_today_workout(today_workout, safety)
+    structure_lines = []
+    for segment in adjusted.get("structure") or []:
+        structure_lines.append(
+            f"• **{segment.get('segment')}** ({segment.get('duration_min')} min, "
+            f"{segment.get('intensity')}): {segment.get('detail')}"
+        )
+    hrv = health.get("hrv")
+    acwr = load.get("minutes_acwr")
+    lines = [
+        "🟢 TODAY'S CALL",
+        f"**{status_label}**",
+        f"**Readiness:** {score if score is not None else 'Missing'} ({source})"
+        if score is not None
+        else "**Readiness:** Missing",
+        f"**HRV:** {hrv if hrv is not None else 'Missing'}",
+        f"**ACWR:** {acwr if acwr is not None else 'Missing'}",
+        "",
+        "🗣️ LOCKER ROOM DIRECTIVE",
+        _LOCKER_DIRECTIVES[band],
+        "",
+        "🛠️ TODAY ONLY — other days stay as planned.",
+        f"**Session:** {adjusted.get('title')} · {adjusted.get('duration_min')} min · {adjusted.get('intensity')}",
+        *structure_lines,
+        "",
+        "🔬 WHY TODAY, NOT THE WEEK",
+        "• One suppressed HRV, readiness, stress, or ACWR day changes today. The week plan stays.",
+    ]
+    return {
+        "reply": "\n".join(lines),
+        "citations": [
+            hit["citation"]["slug"]
+            for hit in science_hits[:2]
+            if hit.get("citation", {}).get("slug")
+        ],
+        "escalate": False,
+        "escalation_reason": None,
+        "intent": "DAY_ADJUST",
+        "week_plan": {
+            "title": ((current_plan or {}).get("plan") or {}).get("title") or "This week",
+            "summary": "Today only — health markers changed this session, not the week.",
+            "focus": "Today only",
+            "week_start": str((clock or {}).get("week_start") or ""),
+            "workouts": [adjusted],
+        },
     }
 
 

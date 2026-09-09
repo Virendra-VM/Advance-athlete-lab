@@ -564,6 +564,7 @@ class CoachPlannedWorkoutRead(BaseModel):
     session_type: str | None = None
     intensity: str | None = None
     description: str | None = None
+    structure: list[dict] = []
 
 
 class CoachStatusResponse(BaseModel):
