@@ -12,24 +12,27 @@ from app.schemas import (
     AthleteEventUpdate,
     EventCompleteRequest,
     EventCompleteResponse,
+    SeasonBaselineRead,
+    SeasonFeasibilityRead,
     SeasonGenerateResponse,
+    SeasonPhaseAdjustRequest,
     SeasonPhaseRead,
     SeasonPlanRead,
     SeasonReplanRequest,
     SeasonReplanResponse,
     SeasonReplanTrigger,
+    SeasonWeekOutlineRead,
 )
 from app.services.b_race_calibration import complete_b_race_event
 from app.services.periodization import (
     VALID_PRIORITIES,
     VALID_SPORTS,
+    adjust_phase_weeks,
     build_season_context,
     generate_season_plan,
     get_active_season_plan,
-    get_phases_for_plan,
     list_planned_events,
     serialize_event,
-    serialize_phase,
     sync_a_race_from_profile,
     sync_profile_from_a_race,
 )
@@ -92,12 +95,12 @@ def _season_read(db: Session, profile: AthleteProfile) -> SeasonPlanRead | None:
     if plan is None:
         return None
 
-    phases = [
-        SeasonPhaseRead(**serialize_phase(phase))
-        for phase in get_phases_for_plan(db, plan.id)
-    ]
+    # The context already serialized the phases against the athlete's baseline,
+    # so reuse them instead of re-deriving the long-session ceiling without it.
     current = ctx.get("current_phase")
     a_race = ctx.get("a_race")
+    feasibility = ctx.get("a_race_feasibility")
+    baseline = ctx.get("baseline")
 
     return SeasonPlanRead(
         id=plan.id,
@@ -112,7 +115,12 @@ def _season_read(db: Session, profile: AthleteProfile) -> SeasonPlanRead | None:
         current_phase=SeasonPhaseRead(**current) if current else None,
         week_in_phase=ctx.get("week_in_phase"),
         week_intent=ctx.get("week_intent"),
-        phases=phases,
+        phases=[SeasonPhaseRead(**phase) for phase in ctx.get("phases") or []],
+        week_outline=[
+            SeasonWeekOutlineRead(**week) for week in ctx.get("week_outline") or []
+        ],
+        baseline=SeasonBaselineRead(**baseline) if baseline else None,
+        a_race_feasibility=SeasonFeasibilityRead(**feasibility) if feasibility else None,
         upcoming_events=[
             AthleteEventRead(**{**event, "date": date.fromisoformat(event["date"])})
             for event in ctx.get("upcoming_events") or []
@@ -191,8 +199,33 @@ def replan_season_route(
         plan=plan_read,
         triggers=[SeasonReplanTrigger(**trigger) for trigger in triggers_after],
         diff=result.get("diff") or [],
+        summary=result.get("summary") or [],
         reason=result.get("reason"),
     )
+
+
+@router.patch("/phases/{phase_id}", response_model=SeasonPlanRead)
+def adjust_phase(
+    phase_id: int,
+    payload: SeasonPhaseAdjustRequest,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Give this block a week, or take one. The A-race date does not move."""
+    if payload.delta_weeks == 0:
+        raise HTTPException(status_code=400, detail="delta_weeks cannot be 0.")
+    profile = _require_profile(current_user, db)
+    try:
+        adjust_phase_weeks(db, profile, phase_id, payload.delta_weeks)
+        db.commit()
+    except ValueError as exc:
+        db.rollback()
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+    plan_read = _season_read(db, profile)
+    if plan_read is None:
+        raise HTTPException(status_code=404, detail="Season plan not found.")
+    return plan_read
 
 
 @router.get("/events", response_model=list[AthleteEventRead])

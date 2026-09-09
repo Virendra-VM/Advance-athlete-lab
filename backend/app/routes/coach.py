@@ -188,10 +188,11 @@ def read_week_brief(
         "rhr",
         "daily",
         "sleep",
+        "season",
     }:
         raise HTTPException(
             status_code=422,
-            detail="topic must be volume, load, hrv, stress, rhr, daily, or sleep",
+            detail="topic must be volume, load, hrv, stress, rhr, daily, sleep, or season",
         )
     profile = _require_profile(current_user, db)
     _require_ai_consent(db, profile)

@@ -341,9 +341,16 @@ def build_template_load_brief(context: dict, safety: dict, effort: dict) -> dict
     )
 
     if readiness["action"] == "rest_or_mobility":
-        headline = "Protect the rest of this week"
+        # Distinct from the Volume page headline — same recovery call, effort wording.
+        headline = "Keep effort low this week"
+        lead = (
+            f"{load_line} Recovery is down, so remaining days stay easy or off even if that "
+            "ratio looks productive."
+            if ratio is not None
+            else "Recovery is down — remaining days stay easy or off. Effort load is not the deciding factor this week."
+        )
         recommendation = (
-            "Recovery is down — remaining days stay easy or off, even if the load ratio looks productive.\n"
+            f"{lead}\n"
             "1. Easy movement only — 20-40 min\n"
             "- Focus: walk, spin, mobility\n"
             "- Avoid: intervals, stacking load points"
@@ -774,6 +781,98 @@ def build_template_sleep_brief(context: dict, safety: dict, sleep: dict) -> dict
         "recommendation": recommendation,
         "session_adjustment": adjustment,
         "rationale": metric_line,
+        "citations": [],
+        "escalate": False,
+        "escalation_reason": None,
+    }
+
+
+SEASON_PHASE_PURPOSE = {
+    "base": "build aerobic volume and tissue durability — the block everything else sits on",
+    "build": "raise your threshold with controlled quality while volume holds",
+    "peak": "rehearse race pace, pacing, and fuelling now that fitness is largely set",
+    "taper": "shed fatigue while keeping fitness, so race day lands fresh",
+    "restore": "let the nervous system and connective tissue come back down after the race",
+    "recovery_week": "absorb the last block — same frequency, smaller doses",
+}
+
+SEASON_TRIGGER_REASON = {
+    "missed_key_sessions": "key sessions were missed this week",
+    "new_bc_race": "a new B or C race went on the calendar",
+    "active_injury": "there is an active injury on file",
+    "sustained_high_acwr": "load has been in the caution zone two weeks running",
+}
+
+
+def build_template_season_brief(context: dict, safety: dict, season: dict) -> dict:
+    """Deterministic Season page brief: where you are, and which planner button to press."""
+    a_race = season.get("a_race") or {}
+    race_name = a_race.get("name") or "your A-race"
+
+    if not season.get("has_plan"):
+        headline = "Generate your season plan"
+        recommendation = (
+            f"Your A-race is set to {race_name}, but no macro phases exist yet. "
+            "The planner needs to draw Base, Build, Peak, and Taper backward from that date.\n"
+            "1. Press Generate season — one click\n"
+            "- Uses: your A-race, fitness level, and any B/C/D events\n"
+            "- Then: Coach fills the individual sessions"
+        )
+        return {
+            "headline": headline,
+            "recommendation": recommendation,
+            "session_adjustment": "Rebuild is the right button here — there is no plan to protect yet.",
+            "rationale": f"No active season plan is anchored to {race_name}.",
+            "citations": [],
+            "escalate": False,
+            "escalation_reason": None,
+        }
+
+    phase = str(season.get("current_phase") or "base")
+    label = phase.replace("_", " ").capitalize()
+    purpose = SEASON_PHASE_PURPOSE.get(phase, SEASON_PHASE_PURPOSE["base"])
+    week_in = season.get("week_in_phase")
+    total = season.get("phase_week_count")
+    volume = season.get("volume_bias")
+    intensity = season.get("intensity_bias") or "moderate"
+
+    where = f"You are in {label}"
+    if week_in and total:
+        where += f", week {week_in} of {total}"
+    position_line = f"{where}. This block is here to {purpose}."
+
+    codes = list(season.get("replan_trigger_codes") or [])
+    reasons = [SEASON_TRIGGER_REASON.get(code, code.replace("_", " ")) for code in codes]
+
+    recommendation = (
+        f"{position_line}\n"
+        f"1. Hold the {label} shape — {intensity} intensity week\n"
+        f"- Volume bias: {volume if volume is not None else '—'}× your usual\n"
+        f"- Long day: up to {season.get('long_session_allowed_min') or '—'} min\n"
+        "2. Read the phase, not the calendar — open any block on the timeline\n"
+        f"- Anchor: {race_name} on {a_race.get('date') or '—'}\n"
+        "- Sessions: Coach writes them from this phase"
+    )
+
+    if reasons:
+        headline = f"{label} — worth replanning this week"
+        adjustment = (
+            f"Replan the remaining weeks: {reasons[0]}. "
+            "Finished weeks stay exactly as they are."
+        )
+    else:
+        headline = f"{label} is on track"
+        adjustment = "No plan change needed this week — nothing has drifted from the timeline."
+
+    rationale = f"Every phase is measured back from {race_name} on {a_race.get('date') or '—'}."
+    if reasons:
+        rationale += f" The planner flagged that {reasons[0]}."
+
+    return {
+        "headline": headline,
+        "recommendation": recommendation,
+        "session_adjustment": adjustment,
+        "rationale": rationale,
         "citations": [],
         "escalate": False,
         "escalation_reason": None,

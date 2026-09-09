@@ -39,6 +39,7 @@ from app.services.coach_templates import (
     build_template_hrv_brief,
     build_template_load_brief,
     build_template_rhr_brief,
+    build_template_season_brief,
     build_template_sleep_brief,
     build_template_stress_brief,
     build_template_week,
@@ -176,6 +177,52 @@ def health_brief_off_topic(topic: str, advice: dict | None) -> bool:
     if _TRAINING_LEAK_RE.search(blob):
         return True
     return bool(_CROSS_METRIC_RE[topic].search(blob))
+
+
+_SESSION_PRESCRIPTION_RE = re.compile(
+    r"\b\d+\s*[x×]\s*\d|\b\d+\s*x\s*\d+\s*(m|km|min)\b|\bper\s*km\b|\b\d+:\d{2}\s*/\s*km\b",
+    re.I,
+)
+_REPLAN_WORD_RE = re.compile(r"\breplan(?:ning|ned)?\b", re.I)
+
+
+def season_brief_off_topic(season: dict | None, advice: dict | None) -> bool:
+    """True when a season brief prescribes sessions or pushes a replan with no trigger."""
+    if not advice:
+        return False
+    blob = " ".join(
+        str(advice.get(key) or "")
+        for key in ("headline", "recommendation", "session_adjustment", "rationale")
+    )
+    if _SESSION_PRESCRIPTION_RE.search(blob):
+        return True
+    has_trigger = bool((season or {}).get("replan_trigger_codes"))
+    return bool(not has_trigger and _REPLAN_WORD_RE.search(blob))
+
+
+SEASON_ADVICE_SCHEMA = """{
+  "headline": "string, max 10 words, names the current phase, no markdown",
+  "recommendation": "string with REAL newlines. Lead sentence about where they are in the season, then numbered points that explain this block or name the next planner action. Each point is '1. Name — short constraint' followed by '- Label: value' bullets. Never one packed paragraph.",
+  "session_adjustment": "string or null, one or two short sentences naming Replan, Rebuild, or 'no change needed'",
+  "rationale": "string referencing their own phase, week number, or race countdown, max two sentences",
+  "citations": ["S1"],
+  "escalate": false,
+  "escalation_reason": null
+}"""
+
+SEASON_SYSTEM_PROMPT = """You explain an athlete's SEASON PLAN inside Advance Athlete Lab.
+The season skeleton is drawn by a deterministic periodization engine working backward from the A-race. You do not author it.
+Your job: say where they are in the season, what the current phase is for, and which planner action to take next (Replan, Rebuild, or nothing).
+You never invent or restate phase dates other than the ones given to you, and you never write individual workouts — the Coach page does that.
+Respond with JSON matching the requested schema."""
+
+SEASON_BAN = """HARD RULES
+Explain the season, do not rewrite it. Never propose different phase dates, phase lengths, or a different phase order.
+Do not prescribe specific sessions, paces, distances, or interval sets. Point at the Coach page for sessions.
+Only recommend Replan when a trigger is listed below. Only recommend Rebuild when the A-race itself changed or there is no plan.
+If no trigger is listed, say plainly that no plan change is needed this week.
+Do not lecture about sleep, HRV, stress, or resting HR — those have their own pages.
+Never more than two consecutive sentences per block. Do not pack into one paragraph."""
 
 CHAT_SCHEMA = """{
   "reply": "string, bullet-only GENERAL_CHAT answer: skip autopsy sections, max two sentences per bullet, optional bold REFRAME",
@@ -1219,7 +1266,9 @@ def _effort_load_dict(context: dict) -> dict:
     }
 
 
-WEEK_BRIEF_TOPICS = frozenset({"volume", "load", "hrv", "stress", "rhr", "daily", "sleep"})
+WEEK_BRIEF_TOPICS = frozenset(
+    {"volume", "load", "hrv", "stress", "rhr", "daily", "sleep", "season"}
+)
 HEALTH_WEEK_TOPICS = frozenset({"hrv", "stress", "rhr", "daily", "sleep"})
 
 
@@ -1346,6 +1395,101 @@ def _sleep_status_dict(context: dict) -> dict:
     }
 
 
+def _attach_replan_triggers(db: Session, profile: AthleteProfile, context: dict) -> None:
+    """Put current replan triggers on the season context so the brief can cite them.
+
+    Only the Season brief needs these, and detection costs several queries, so we
+    do not pay for them on every coach context build.
+    """
+    season = context.get("season")
+    if not isinstance(season, dict):
+        return
+    # Lazy import: periodization/season_replan already import from this module's peers.
+    from app.services.periodization import get_active_season_plan
+    from app.services.season_replan import detect_replan_triggers
+
+    try:
+        plan = get_active_season_plan(db, profile.id)
+        season["replan_triggers"] = detect_replan_triggers(db, profile, plan=plan)
+    except Exception:  # noqa: BLE001 - a brief must never fail on trigger detection
+        logger.warning("Replan trigger detection failed for season brief", exc_info=True)
+        season["replan_triggers"] = []
+
+
+def _season_status_dict(context: dict) -> dict:
+    """Season packet for the Season page brief — phases plus planner triggers."""
+    season = context.get("season") or {}
+    a_race = season.get("a_race") or {}
+    triggers = season.get("replan_triggers") or []
+    trigger_codes = sorted({str(item.get("code")) for item in triggers if item.get("code")})
+
+    if not season.get("has_plan"):
+        return {
+            "has_plan": False,
+            "a_race": {"name": a_race.get("name"), "date": a_race.get("date")} if a_race else None,
+            "replan_trigger_codes": trigger_codes,
+            "replan_trigger_messages": [str(item.get("message")) for item in triggers],
+        }
+
+    phase = season.get("current_phase") or {}
+    intent = season.get("week_intent") or {}
+    baseline = season.get("baseline") or {}
+    feasibility = season.get("a_race_feasibility") or {}
+    return {
+        "has_plan": True,
+        "a_race": {
+            "name": a_race.get("name"),
+            "date": a_race.get("date"),
+            "target_metric": a_race.get("target_metric"),
+        },
+        "season_start": season.get("start_date"),
+        "season_end": season.get("end_date"),
+        "current_phase": phase.get("phase_type"),
+        "phase_intent": phase.get("intent"),
+        "week_in_phase": season.get("week_in_phase"),
+        "phase_week_count": phase.get("week_count"),
+        "volume_bias": intent.get("volume_bias"),
+        "intensity_bias": intent.get("intensity_bias"),
+        "long_session_allowed_min": intent.get("long_session_allowed_min"),
+        # The reasons the limits are what they are. Fingerprinted so the brief
+        # refreshes when the explanation changes, not only when a number does.
+        "baseline": {
+            "long_session_ceiling_min": baseline.get("long_session_ceiling_min"),
+            "recovery_cycle_weeks": baseline.get("recovery_cycle_weeks"),
+            "volume_damp": baseline.get("volume_damp"),
+            "confidence": baseline.get("confidence"),
+            "notes": list(baseline.get("notes") or []),
+        },
+        "a_race_feasibility": {
+            "feasibility": feasibility.get("feasibility"),
+            "predicted_a_time": feasibility.get("predicted_a_time"),
+        },
+        "week_notes": list(intent.get("notes") or []),
+        "week_events": list(intent.get("events") or []),
+        "phase_outline": [
+            {
+                "phase_type": row.get("phase_type"),
+                "start_date": row.get("start_date"),
+                "end_date": row.get("end_date"),
+                "week_count": row.get("week_count"),
+            }
+            for row in season.get("phases") or []
+        ],
+        "upcoming_events": [
+            {
+                "name": row.get("name"),
+                "date": row.get("date"),
+                "priority": row.get("priority"),
+            }
+            for row in season.get("upcoming_events") or []
+        ],
+        "replan_trigger_codes": trigger_codes,
+        "replan_trigger_messages": [str(item.get("message")) for item in triggers],
+        "warnings": list(season.get("warnings") or []),
+        "a_race_feasibility": season.get("a_race_feasibility"),
+    }
+
+
 def week_brief_input_fingerprint(
     context: dict, clock: dict, distance: dict, topic: str = "volume"
 ) -> str:
@@ -1391,6 +1535,12 @@ def week_brief_input_fingerprint(
         payload = {"topic": topic, "week_start": shared["week_start"], "daily": _daily_status_dict(context)}
     elif topic == "sleep":
         payload = {"topic": topic, "week_start": shared["week_start"], "sleep": _sleep_status_dict(context)}
+    elif topic == "season":
+        payload = {
+            "topic": topic,
+            "week_start": shared["week_start"],
+            "season": _season_status_dict(context),
+        }
     else:
         load = safety.get("load") or {}
         payload = {
@@ -1422,6 +1572,8 @@ def generate_week_brief(
     current_plan = get_active_plan(db, profile.id, clock["week_start"])
     context["current_plan"] = current_plan or {}
     distance = _distance_load_dict(db, profile.id) if topic == "volume" else {}
+    if topic == "season":
+        _attach_replan_triggers(db, profile, context)
     fingerprint = week_brief_input_fingerprint(context, clock, distance, topic)
     week_start = clock["week_start"]
 
@@ -1516,6 +1668,7 @@ def _compose_week_brief(
     rhr = _rhr_status_dict(context) if topic == "rhr" else {}
     daily = _daily_status_dict(context) if topic == "daily" else {}
     sleep = _sleep_status_dict(context) if topic == "sleep" else {}
+    season = _season_status_dict(context) if topic == "season" else {}
 
     if topic == "hrv":
         query = "HRV heart-rate variability overnight milliseconds rMSSD"
@@ -1584,6 +1737,26 @@ Lead with last night's sleep_duration_min vs avg_7d_min (ratio_vs_usual). You ma
 deep/rem/light percentages, nap_duration_min, bedtime, and wake_time. Nothing else.
 If sleep_duration_min is missing, say they need an overnight sleep recording — do not invent minutes.
 {HEALTH_METRIC_BAN}"""
+    elif topic == "season":
+        query = "periodization macro base build peak taper season plan"
+        hits = _retrieve(db, query, profile, k=4)
+        focus_block = f"""SEASON PLAN ONLY (macro phases drawn backward from the A-race)
+{json.dumps(season, indent=2, default=str)}
+
+TASK
+Write THIS WEEK's Season brief. Week of Monday {clock['week_start_iso']} through Sunday {clock['week_end_iso']}.
+Today is {clock['weekday']} {clock['local_date']}.
+If has_plan is false, tell them to generate the season from their A-race — nothing else.
+Otherwise lead with the current phase and week_in_phase of phase_week_count, plus how far the A-race is.
+Explain what this phase is for using phase_intent, volume_bias, and intensity_bias.
+Then numbered points in this shape:
+Lead sentence.
+1. Point — short constraint
+- Label: value
+If replan_trigger_codes is non-empty, the session_adjustment must recommend Replan and name the reason.
+If it is empty, the session_adjustment must say no plan change is needed this week.
+Recommend Rebuild only when there is no plan or the A-race itself changed.
+{SEASON_BAN}"""
     elif topic == "load":
         query = f"training load TRIMP short-term long-term effort {' '.join(context['readiness_flags'])}".strip()
         hits = _retrieve(db, query or "training-load management", profile, k=4)
@@ -1638,6 +1811,17 @@ RETRIEVED EVIDENCE
 Respond with JSON matching exactly this shape:
 {HEALTH_METRIC_ADVICE_SCHEMA}"""
         system_prompt = HEALTH_METRIC_SYSTEM_PROMPT
+    elif topic == "season":
+        user_prompt = f"""{format_clock_block(clock)}
+
+RETRIEVED EVIDENCE
+{format_science_for_prompt(hits)}
+
+{focus_block}
+
+Respond with JSON matching exactly this shape:
+{SEASON_ADVICE_SCHEMA}"""
+        system_prompt = SEASON_SYSTEM_PROMPT
     else:
         user_prompt = f"""{format_clock_block(clock)}
 
@@ -1674,6 +1858,10 @@ Respond with JSON matching exactly this shape:
                 logger.warning("Health week brief for %s mentioned other topics; using template", topic)
                 advice = None
                 provider_name, model_name = "rules", "deterministic-template"
+            elif topic == "season" and season_brief_off_topic(season, advice):
+                logger.warning("Season brief drifted into sessions or a false replan; using template")
+                advice = None
+                provider_name, model_name = "rules", "deterministic-template"
         except ValidationError as exc:
             logger.warning("Week brief schema validation failed for %s: %s", provider_name, exc)
             advice = None
@@ -1692,10 +1880,12 @@ Respond with JSON matching exactly this shape:
             advice = build_template_daily_brief(context, safety, daily)
         elif topic == "sleep":
             advice = build_template_sleep_brief(context, safety, sleep)
+        elif topic == "season":
+            advice = build_template_season_brief(context, safety, season)
         else:
             advice = build_template_week_brief(context, safety, distance)
 
-    if topic not in HEALTH_WEEK_TOPICS and readiness["action"] == "rest_or_mobility":
+    if topic not in HEALTH_WEEK_TOPICS and topic != "season" and readiness["action"] == "rest_or_mobility":
         fallback = {
             "load": "Keep remaining days easy or rest — do not chase weekly load points.",
             "hrv": "Keep remaining days easy or rest — a recovered HRV number does not override rest.",

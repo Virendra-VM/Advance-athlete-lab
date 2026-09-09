@@ -5,7 +5,9 @@ import {
   createEvent,
   deleteEvent,
   completeEvent,
+  getSeason,
   listEvents,
+  replanSeason,
 } from '../../api/season'
 
 const PRIORITY_OPTIONS = [
@@ -13,6 +15,14 @@ const PRIORITY_OPTIONS = [
   { id: 'C', label: 'C — Social / hard workout' },
   { id: 'D', label: 'D — FTP / LTHR test' },
   { id: 'E', label: 'E — Other' },
+]
+
+const SPORT_OPTIONS = [
+  { id: 'run', label: 'Run' },
+  { id: 'bike', label: 'Bike' },
+  { id: 'swim', label: 'Swim' },
+  { id: 'strength', label: 'Strength' },
+  { id: 'other', label: 'Other' },
 ]
 
 const PRIORITY_BADGE = {
@@ -42,6 +52,11 @@ export default function ProfileEventsPanel({ embedded = false, inTraining = fals
   const [error, setError] = useState('')
   const [success, setSuccess] = useState('')
   const [saving, setSaving] = useState(false)
+  const [replanOffer, setReplanOffer] = useState(null)
+  const [replanning, setReplanning] = useState(false)
+  const [calibration, setCalibration] = useState(null)
+  const [logForm, setLogForm] = useState(null)
+  const [logging, setLogging] = useState(false)
   const [form, setForm] = useState({
     name: '',
     date: '',
@@ -93,7 +108,17 @@ export default function ProfileEventsPanel({ embedded = false, inTraining = fals
       })
       setForm({ name: '', date: '', priority: 'B', sport_type: 'run', target_metric: '' })
       setSuccess(`Added ${created.name}.`)
+      setCalibration(null)
       await reloadEvents()
+      if (created.priority === 'B' || created.priority === 'C') {
+        const season = await getSeason().catch(() => null)
+        if (season?.status === 'active') {
+          setReplanOffer({
+            name: created.name,
+            priority: created.priority,
+          })
+        }
+      }
     } catch (err) {
       setError(err.message || 'Failed to add event.')
     } finally {
@@ -111,45 +136,78 @@ export default function ProfileEventsPanel({ embedded = false, inTraining = fals
     }
   }
 
-  async function handleCompleteB(event) {
+  async function handleAcceptReplan() {
+    if (!replanOffer) return
+    const raceName = replanOffer.name
+    setReplanning(true)
     setError('')
-    const raw = window.prompt(
-      `Enter finish time for "${event.name}" (e.g. 42:30 or 1:30:00)`,
-      event.target_metric || '',
-    )
-    if (raw == null || !raw.trim()) return
     try {
-      const result = await completeEvent(event.id, { result_metric: raw.trim() })
-      if (result.calibration?.available) {
-        window.alert(
-          `B-race logged. Projected A-race: ${result.calibration.predicted_a_time_formatted} (${result.calibration.a_race_feasibility}).`,
-        )
-      }
-      await reloadEvents()
+      const result = await replanSeason({ new_bc_race: true })
+      setReplanOffer(null)
+      setSuccess(
+        result.replanned
+          ? `Remaining weeks updated for ${raceName}. Open the season timeline to see what moved.`
+          : result.message || 'The remaining weeks already fit that race.',
+      )
     } catch (err) {
-      setError(err.message || 'Could not complete B-race.')
+      setError(err.message || 'Could not replan the remaining weeks.')
+    } finally {
+      setReplanning(false)
     }
   }
 
-  async function handleCompleteD(event) {
-    setError('')
+  function openLogForm(event) {
     const isBike = String(event.sport_type || '').includes('bike')
-    const raw = window.prompt(
-      isBike
-        ? `Enter FTP (watts) from "${event.name}"`
-        : `Enter LTHR (bpm) from "${event.name}"`,
-    )
-    if (raw == null || !raw.trim()) return
-    const value = Number(raw)
-    if (Number.isNaN(value)) {
-      setError('Enter a valid number.')
+    setError('')
+    setLogForm({
+      id: event.id,
+      name: event.name,
+      kind: event.priority === 'D' ? 'd' : 'b',
+      isBike,
+      value: event.priority === 'B' ? event.target_metric || '' : '',
+    })
+  }
+
+  async function handleSubmitLog() {
+    if (!logForm) return
+    const raw = String(logForm.value || '').trim()
+    if (!raw) {
+      setError(logForm.kind === 'b' ? 'Enter a finish time.' : 'Enter the test result.')
       return
     }
+    setLogging(true)
+    setError('')
     try {
-      await completeEvent(event.id, isBike ? { ftp_watts: value } : { lthr_bpm: value })
+      if (logForm.kind === 'b') {
+        const result = await completeEvent(logForm.id, { result_metric: raw })
+        if (result.calibration?.available) {
+          setCalibration({
+            name: logForm.name,
+            predicted: result.calibration.predicted_a_time_formatted,
+            feasibility: result.calibration.a_race_feasibility,
+          })
+          setSuccess('')
+        } else {
+          setSuccess(`${logForm.name} logged.`)
+        }
+      } else {
+        const value = Number(raw)
+        if (Number.isNaN(value)) {
+          setError('Enter a valid number.')
+          return
+        }
+        await completeEvent(
+          logForm.id,
+          logForm.isBike ? { ftp_watts: value } : { lthr_bpm: value },
+        )
+        setSuccess(`${logForm.name} logged.`)
+      }
+      setLogForm(null)
       await reloadEvents()
     } catch (err) {
-      setError(err.message || 'Could not complete D-race.')
+      setError(err.message || 'Could not log that result.')
+    } finally {
+      setLogging(false)
     }
   }
 
@@ -205,6 +263,110 @@ export default function ProfileEventsPanel({ embedded = false, inTraining = fals
       {error ? <p className="mb-3 text-sm text-danger-muted">{error}</p> : null}
       {success ? <p className="mb-3 text-sm text-sage">{success}</p> : null}
 
+      {replanOffer ? (
+        <div className="mb-3 rounded-xl border border-indigo-500/30 bg-indigo-500/5 px-3 py-3">
+          <p className="text-sm font-semibold text-[var(--aal-ink)]">
+            {replanOffer.priority}-race added — remaining weeks should make room
+          </p>
+          <p className="mt-1 text-xs leading-relaxed text-[var(--aal-muted)]">
+            {replanOffer.name} is on the calendar. Replan keeps the weeks you already finished and
+            redraws only what is left to the A-race.
+          </p>
+          <div className="mt-3 flex flex-wrap gap-2">
+            <button
+              type="button"
+              onClick={handleAcceptReplan}
+              disabled={replanning}
+              className="rounded-xl bg-indigo-600 px-3 py-1.5 text-xs font-semibold text-white transition hover:bg-indigo-500 disabled:opacity-60"
+            >
+              {replanning ? 'Replanning…' : 'Replan remaining weeks'}
+            </button>
+            <button
+              type="button"
+              onClick={() => setReplanOffer(null)}
+              disabled={replanning}
+              className="rounded-xl border border-[var(--aal-line)] px-3 py-1.5 text-xs font-medium text-[var(--aal-muted)]"
+            >
+              Not now
+            </button>
+            <Link
+              to="/training/season"
+              className="inline-flex items-center px-1 text-xs font-semibold text-indigo-600 dark:text-indigo-300"
+            >
+              Review on Season →
+            </Link>
+          </div>
+        </div>
+      ) : null}
+
+      {logForm ? (
+        <div className="mb-3 rounded-xl border border-indigo-500/30 bg-indigo-500/5 px-3 py-3">
+          <p className="text-sm font-semibold text-[var(--aal-ink)]">
+            Log {logForm.name}
+          </p>
+          <p className="mt-1 text-xs leading-relaxed text-[var(--aal-muted)]">
+            {logForm.kind === 'b'
+              ? 'Finish time as h:mm:ss or mm:ss — this projects your A-race.'
+              : logForm.isBike
+                ? 'FTP from the test, in watts.'
+                : 'LTHR from the test, in bpm.'}
+          </p>
+          <div className="mt-3 flex flex-wrap items-end gap-2">
+            <label className="min-w-[10rem] flex-1">
+              <span className="text-[10px] font-semibold uppercase tracking-wide text-[var(--aal-muted)]">
+                {logForm.kind === 'b' ? 'Finish time' : logForm.isBike ? 'FTP (watts)' : 'LTHR (bpm)'}
+              </span>
+              <input
+                value={logForm.value}
+                onChange={(event) =>
+                  setLogForm((prev) => (prev ? { ...prev, value: event.target.value } : prev))
+                }
+                className={FIELD_CLASS}
+                placeholder={
+                  logForm.kind === 'b' ? '1:30:00' : logForm.isBike ? '250' : '165'
+                }
+                inputMode={logForm.kind === 'd' ? 'numeric' : 'text'}
+              />
+            </label>
+            <button
+              type="button"
+              onClick={handleSubmitLog}
+              disabled={logging}
+              className="rounded-xl bg-indigo-600 px-3 py-2 text-xs font-semibold text-white transition hover:bg-indigo-500 disabled:opacity-60"
+            >
+              {logging ? 'Saving…' : 'Save result'}
+            </button>
+            <button
+              type="button"
+              onClick={() => setLogForm(null)}
+              disabled={logging}
+              className="rounded-xl border border-[var(--aal-line)] px-3 py-2 text-xs font-medium text-[var(--aal-muted)]"
+            >
+              Cancel
+            </button>
+          </div>
+        </div>
+      ) : null}
+
+      {calibration ? (
+        <div className="mb-3 rounded-xl border border-amber-500/30 bg-amber-500/10 px-3 py-3">
+          <p className="text-sm font-semibold text-[var(--aal-ink)]">
+            {calibration.name} logged
+          </p>
+          <p className="mt-1 text-xs leading-relaxed text-[var(--aal-muted)]">
+            Projected A-race {calibration.predicted || '—'}
+            {calibration.feasibility ? ` · ${calibration.feasibility.replace('_', ' ')}` : ''}.
+            The Season page now shows this against your goal.
+          </p>
+          <Link
+            to="/training/season"
+            className="mt-2 inline-flex text-xs font-semibold text-indigo-600 dark:text-indigo-300"
+          >
+            See feasibility on Season →
+          </Link>
+        </div>
+      ) : null}
+
       {loading ? (
         <p className="text-sm text-[var(--aal-muted)]">Loading events…</p>
       ) : (
@@ -230,20 +392,16 @@ export default function ProfileEventsPanel({ embedded = false, inTraining = fals
                 </div>
                 <div className="flex items-center gap-2">
                   <span className="text-sm text-[var(--aal-muted)]">{formatDate(event.date)}</span>
-                  {event.priority === 'B' && event.status !== 'completed' ? (
+                  {(event.priority === 'B' || event.priority === 'D') &&
+                  event.status !== 'completed' ? (
                     <button
                       type="button"
-                      onClick={() => handleCompleteB(event)}
-                      className="rounded-lg border border-indigo-500/30 px-2 py-1 text-[11px] font-semibold text-indigo-700 dark:text-indigo-300"
-                    >
-                      Log result
-                    </button>
-                  ) : null}
-                  {event.priority === 'D' && event.status !== 'completed' ? (
-                    <button
-                      type="button"
-                      onClick={() => handleCompleteD(event)}
-                      className="rounded-lg border border-teal-500/30 px-2 py-1 text-[11px] font-semibold text-teal-700 dark:text-teal-300"
+                      onClick={() => openLogForm(event)}
+                      className={`rounded-lg border px-2 py-1 text-[11px] font-semibold ${
+                        event.priority === 'D'
+                          ? 'border-teal-500/30 text-teal-700 dark:text-teal-300'
+                          : 'border-indigo-500/30 text-indigo-700 dark:text-indigo-300'
+                      }`}
                     >
                       Log result
                     </button>
@@ -263,7 +421,7 @@ export default function ProfileEventsPanel({ embedded = false, inTraining = fals
         </div>
       )}
 
-      <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
+      <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
         <label className="block sm:col-span-2">
           <span className="text-xs font-semibold uppercase tracking-wide text-[var(--aal-muted)]">
             Name
@@ -296,6 +454,22 @@ export default function ProfileEventsPanel({ embedded = false, inTraining = fals
             className={FIELD_CLASS}
           >
             {PRIORITY_OPTIONS.map((option) => (
+              <option key={option.id} value={option.id}>
+                {option.label}
+              </option>
+            ))}
+          </select>
+        </label>
+        <label className="block">
+          <span className="text-xs font-semibold uppercase tracking-wide text-[var(--aal-muted)]">
+            Sport
+          </span>
+          <select
+            value={form.sport_type}
+            onChange={(event) => setForm((prev) => ({ ...prev, sport_type: event.target.value }))}
+            className={FIELD_CLASS}
+          >
+            {SPORT_OPTIONS.map((option) => (
               <option key={option.id} value={option.id}>
                 {option.label}
               </option>

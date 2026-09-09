@@ -10,17 +10,18 @@ from sqlalchemy.orm import Session
 
 from app.models import AthleteEvent, AthleteInjury, AthleteProfile, PlannedWorkout, SeasonPhase, SeasonPlan, TrainingPlan
 from app.services.periodization import (
-    PHASE_DEFAULTS,
     build_phase_blocks,
     get_active_season_plan,
     get_phases_for_plan,
     list_planned_events,
     monday_of,
+    phase_payload,
     serialize_phase,
     sync_a_race_from_profile,
     validate_events,
     weeks_between_inclusive,
 )
+from app.services.season_baseline import build_season_baseline
 from app.services.training_load import _round_load, _sum_session_load
 
 REPLAN_META_PREFIX = "__REPLAN_META__:"
@@ -33,8 +34,10 @@ def _week_start(value: date) -> date:
     return monday_of(value)
 
 
-def _serialize_phases(phases: list[SeasonPhase]) -> list[dict[str, Any]]:
-    return [serialize_phase(phase) for phase in phases]
+def _serialize_phases(
+    phases: list[SeasonPhase], baseline: dict[str, Any] | None = None
+) -> list[dict[str, Any]]:
+    return [serialize_phase(phase, baseline) for phase in phases]
 
 
 def _parse_warnings(plan: SeasonPlan | None) -> tuple[list[str], dict[str, Any] | None]:
@@ -444,45 +447,150 @@ def detect_replan_triggers(
     return raw
 
 
+def _occurrence_keys(rows: list[dict[str, Any]]) -> list[tuple[str, int]]:
+    """Label repeated phase types so the Nth base block pairs with the Nth base block."""
+    seen: dict[str, int] = {}
+    keys: list[tuple[str, int]] = []
+    for row in rows:
+        phase_type = row["phase_type"]
+        seen[phase_type] = seen.get(phase_type, 0) + 1
+        keys.append((phase_type, seen[phase_type]))
+    return keys
+
+
+def _diff_row(
+    phase_type: str,
+    occurrence: int,
+    change: str,
+    before: dict[str, Any] | None,
+    after: dict[str, Any] | None,
+) -> dict[str, Any]:
+    row: dict[str, Any] = {
+        "phase_type": phase_type,
+        "occurrence": occurrence,
+        "change": change,
+    }
+    if before is not None:
+        row["before"] = f"{before['start_date']} → {before['end_date']}"
+        row["before_start"] = before["start_date"]
+        row["before_end"] = before["end_date"]
+        row["before_volume_bias"] = before.get("volume_bias")
+    if after is not None:
+        row["after"] = f"{after['start_date']} → {after['end_date']}"
+        row["after_start"] = after["start_date"]
+        row["after_end"] = after["end_date"]
+        row["after_volume_bias"] = after.get("volume_bias")
+    if before is not None and after is not None:
+        shift = (
+            date.fromisoformat(after["start_date"]) - date.fromisoformat(before["start_date"])
+        ).days
+        row["shift_days"] = shift
+    return row
+
+
 def _phase_diff(before: list[dict[str, Any]], after: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """Before/after per phase block.
+
+    A real season repeats base, build and recovery_week several times, so blocks
+    are paired by (phase type, occurrence). Keying on phase type alone compared
+    the first base block against the last one and reported changes that were not
+    there.
+    """
+    before_by_key = dict(zip(_occurrence_keys(before), before))
+    after_by_key = dict(zip(_occurrence_keys(after), after))
+
     diff: list[dict[str, Any]] = []
-    after_by_type = {row["phase_type"]: row for row in after}
-    for row in before:
-        replacement = after_by_type.get(row["phase_type"])
+    for key, row in before_by_key.items():
+        phase_type, occurrence = key
+        replacement = after_by_key.get(key)
         if replacement is None:
-            diff.append(
-                {
-                    "phase_type": row["phase_type"],
-                    "change": "removed",
-                    "before": f"{row['start_date']} → {row['end_date']}",
-                }
-            )
+            diff.append(_diff_row(phase_type, occurrence, "removed", row, None))
             continue
-        before_dates = (row["start_date"], row["end_date"])
-        after_dates = (replacement["start_date"], replacement["end_date"])
-        before_intent = row.get("intent")
-        after_intent = replacement.get("intent")
-        before_volume = row.get("volume_bias")
-        after_volume = replacement.get("volume_bias")
-        if before_dates != after_dates or before_intent != after_intent or before_volume != after_volume:
-            diff.append(
-                {
-                    "phase_type": row["phase_type"],
-                    "change": "shifted",
-                    "before": f"{row['start_date']} → {row['end_date']}",
-                    "after": f"{replacement['start_date']} → {replacement['end_date']}",
-                }
-            )
-    for row in after:
-        if row["phase_type"] not in {item["phase_type"] for item in before}:
-            diff.append(
-                {
-                    "phase_type": row["phase_type"],
-                    "change": "added",
-                    "after": f"{row['start_date']} → {row['end_date']}",
-                }
-            )
+        changed = (
+            (row["start_date"], row["end_date"])
+            != (replacement["start_date"], replacement["end_date"])
+            or row.get("intent") != replacement.get("intent")
+            or row.get("volume_bias") != replacement.get("volume_bias")
+        )
+        if changed:
+            diff.append(_diff_row(phase_type, occurrence, "shifted", row, replacement))
+    for key, row in after_by_key.items():
+        if key not in before_by_key:
+            diff.append(_diff_row(key[0], key[1], "added", None, row))
     return diff
+
+
+PHASE_LABELS = {
+    "base": "Base",
+    "build": "Build",
+    "peak": "Peak",
+    "taper": "Taper",
+    "recovery_week": "Recovery weeks",
+    "restore": "Restore",
+}
+SUMMARY_PHASE_ORDER = ("base", "build", "peak", "taper", "recovery_week")
+
+
+def _span_weeks(row: dict[str, Any]) -> int:
+    start = date.fromisoformat(row["start_date"])
+    end = date.fromisoformat(row["end_date"])
+    return max(1, (end - start).days // 7 + 1)
+
+
+def _weeks_by_type(rows: list[dict[str, Any]]) -> dict[str, int]:
+    totals: dict[str, int] = {}
+    for row in rows:
+        totals[row["phase_type"]] = totals.get(row["phase_type"], 0) + _span_weeks(row)
+    return totals
+
+
+def _first_start(rows: list[dict[str, Any]], phase_type: str) -> str | None:
+    starts = [row["start_date"] for row in rows if row["phase_type"] == phase_type]
+    return min(starts) if starts else None
+
+
+def _replan_summary(
+    before: list[dict[str, Any]], after: list[dict[str, Any]]
+) -> list[str]:
+    """What the replan actually changed, in the terms an athlete cares about.
+
+    The block-level diff is exact but unreadable: re-laying out a season moves
+    every recovery week, so a one-week change reports as a dozen shifts. This
+    rolls those up into phase totals and the boundary dates that matter.
+    """
+    before_weeks = _weeks_by_type(before)
+    after_weeks = _weeks_by_type(after)
+
+    lines: list[str] = []
+    for phase_type in SUMMARY_PHASE_ORDER:
+        was = before_weeks.get(phase_type, 0)
+        now = after_weeks.get(phase_type, 0)
+        if was == now:
+            continue
+        delta = abs(now - was)
+        unit = "week" if delta == 1 else "weeks"
+        lines.append(
+            f"{PHASE_LABELS[phase_type]}: {was} → {now} weeks "
+            f"({delta} {unit} {'more' if now > was else 'less'})"
+        )
+
+    for phase_type in ("build", "peak", "taper"):
+        was = _first_start(before, phase_type)
+        now = _first_start(after, phase_type)
+        if not was or not now or was == now:
+            continue
+        shift = (date.fromisoformat(now) - date.fromisoformat(was)).days
+        lines.append(
+            f"{PHASE_LABELS[phase_type]} now starts {now} — "
+            f"{abs(shift)} days {'later' if shift > 0 else 'earlier'}."
+        )
+
+    if not lines:
+        lines.append(
+            "Phase lengths and start dates are unchanged — only the week-by-week "
+            "detail inside them moved."
+        )
+    return lines
 
 
 def _build_future_payloads(
@@ -493,52 +601,58 @@ def _build_future_payloads(
     a_race_date: date,
     triggers: list[dict[str, Any]],
     past_phase_count: int,
+    baseline: dict[str, Any] | None = None,
+    season_start: date | None = None,
 ) -> list[dict[str, Any]]:
     remaining_weeks = weeks_between_inclusive(as_of, a_race_date)
+    season_weeks = weeks_between_inclusive(season_start or as_of, a_race_date)
     extra_recovery = any(
         trigger["code"] in {"missed_key_sessions", "active_injury", "sustained_high_acwr"}
         for trigger in triggers
     )
     has_bc_trigger = any(trigger["code"] == "new_bc_race" for trigger in triggers)
 
-    future_payloads = build_phase_blocks(profile, as_of, a_race_date)
+    if extra_recovery and remaining_weeks >= 3:
+        # An athlete who is hurt, spiking load, or missing key sessions needs a
+        # down week now. Spend it out of the remaining runway and re-run the
+        # engine over what is left, so the A-race stays fixed and every phase
+        # after it is rebuilt to fit. The previous approach shifted the old
+        # phases forward by seven days, which left recovery weeks overlapping
+        # their neighbours, a gap where the shift started, a taper that landed
+        # after the A-race, and no restore phase at all.
+        recovery_start = as_of
+        # Snap to the nearest Monday so the rebuilt phases stay week-aligned;
+        # that keeps the down block in the 4–10 day range whatever day it is.
+        rebuild_start = monday_of(as_of + timedelta(days=10))
+        future_payloads = [
+            phase_payload(
+                "recovery_week",
+                recovery_start,
+                rebuild_start - timedelta(days=1),
+                sort_order=past_phase_count,
+                baseline=baseline,
+                week_count=1,
+            ),
+            *build_phase_blocks(
+                profile,
+                rebuild_start,
+                a_race_date,
+                baseline=baseline,
+                season_weeks=season_weeks,
+            ),
+        ]
+    else:
+        future_payloads = build_phase_blocks(
+            profile, as_of, a_race_date, baseline=baseline, season_weeks=season_weeks
+        )
+
     if has_bc_trigger:
         future_payloads = _annotate_phases_for_bc_races(future_payloads, events, as_of=as_of)
-    if extra_recovery and remaining_weeks >= 3:
-        recovery_defaults = PHASE_DEFAULTS["recovery_week"]
-        recovery_end = as_of + timedelta(days=6)
-        future_payloads.insert(
-            0,
-            {
-                "phase_type": "recovery_week",
-                "start_date": as_of,
-                "end_date": recovery_end,
-                "week_count": 1,
-                "intent": recovery_defaults["intent"],
-                "volume_bias": recovery_defaults["volume_bias"],
-                "intensity_bias": recovery_defaults["intensity_bias"],
-                "long_session_allowed_min": recovery_defaults["long_session_allowed_min"],
-                "sort_order": past_phase_count,
-            },
-        )
-        shift_days = 7
-        adjusted: list[dict[str, Any]] = []
-        for payload in future_payloads[1:]:
-            if payload["phase_type"] == "recovery_week":
-                adjusted.append(payload)
-                continue
-            adjusted.append(
-                {
-                    **payload,
-                    "start_date": payload["start_date"] + timedelta(days=shift_days),
-                    "end_date": payload["end_date"] + timedelta(days=shift_days),
-                }
-            )
-        future_payloads = [future_payloads[0], *adjusted]
-        future_payloads = [
-            payload for payload in future_payloads if payload["start_date"] <= a_race_date
-        ]
-    return future_payloads
+
+    return [
+        {**payload, "sort_order": past_phase_count + index}
+        for index, payload in enumerate(future_payloads)
+    ]
 
 
 def _annotate_phases_for_bc_races(
@@ -666,21 +780,40 @@ def replan_season(
 
     addressed_codes = [trigger["code"] for trigger in triggers]
     events = list_planned_events(db, profile.id)
+    baseline = build_season_baseline(db, profile, as_of=as_of)
     phases = get_phases_for_plan(db, plan.id)
-    past_phases = [phase for phase in phases if phase.end_date < as_of]
-    future_before = [phase for phase in phases if phase.end_date >= as_of]
-    before_snapshot = _serialize_phases(future_before)
+
+    # Macro phases are whole-week units, so the rewrite starts on Monday of the
+    # current week. Rebuilding from an arbitrary weekday left the days already
+    # lived in the current phase belonging to nothing.
+    rebuild_from = monday_of(as_of)
+
+    past_phases = [phase for phase in phases if phase.end_date < rebuild_from]
+    overlapping = [phase for phase in phases if phase.end_date >= rebuild_from]
+
+    # The athlete is partway through a phase. Its finished weeks are kept and
+    # trimmed back to today rather than deleted, which would leave a gap. The
+    # trim itself waits until we know the plan is actually being rewritten.
+    straddling = [phase for phase in overlapping if phase.start_date < rebuild_from]
+    future_before = [phase for phase in overlapping if phase not in straddling]
+    kept_phases = [*past_phases, *straddling]
+    # Compared over the same window as the rebuild, so a truncated current phase
+    # does not read as a removed one.
+    before_snapshot = _serialize_phases(future_before, baseline)
 
     future_payloads = _build_future_payloads(
         profile,
         events,
-        as_of=as_of,
+        as_of=rebuild_from,
         a_race_date=a_race.event_date,
         triggers=triggers,
-        past_phase_count=len(past_phases),
+        past_phase_count=len(kept_phases),
+        baseline=baseline,
+        season_start=plan.start_date,
     )
-    after_snapshot = _snapshot_from_payloads(future_payloads, as_of=as_of)
+    after_snapshot = _snapshot_from_payloads(future_payloads, as_of=rebuild_from)
     diff = _phase_diff(before_snapshot, after_snapshot)
+    summary = _replan_summary(before_snapshot, after_snapshot) if diff else []
 
     meta = _load_replan_meta(plan)
     replanned_at = _meta_replanned_at(meta)
@@ -701,13 +834,22 @@ def replan_season(
     if diff:
         for phase in future_before:
             db.delete(phase)
-        for row in _payloads_to_phase_rows(
+        new_rows = _payloads_to_phase_rows(
             plan,
             future_payloads,
-            as_of=as_of,
-            sort_order_start=len(past_phases),
-        ):
+            as_of=rebuild_from,
+            sort_order_start=len(kept_phases),
+        )
+        for row in new_rows:
             db.add(row)
+        # The rebuilt tail can end on a different day than the old one, and the
+        # timeline is drawn from the plan's own span — leaving it stale drew a
+        # macro bar longer than the phases inside it.
+        plan.end_date = max(
+            [row.end_date for row in new_rows]
+            + [phase.end_date for phase in kept_phases]
+            + [a_race.event_date]
+        )
 
     replanned_at = datetime.utcnow()
     replan_note = reason or "; ".join(trigger["message"] for trigger in triggers) or "Manual replan"
@@ -728,6 +870,7 @@ def replan_season(
         "triggers": [],
         "reason": replan_note,
         "diff": diff,
+        "summary": summary,
         "warnings": warnings,
         "phases_before": before_snapshot,
         "phases_after": after_snapshot,

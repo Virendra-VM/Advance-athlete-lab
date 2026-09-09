@@ -603,6 +603,56 @@ class SeasonPhaseRead(BaseModel):
     intensity_bias: str | None = None
     long_session_allowed_min: int | None = None
     sort_order: int
+    can_grow: bool = False
+    can_shrink: bool = False
+
+
+class SeasonPhaseAdjustRequest(BaseModel):
+    """Steal or give weeks. The A-race date does not move."""
+
+    delta_weeks: int = Field(..., ge=-2, le=2)
+
+
+class SeasonBaselineRead(BaseModel):
+    """Why the plan's numbers are what they are, from the athlete's own history."""
+
+    chronic_weekly_minutes: int | None = None
+    chronic_weekly_km: float | None = None
+    acwr: float | None = None
+    weeks_with_training: int = 0
+    lookback_weeks: int = 6
+    longest_session_min: int | None = None
+    longest_session_source: str = "typical"
+    typical_session_minutes: int | None = None
+    long_session_ceiling_min: int | None = None
+    volume_damp: float = 1.0
+    recovery_cycle_weeks: int = 4
+    thin_baseline: bool = False
+    active_injuries: list[str] = []
+    confidence: str = "low"
+    notes: list[str] = []
+
+
+class SeasonFeasibilityRead(BaseModel):
+    """Riegel projection from the most recent completed B-race."""
+
+    feasibility: str | None = None
+    predicted_a_time: str | None = None
+    b_race: str | None = None
+    peak_pace_note: str | None = None
+
+
+class SeasonWeekOutlineRead(BaseModel):
+    week_start: Date
+    week_number: int
+    phase_type: str
+    phase_id: int | None = None
+    week_in_phase: int | None = None
+    volume_bias: float | None = None
+    intensity_bias: str | None = None
+    is_current: bool = False
+    is_past: bool = False
+    events: list[dict] = []
 
 
 class SeasonPlanRead(BaseModel):
@@ -617,6 +667,9 @@ class SeasonPlanRead(BaseModel):
     week_in_phase: int | None = None
     week_intent: dict | None = None
     phases: list[SeasonPhaseRead] = []
+    week_outline: list[SeasonWeekOutlineRead] = []
+    baseline: SeasonBaselineRead | None = None
+    a_race_feasibility: SeasonFeasibilityRead | None = None
     upcoming_events: list[AthleteEventRead] = []
 
 
@@ -692,4 +745,6 @@ class SeasonReplanResponse(BaseModel):
     plan: SeasonPlanRead | None = None
     triggers: list[SeasonReplanTrigger] = []
     diff: list[dict] = []
+    # Phase-level rollup of the diff, which is what the page actually shows.
+    summary: list[str] = []
     reason: str | None = None

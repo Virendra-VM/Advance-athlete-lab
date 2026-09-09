@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { AlertTriangle, MoonStar, RefreshCw, Zap } from 'lucide-react'
+import { AlertTriangle, CalendarRange, MoonStar, RefreshCw, Zap } from 'lucide-react'
 import LoadingDots from '../ui/LoadingDots'
 
 const READINESS = {
@@ -279,13 +279,27 @@ function CallWarnings({ warnings, label, directive }) {
 
 const HEALTH_WEEK_TOPICS = new Set(['hrv', 'stress', 'rhr', 'daily', 'sleep'])
 
-const HEALTH_BRIEF = {
-  icon: MoonStar,
+/**
+ * Topics whose brief is scoped to one subject, so the shared training-readiness
+ * verdict ("Green light", "Why: …") and the cross-metric chips do not belong.
+ */
+const SCOPED_WEEK_TOPICS = new Set([...HEALTH_WEEK_TOPICS, 'season'])
+
+const INDIGO_BRIEF = {
   accent: 'text-indigo-500 dark:text-indigo-300',
   ring: 'border-indigo-300/40 bg-indigo-50/50 dark:bg-indigo-950/20',
   panel: 'border-indigo-300/35 bg-[var(--aal-card)]',
   button:
     'border-indigo-300/50 bg-indigo-50/80 text-indigo-600 dark:bg-indigo-950/30 dark:text-indigo-300',
+}
+
+const SCOPED_LOOK = {
+  health: { ...INDIGO_BRIEF, icon: MoonStar },
+  season: { ...INDIGO_BRIEF, icon: CalendarRange },
+}
+
+function scopedLook(topic) {
+  return SCOPED_LOOK[topic] || SCOPED_LOOK.health
 }
 
 const WEEK_TOPIC = {
@@ -295,6 +309,13 @@ const WEEK_TOPIC = {
     refreshTitle: 'Rewrite this volume brief from ACWR, distance, and recovery',
     cacheHeld: 'Held for this week — rewrites if kilometres, ACWR, recovery, or the plan changes.',
     loading: 'Reading this week’s volume…',
+  },
+  season: {
+    scopeLabel: 'Season',
+    adjustmentTitle: 'Next planner move',
+    refreshTitle: 'Rewrite this season brief from your current phase and planner triggers',
+    cacheHeld: 'Held for this week — rewrites if your phase, A-race, or planner triggers change.',
+    loading: 'Reading your season…',
   },
   load: {
     scopeLabel: 'Load',
@@ -358,8 +379,8 @@ export default function TodayAdvice({
   callDirective = null,
 }) {
   const isWeek = scope === 'week'
-  const metricOnly = isWeek && HEALTH_WEEK_TOPICS.has(topic)
-  const look = metricOnly ? HEALTH_BRIEF : READINESS[advice?.readiness?.action] || READINESS.proceed
+  const scoped = isWeek && SCOPED_WEEK_TOPICS.has(topic)
+  const look = scoped ? scopedLook(topic) : READINESS[advice?.readiness?.action] || READINESS.proceed
   const weekCopy = WEEK_TOPIC[topic] || {
     scopeLabel: 'Week',
     adjustmentTitle: 'This week’s load',
@@ -406,7 +427,7 @@ export default function TodayAdvice({
   const readiness = READINESS[advice.readiness?.action] || READINESS.proceed
   const Icon = look.icon
   const body = advice.advice || {}
-  const briefTone = metricOnly
+  const briefTone = scoped
     ? 'indigo'
     : advice.readiness?.action === 'rest_or_mobility'
       ? 'danger'
@@ -422,7 +443,7 @@ export default function TodayAdvice({
           <div className="flex items-center gap-2">
             <Icon className={`h-4 w-4 shrink-0 ${look.accent}`} />
             <p className={`text-[11px] font-semibold uppercase tracking-[0.16em] ${look.accent}`}>
-              {metricOnly ? scopeLabel : `${scopeLabel} · ${readiness.label}`}
+              {scoped ? scopeLabel : `${scopeLabel} · ${readiness.label}`}
             </p>
           </div>
           <button
@@ -451,7 +472,7 @@ export default function TodayAdvice({
                 <SignalChip key={chip.label} label={chip.label} value={chip.value} />
               ))
             : null}
-          {isWeek && !metricOnly && (!loadChips || !loadChips.length) ? (
+          {isWeek && !scoped && (!loadChips || !loadChips.length) ? (
             <>
               <SignalChip
                 label="ACWR"
@@ -467,7 +488,7 @@ export default function TodayAdvice({
               />
             </>
           ) : null}
-          {metricOnly ? null : (
+          {scoped ? null : (
             <>
               <SignalChip
                 label="Sleep score"
@@ -503,7 +524,7 @@ export default function TodayAdvice({
 
         <CallWarnings warnings={callWarnings} label={callLabel} directive={callDirective} />
 
-        {metricOnly ? null : advice.readiness?.reason ? (
+        {scoped ? null : advice.readiness?.reason ? (
           <p className="mt-2 text-xs text-[var(--aal-muted)]">Why: {advice.readiness.reason}</p>
         ) : null}
 
@@ -513,7 +534,7 @@ export default function TodayAdvice({
             <p>
               <span className="font-semibold">See a professional. </span>
               {body.escalation_reason ||
-              (metricOnly
+              (scoped
                 ? 'These readings need a professional look.'
                 : 'Your symptoms need assessment before more training.')}
             </p>
@@ -531,7 +552,7 @@ export default function TodayAdvice({
         <div className="flex items-center gap-2">
           <Icon className={`h-4 w-4 ${look.accent}`} />
           <p className={`text-[11px] font-semibold uppercase tracking-[0.18em] ${look.accent}`}>
-            {metricOnly ? scopeLabel : `${scopeLabel} · ${readiness.label}`}
+            {scoped ? scopeLabel : `${scopeLabel} · ${readiness.label}`}
           </p>
         </div>
         <button
@@ -565,7 +586,7 @@ export default function TodayAdvice({
         </p>
       ) : null}
 
-      {metricOnly ? null : advice.readiness?.reason ? (
+      {scoped ? null : advice.readiness?.reason ? (
         <p className="mt-2 text-xs text-[var(--aal-muted)]">Signal: {advice.readiness.reason}</p>
       ) : null}
 
@@ -575,7 +596,7 @@ export default function TodayAdvice({
           <p>
             <span className="font-semibold">See a professional. </span>
             {body.escalation_reason ||
-              (metricOnly
+              (scoped
                 ? 'These readings need a professional look.'
                 : 'Your symptoms need assessment before more training.')}
           </p>
@@ -604,9 +625,9 @@ export function TodayAlertButton({
   const [open, setOpen] = useState(false)
   const rootRef = useRef(null)
   const isWeek = scope === 'week'
-  const metricOnly = isWeek && HEALTH_WEEK_TOPICS.has(topic)
+  const scoped = isWeek && SCOPED_WEEK_TOPICS.has(topic)
   const readiness = READINESS[advice?.readiness?.action] || READINESS.proceed
-  const look = metricOnly ? HEALTH_BRIEF : readiness
+  const look = scoped ? scopedLook(topic) : readiness
   const Icon = look.icon
   const escalate = Boolean(advice?.advice?.escalate)
   const scopeLabel = isWeek ? (WEEK_TOPIC[topic]?.scopeLabel || 'Week') : 'Today'
@@ -629,8 +650,8 @@ export function TodayAlertButton({
 
   const tone = escalate
     ? 'border-red-300/50 bg-red-50 text-danger-muted dark:bg-red-950/40'
-    : metricOnly
-      ? HEALTH_BRIEF.button
+    : scoped
+      ? scopedLook(topic).button
       : advice?.readiness?.action === 'downgrade_to_easy'
         ? 'border-amber-status/40 bg-amber-50/80 text-amber-status dark:bg-amber-950/30'
         : advice?.readiness?.action === 'rest_or_mobility'
@@ -651,7 +672,7 @@ export function TodayAlertButton({
           <Icon className="h-4 w-4" />
         )}
         <span className="hidden sm:inline">
-          {metricOnly ? scopeLabel : `${scopeLabel} · ${readiness.label}`}
+          {scoped ? scopeLabel : `${scopeLabel} · ${readiness.label}`}
         </span>
         <span className="sm:hidden">{scopeLabel}</span>
         {escalate ? <span className="h-1.5 w-1.5 rounded-full bg-danger-muted" /> : null}

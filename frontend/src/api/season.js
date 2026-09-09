@@ -98,3 +98,12 @@ export async function replanSeason(payload = {}, token = getStoredToken()) {
   })
   return handleResponse(response)
 }
+
+export async function adjustSeasonPhase(phaseId, deltaWeeks, token = getStoredToken()) {
+  const response = await fetch(`${API_BASE_URL}/api/season/phases/${phaseId}`, {
+    method: 'PATCH',
+    headers: authHeaders(token),
+    body: JSON.stringify({ delta_weeks: deltaWeeks }),
+  })
+  return handleResponse(response)
+}
