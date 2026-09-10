@@ -376,6 +376,21 @@ def backfill_streams_for_athlete(
     return {"backfilled": backfilled, "skipped": skipped, "errors": errors}
 
 
+def _queue_activity_debrief(
+    db: Session,
+    athlete_profile_id: int,
+    activity: Activity | None,
+) -> None:
+    if activity is None or activity.id is None:
+        return
+    try:
+        from app.services.coach_memory import create_activity_debrief_prompt
+
+        create_activity_debrief_prompt(db, athlete_profile_id, activity)
+    except Exception:  # noqa: BLE001 — sync must never fail on coach nudge
+        db.rollback()
+
+
 def sync_single_activity(
     db: Session,
     connection: StravaConnection,
@@ -422,6 +437,7 @@ def sync_single_activity(
             api_metadata=api_metadata,
         )
         if imported:
+            _queue_activity_debrief(db, athlete_profile_id, imported)
             return "imported"
         return "skipped"
 
@@ -439,6 +455,7 @@ def sync_single_activity(
             if points_file_path:
                 imported_activity.points_file_path = points_file_path
                 db.commit()
+        _queue_activity_debrief(db, athlete_profile_id, imported_activity)
         return "imported"
     return "skipped"
 
@@ -578,6 +595,7 @@ def sync_activities_for_athlete(
                 if result:
                     imported += 1
                     _set_status(athlete_profile_id, imported=imported)
+                    _queue_activity_debrief(db, athlete_profile_id, result)
                 else:
                     skipped += 1
                     _set_status(athlete_profile_id, skipped=skipped)
@@ -592,6 +610,10 @@ def sync_activities_for_athlete(
 
         dedupe = backfill_athlete_duplicates(db, athlete_profile_id)
         schedule_links = match_schedule_completions(db, athlete_profile_id)
+
+        from app.services.coach_context_cache import invalidate_coach_context_cache
+
+        invalidate_coach_context_cache(athlete_profile_id)
 
         return {
             "imported": imported,

@@ -104,9 +104,9 @@ export function messageHasScheduleContent(content) {
 
 export function goDeeperPrompt(content) {
   if (/WHAT CHANGED/i.test(content || '')) {
-    return 'Explain why these zone and session changes work — plain language, max 3 bullets.'
+    return 'Quick follow-up only: in max 3 bullets, why do these zone changes work? One watch number. No week table.'
   }
-  return "Explain why this week's plan works — plain language, one watch number, no lecture."
+  return 'Quick follow-up only: in max 4 bullets, why is one hard day enough this week? One watch number. No week table or schedule rebuild.'
 }
 
 export function parseContentToBlocks(content) {

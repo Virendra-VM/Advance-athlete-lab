@@ -21,6 +21,16 @@ PHASE7_WEIGHTS = {
     "athlete_panel": 0.20,
 }
 
+PHASEE_WEIGHTS = {
+    "empathy": 0.20,
+    "ui_hygiene": 0.20,
+    "skill_adherence": 0.25,
+    "science_grounding": 0.15,
+    "phase7_composite": 0.20,
+}
+
+PHASEE_AUTO_FLAG_THRESHOLD = 0.45
+
 DIVERSITY_OVERLAP_FAIL = 0.70
 PLAIN_LANGUAGE_MAX_FK_GRADE = 10.0
 ATHLETE_PANEL_MAX_WORDS = 320
@@ -60,6 +70,40 @@ SECTION_HEADER_RE = re.compile(
 SENTENCE_SPLIT_RE = re.compile(r"[.!?]+")
 VOWEL_GROUP_RE = re.compile(r"[aeiouy]+", re.I)
 WORD_RE = re.compile(r"\b[\w']+\b")
+
+UI_LEAK_RES = (
+    re.compile(r"\bSKILL:\s*(review_session|rebuild_week|validate_plan)", re.I),
+    re.compile(r"COACH TOOLS\s*\(ground truth", re.I),
+    re.compile(r"\{\s*\"reply\"\s*:", re.I),
+    re.compile(r"\bintent\s*=\s*[A-Z_]+\b"),
+    re.compile(r"^USER:\s|^ASSISTANT:\s", re.I | re.M),
+)
+
+PUNITIVE_RE = re.compile(
+    r"\b(you failed|lazy|no excuses|don't be weak|worthless|pathetic)\b",
+    re.I,
+)
+SUPPORTIVE_RE = re.compile(
+    r"\b(normal|human|reset|one step|rough patch|travel|missed|guilty|stress)\b",
+    re.I,
+)
+MEDICAL_OVERREACH_RE = re.compile(
+    r"\b(i diagnose|you have a|prescribe|take these meds|definitely a fracture)\b",
+    re.I,
+)
+SCIENCE_GROUNDING_RE = re.compile(
+    r"\b(acwr|hrv|ftp|lthr|zone|recovery|threshold|polarized|load)\b",
+    re.I,
+)
+
+SUPPORT_CHAT_BANNED_RE = re.compile(
+    r"(PRIMED\s*/\s*ACCUMULATE|REVISED WEEK|🧠 THE CALL|TODAY'S CALL)",
+    re.I,
+)
+VALIDATE_PLAN_MARKERS_RE = re.compile(
+    r"(bottom line|coach's rule|watch number|mostly yes|play it safer)",
+    re.I,
+)
 
 
 @dataclass
@@ -248,6 +292,98 @@ def score_athlete_panel(
     headers = count_section_headers(text)
     detail = f"would_read={'yes' if readable else 'no'}, words={words}, headers={headers}"
     return (1.0 if readable else 0.0), detail
+
+
+def score_ui_hygiene(text: str) -> tuple[float, str]:
+    blob = text or ""
+    leaks = sum(1 for pattern in UI_LEAK_RES if pattern.search(blob))
+    score = max(0.0, 1.0 - leaks * 0.35)
+    return round(score, 3), f"ui_leaks={leaks}"
+
+
+def score_empathy(text: str, *, skill: str | None = None) -> tuple[float, str]:
+    blob = text or ""
+    punitive = bool(PUNITIVE_RE.search(blob))
+    supportive = bool(SUPPORTIVE_RE.search(blob))
+    if punitive:
+        return 0.0, "punitive_language=yes"
+    if skill in {"support_chat", "validate_plan"}:
+        score = 1.0 if supportive else 0.55
+        return round(score, 3), f"supportive={'yes' if supportive else 'no'}"
+    score = 0.85 if supportive else 1.0
+    return round(score, 3), f"supportive={'yes' if supportive else 'neutral'}"
+
+
+def score_skill_adherence(text: str, skill: str | None) -> tuple[float, str]:
+    blob = text or ""
+    if not skill:
+        return 1.0, "skill_not_set"
+    if skill == "support_chat":
+        banned = bool(SUPPORT_CHAT_BANNED_RE.search(blob))
+        return (0.0 if banned else 1.0), f"support_banned={'yes' if banned else 'no'}"
+    if skill == "validate_plan":
+        has_markers = bool(VALIDATE_PLAN_MARKERS_RE.search(blob))
+        return (1.0 if has_markers else 0.6), f"plan_markers={'yes' if has_markers else 'no'}"
+    if skill == "off_topic":
+        redirect = bool(re.search(r"\b(training|coach|workout|recovery)\b", blob, re.I))
+        return (1.0 if redirect else 0.5), f"redirect={'yes' if redirect else 'no'}"
+    return 1.0, "default_pass"
+
+
+def score_science_grounding(text: str, *, require_terms: bool = False) -> tuple[float, str]:
+    blob = text or ""
+    terms = len(SCIENCE_GROUNDING_RE.findall(blob))
+    overreach = bool(MEDICAL_OVERREACH_RE.search(blob))
+    if overreach:
+        return 0.0, "medical_overreach=yes"
+    if require_terms and terms == 0:
+        return 0.4, f"science_terms={terms}"
+    score = min(1.0, 0.55 + terms * 0.15) if terms else 0.75
+    return round(score, 3), f"science_terms={terms}"
+
+
+def score_phase_e_reply(
+    text: str,
+    *,
+    skill: str | None = None,
+    expectation: CoachEvalExpectation | None = None,
+    diversity_replies: list[str] | None = None,
+    require_science_terms: bool = False,
+) -> dict[str, Any]:
+    """Phase E composite — empathy, hygiene, skill adherence, science, Phase 7 base."""
+    dimensions: dict[str, dict[str, Any]] = {}
+    empathy_score, empathy_detail = score_empathy(text, skill=skill)
+    dimensions["empathy"] = {"score": empathy_score, "detail": empathy_detail}
+
+    ui_score, ui_detail = score_ui_hygiene(text)
+    dimensions["ui_hygiene"] = {"score": ui_score, "detail": ui_detail}
+
+    skill_score, skill_detail = score_skill_adherence(text, skill)
+    dimensions["skill_adherence"] = {"score": skill_score, "detail": skill_detail}
+
+    science_score, science_detail = score_science_grounding(
+        text, require_terms=require_science_terms
+    )
+    dimensions["science_grounding"] = {"score": science_score, "detail": science_detail}
+
+    phase7 = score_coach_reply(
+        text,
+        expectation=expectation or CoachEvalExpectation(),
+        diversity_replies=diversity_replies,
+    )
+    dimensions["phase7_composite"] = {
+        "score": phase7["total"],
+        "detail": f"phase7_total={phase7['total']}",
+    }
+
+    total = sum(PHASEE_WEIGHTS[key] * dimensions[key]["score"] for key in PHASEE_WEIGHTS)
+    return {
+        "total": round(total, 3),
+        "dimensions": dimensions,
+        "phase7": phase7,
+        "would_read_whole_message": phase7.get("would_read_whole_message"),
+        "auto_flag": total < PHASEE_AUTO_FLAG_THRESHOLD,
+    }
 
 
 def score_coach_reply(

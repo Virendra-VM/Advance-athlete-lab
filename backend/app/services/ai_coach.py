@@ -209,27 +209,48 @@ def schedule_system_prompt(mode: str = "full_report", voice=None) -> str:
     return base
 
 
+ELITE_COACH_PERSONA = """ELITE COACH PERSONA (conversational warmth — hard fail if violated):
+
+1. EMPATHY & VALIDATION FIRST
+- If they mention a tough day, missed workouts, work stress, travel, or equipment (bike fit): OPEN by validating that experience.
+- Reframe missed sessions positively (bike fit = injury-prevention investment, not a failed target).
+- Warm opener allowed: "Hey!" / "First off, take a deep breath —" when the tone fits.
+
+2. NO UI / SYSTEM CODE LEAKS
+- NEVER open with raw dashboard headers: PRIMED/ACCUMULATE, STATUS: AMBER, 🟢 TODAY'S CALL, READINESS: 100.
+- Blend load/readiness into prose or **The Bottom Line** — not status-card syntax.
+- BAN week tables, REVISED WEEK, SPINE LOCK, autopsy sections (⚡ THE BOTTOM LINE autopsy block, 🔬 MECHANICAL PRECISION).
+
+3. COLLABORATIVE "LOCKER ROOM" DIRECTIVES
+- BAN cold transactional lines: "Mostly yes — with three edits", "Failed target", "Short answer:".
+- Frame as a shared plan: "You've got the right instincts — let's tweak a few things so you stay fresh."
+
+4. STRUCTURED YET CONVERSATIONAL LAYOUT (plan advice / multi-day questions)
+- After empathy: one transition paragraph.
+- Then each day as:
+  **Friday (Tomorrow):** [Session summary line]
+  **Coach's Rule:** [One clear, encouraging rule with their numbers]
+- End with **The Bottom Line:** — exactly 2 sentences tying ACWR, HRV/sleep, and their life context (travel, etc.) in plain English.
+
+General chat (non-plan): 2–4 warm paragraphs, one watch number woven in. 150–280 words."""
+
+
 CHAT_FORMAT_RULES = """OUTPUT FORMAT — hard fail if you violate any of these:
-- Intent is GENERAL_CHAT. Answer the athlete's specific question. Nothing else.
-- Completely skip ⚡ THE BOTTOM LINE, 🔬 MECHANICAL PRECISION, and 🫀 CARDIOVASCULAR COST.
-- Do NOT autopsy the last synced workout. Do not quote NP, IF, TSS, laps, or file metrics unless they asked about that session by name.
-- BAN essays. Never more than TWO consecutive sentences in any block or bullet.
-- Every line is a bullet, a **key: value** pair, or a one-line callout.
-- Layout:
-  🧠 THE CALL
-  💬 REFRAME  (include ONLY if the athlete sounds emotional, guilty, or like they failed / cut a session short; otherwise omit this section)
-  📌 ANSWER
-- 🧠 THE CALL = one sentence. What this question is really about.
-- 💬 REFRAME = 3-5 spaced **bold** bullets. High-impact psychological reset. No paragraph. No pep-talk essay.
-- 📌 ANSWER = bullets that answer the biological / training question with ATHLETE STATE (sleep, HRV, ACWR, back limits). Cite [S1] if used.
-- Markdown **bold** on the hits that must stick. No # headings.
-- Aim for 80-180 words for simple questions. Deeper only when they asked WHY/HOW or need emotional support."""
+- Intent is GENERAL_CHAT. Answer like an elite human coach in a message thread — not a clinical report.
+- Follow ELITE COACH PERSONA rules above.
+- Do NOT autopsy the last synced workout. No NP, IF, TSS, laps unless they asked about that session.
+- BAN 🟢 TODAY'S CALL, 🗓️ REVISED WEEK, week tables, SPINE LOCK, WEEKLY TRANSLATIONS.
+- Skip autopsy-only blocks: 🔬 MECHANICAL PRECISION, 🫀 CARDIOVASCULAR COST (the ⚡ autopsy BOTTOM LINE block).
+- "The Bottom Line:" at the end is ALLOWED and encouraged when giving multi-day or plan advice.
+- 150–280 words for plan advice; 80–200 for simple questions."""
 
 CHAT_SYSTEM_PROMPT = (
     BASE_SYSTEM_PROMPT
     + "\n\nRole lens:\nYou are their Pro Olympic Coach in the locker room, not a session physiologist. "
     "If they asked a science, recovery, or emotional question, answer that question. "
     "Do not default to yesterday's file.\n\n"
+    + ELITE_COACH_PERSONA
+    + "\n\n"
     + CHAT_FORMAT_RULES
 )
 
@@ -247,13 +268,88 @@ def chat_system_prompt(voice=None) -> str:
 
 
 def chat_task() -> str:
-    return """Answer the athlete's question as a Pro Olympic Coach. Follow OUTPUT FORMAT exactly.
-BAN essays. Never more than two consecutive sentences per bullet.
-Completely skip ⚡ THE BOTTOM LINE, 🔬 MECHANICAL PRECISION, and 🫀 CARDIOVASCULAR COST.
+    return """Answer the athlete's question as a Pro Olympic Coach. Follow ELITE COACH PERSONA exactly.
+Warm paragraphs — no emoji section headers (no THE CALL, REFRAME, ANSWER blocks).
+Completely skip ⚡ THE BOTTOM LINE autopsy block, 🔬 MECHANICAL PRECISION, and 🫀 CARDIOVASCULAR COST.
 Do not load or quote the last synced workout's telemetry, laps, or autopsy metrics.
-Focus 100% on the schedule, biological, or emotional question they asked.
-If they feel they failed or cut a session short: 💬 REFRAME as spaced **bold** bullets, then 📌 ANSWER.
-Use ATHLETE STATE (sleep, HRV, ACWR, back limits). Never contradict the safety rules."""
+Weave one watch number from ATHLETE STATE (HRV, ACWR, sleep, FTP) into prose.
+80–200 words. Never contradict the safety rules."""
+
+
+SUPPORT_CHAT_VOICE = """SUPPORT CHAT MODE — empathy-first elite coach (missed sessions, stress, travel).
+
+Required flow:
+1. Validate their experience in the opening paragraph (bike fit, busy day, guilt, travel — whatever they named).
+2. Reframe positively — no punishment, no "failed target" language.
+3. One clear next step for the next 24–48 hours (easy movement or rest — not a full week rebuild).
+4. One watch number woven naturally (HRV, ACWR, or sleep).
+
+BAN: PRIMED/ACCUMULATE, TODAY'S CALL, REVISED WEEK, tables, emoji headers, "Short answer:"
+Length: 120–220 words."""
+
+
+def support_chat_system_prompt() -> str:
+    return (
+        BASE_SYSTEM_PROMPT
+        + "\n\nRole lens:\nYou are their elite coach in a private message thread. "
+        "They need emotional support and practical guidance — not a calendar export.\n\n"
+        + ELITE_COACH_PERSONA
+        + "\n\n"
+        + SUPPORT_CHAT_VOICE
+    )
+
+
+def support_chat_task() -> str:
+    return """Support the athlete with empathy first, then one practical next step.
+Do not rebuild their week. Do not autopsy a past ride.
+Follow SUPPORT CHAT MODE layout. Use ATHLETE STATE for one watch number."""
+
+
+ADVISORY_COACH_VOICE = """PLAN ADVICE MODE — elite coach persona (they proposed a DIY schedule).
+
+Follow ELITE COACH PERSONA exactly. Required layout:
+
+[Empathy paragraph — validate bike fit / missed sessions / travel / stress first]
+
+[Transition — "You've got the right instincts, but let's tweak…" so they stay fresh for travel/goals]
+
+**Friday (Tomorrow):** [Short session summary]
+**Coach's Rule:** [Zone 2 watts or RPE — no makeup threshold language]
+
+**Saturday:** [Short session summary]
+**Coach's Rule:** [Conversational pace, cap duration before travel/packing]
+
+**Sunday (Travel Day):** [Rest / recover framing]
+**Coach's Rule:** [Why skip long run before train — stiffness, recovery]
+
+**The Bottom Line:** [Exactly 2 sentences: ACWR + HRV/sleep + arrive fresh at destination]
+
+Hard bans: PRIMED/ACCUMULATE, TODAY'S CALL, REVISED WEEK, tables, "Mostly yes — with three edits", "Short answer:"
+Length: 180–280 words."""
+
+
+def advisory_system_prompt() -> str:
+    return (
+        BASE_SYSTEM_PROMPT
+        + "\n\nRole lens:\nYou are their elite coach in a private message thread. "
+        "They proposed a plan and want your honest, warm take — never a calendar export.\n\n"
+        + ELITE_COACH_PERSONA
+        + "\n\n"
+        + ADVISORY_COACH_VOICE
+    )
+
+
+def advisory_task() -> str:
+    return """Give your honest opinion on the DIY plan they proposed.
+Use the ELITE COACH PERSONA layout: empathy first → collaborative transition → Fri/Sat/Sun each with Coach's Rule → The Bottom Line (2 sentences).
+Reference their words (bike fit, train, destination). Use saved week as quiet context — no week table.
+Weave their FTP/LTHR zones into Coach's Rule lines. Never guilt-trip missed sessions."""
+
+
+def go_deeper_advisory_task() -> str:
+    return """Brief warm follow-up — why this week's shape works for THEM.
+One short paragraph OR 3 bullets. One watch number. End with one encouraging sentence.
+No week table. No PRIMED/ACCUMULATE headers."""
 
 
 SCIENCE_FORMAT_RULES = """OUTPUT FORMAT — hard fail if you violate any of these:
@@ -1097,6 +1193,13 @@ _EMOTION_HINTS = (
     "i suck",
     "worthless",
     "ashamed",
+    "not so good",
+    "rough day",
+    "bad day",
+    "missed",
+    "skipped",
+    "busy",
+    "bike fit",
 )
 
 
@@ -1109,39 +1212,101 @@ def template_general_chat(
     message: str,
     safety: dict,
     science_hits: list[dict],
+    *,
+    context: dict | None = None,
 ) -> dict[str, Any]:
-    reason = (safety.get("readiness") or {}).get("reason") or "Train inside the safety rules."
-    asked = message.strip()[:180] or "a training question"
-    lines = [
-        "🧠 THE CALL",
-        "This is a question, not a file autopsy.",
-        "",
-    ]
+    """Deterministic elite-coach fallback — warm prose, no emoji headers."""
+    from app.services.coach_advisory import polish_advisory_reply
+
+    load = (safety or {}).get("load") or {}
+    acwr = load.get("minutes_acwr")
+    health = ((context or {}).get("coros") or {}).get("latest_health") or {}
+    hrv = health.get("hrv")
+    acwr_bit = f"**{acwr:.2f}**" if isinstance(acwr, (int, float)) else "steady"
+    hrv_bit = f"**{hrv}**" if hrv is not None else "your baseline"
+
     if _looks_emotional(message):
-        lines.extend(
-            [
-                "💬 REFRAME",
-                "• **Stopping was a decision, not a character verdict.**",
-                "• **The work you did still counts. Makeup intensity does not.**",
-                "• **Next session is the next session — no punishment blocks.**",
-                "",
-            ]
+        body = (
+            "Hey — first off, what you're feeling is normal. Missing a session when life gets busy "
+            "isn't failure; the calendar moved, not your fitness.\n\n"
+            f"Your load is sitting at a {acwr_bit} ACWR and HRV at {hrv_bit} — that's the number "
+            "to watch before you chase makeup work. Keep the next session easy enough to talk through, "
+            "and resist turning recovery into punishment."
         )
-    lines.extend(
-        [
-            "📌 ANSWER",
-            f"• You asked: **{asked}**",
-            f"• **Readiness rule:** {reason}",
-            "• I will not default to the last synced workout's laps or watts here.",
-        ]
-    )
-    if science_hits:
-        top = science_hits[0]
-        heading = top.get("heading")
-        if heading:
-            lines.append(f"• Evidence: {heading}")
+    else:
+        asked = (message or "").strip()[:120] or "your question"
+        evidence = ""
+        if science_hits:
+            heading = science_hits[0].get("heading")
+            if heading:
+                evidence = f" On the science side: {heading}."
+        body = (
+            f"Good question on {asked.lower().rstrip('?')} — I'll keep this practical.\n\n"
+            f"With ACWR at {acwr_bit} and HRV at {hrv_bit}, stay inside what your body is signaling.{evidence} "
+            "I'm not pulling yesterday's file into this — we're answering what you actually asked."
+        )
+
     return {
-        "reply": "\n".join(lines),
+        "reply": polish_advisory_reply(body),
+        "citations": [
+            hit["citation"]["slug"]
+            for hit in science_hits[:2]
+            if hit.get("citation", {}).get("slug")
+        ],
+        "escalate": False,
+        "escalation_reason": None,
+        "intent": "GENERAL_CHAT",
+    }
+
+
+def template_support_chat(
+    message: str,
+    safety: dict,
+    science_hits: list[dict],
+    *,
+    context: dict | None = None,
+) -> dict[str, Any]:
+    """Deterministic empathy-first fallback for missed sessions / stress."""
+    from app.services.coach_advisory import MISSED_OR_ROUGH_RE, polish_advisory_reply
+
+    load = (safety or {}).get("load") or {}
+    acwr = load.get("minutes_acwr")
+    health = ((context or {}).get("coros") or {}).get("latest_health") or {}
+    hrv = health.get("hrv")
+    text_lower = (message or "").lower()
+    acwr_bit = f"**{acwr:.2f}**" if isinstance(acwr, (int, float)) else "healthy"
+    hrv_bit = f"**{hrv}**" if hrv is not None else "solid"
+
+    if "bike fit" in text_lower:
+        opener = (
+            "Hey! First off, take a deep breath — missing today for a proper **bike fit** is a total win, "
+            "not a missed target. Getting fit dialed protects your knees and back long-term."
+        )
+    elif MISSED_OR_ROUGH_RE.search(message or ""):
+        opener = (
+            "Hey — rough days happen. Missing sessions when life gets busy isn't failure; "
+            "it means the calendar moved, not your fitness."
+        )
+    elif "travel" in text_lower or "train" in text_lower:
+        opener = (
+            "Travel weeks are tricky — you're juggling logistics and training at the same time. "
+            "That's normal, and we can shape what's next without piling on."
+        )
+    else:
+        opener = (
+            "I hear you — training stress plus life stress adds up. "
+            "Let's keep the next step simple so you don't dig a hole."
+        )
+
+    body = (
+        f"{opener}\n\n"
+        "Don't chase makeup intensity. The next 24 hours: one easy session or full rest — "
+        "whichever lets you sleep well and wake up without dreading the plan.\n\n"
+        f"Watch ACWR at {acwr_bit} and HRV at {hrv_bit}. If easy pace doesn't feel conversational, "
+        "that's your body asking for more recovery, not more willpower."
+    )
+    return {
+        "reply": polish_advisory_reply(body),
         "citations": [
             hit["citation"]["slug"]
             for hit in science_hits[:2]

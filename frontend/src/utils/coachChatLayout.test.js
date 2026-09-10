@@ -64,9 +64,10 @@ describe('coachChatLayout Phase 6', () => {
     assert.equal(hasGoDeeperContent(withWhy, ''), true)
   })
 
-  it('goDeeperPrompt adapts to what changed replies', () => {
-    assert.match(goDeeperPrompt('📊 WHAT CHANGED\n• FTP'), /zone and session changes/)
-    assert.match(goDeeperPrompt('Weekly plan ready'), /week's plan works/)
+  it('goDeeperPrompt avoids schedule rebuild language', () => {
+    assert.match(goDeeperPrompt('📊 WHAT CHANGED\n• FTP'), /no week table/i)
+    assert.match(goDeeperPrompt('Weekly plan ready'), /no week table/i)
+    assert.doesNotMatch(goDeeperPrompt('Weekly plan ready'), /rebuild the calendar/i)
   })
 
   it('countWhatChangedItems ignores header only', () => {

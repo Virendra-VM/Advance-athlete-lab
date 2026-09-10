@@ -762,3 +762,75 @@ def run_migrations() -> None:
                     "ON favorite_workout_templates (athlete_profile_id)"
                 )
             )
+
+        inspector = inspect(conn)
+        tables = set(inspector.get_table_names())
+        if "coach_memories" not in tables:
+            conn.execute(
+                text(
+                    """
+                    CREATE TABLE coach_memories (
+                        id SERIAL PRIMARY KEY,
+                        athlete_profile_id INTEGER NOT NULL REFERENCES athlete_profiles(id),
+                        memory_type VARCHAR(16) NOT NULL,
+                        category VARCHAR(32) NOT NULL,
+                        summary VARCHAR(160) NOT NULL,
+                        content TEXT NOT NULL,
+                        source VARCHAR(32) NOT NULL,
+                        dedupe_key VARCHAR(128) NOT NULL,
+                        activity_id INTEGER REFERENCES activities(id),
+                        status VARCHAR(16) NOT NULL DEFAULT 'active',
+                        expires_at TIMESTAMP,
+                        created_at TIMESTAMP NOT NULL DEFAULT NOW(),
+                        updated_at TIMESTAMP NOT NULL DEFAULT NOW(),
+                        CONSTRAINT uq_coach_memory_dedupe UNIQUE (athlete_profile_id, dedupe_key)
+                    )
+                    """
+                )
+            )
+            conn.execute(
+                text(
+                    "CREATE INDEX IF NOT EXISTS ix_coach_memories_profile "
+                    "ON coach_memories (athlete_profile_id)"
+                )
+            )
+            conn.execute(
+                text(
+                    "CREATE INDEX IF NOT EXISTS ix_coach_memories_activity "
+                    "ON coach_memories (activity_id)"
+                )
+            )
+
+        inspector = inspect(conn)
+        tables = set(inspector.get_table_names())
+        if "coach_review_flags" not in tables:
+            conn.execute(
+                text(
+                    """
+                    CREATE TABLE coach_review_flags (
+                        id SERIAL PRIMARY KEY,
+                        athlete_profile_id INTEGER NOT NULL REFERENCES athlete_profiles(id),
+                        message_id INTEGER NOT NULL REFERENCES coach_messages(id),
+                        reason VARCHAR(64) NOT NULL,
+                        category VARCHAR(32),
+                        notes TEXT,
+                        quality_score DOUBLE PRECISION,
+                        status VARCHAR(16) NOT NULL DEFAULT 'open',
+                        created_at TIMESTAMP NOT NULL DEFAULT NOW(),
+                        resolved_at TIMESTAMP
+                    )
+                    """
+                )
+            )
+            conn.execute(
+                text(
+                    "CREATE INDEX IF NOT EXISTS ix_coach_review_flags_profile "
+                    "ON coach_review_flags (athlete_profile_id)"
+                )
+            )
+            conn.execute(
+                text(
+                    "CREATE INDEX IF NOT EXISTS ix_coach_review_flags_message "
+                    "ON coach_review_flags (message_id)"
+                )
+            )

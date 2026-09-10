@@ -527,6 +527,47 @@ class CoachMessageRead(BaseModel):
     plan_id: int | None = None
 
 
+class CoachProactivePromptRead(BaseModel):
+    id: int
+    category: str
+    summary: str
+    message: str
+    activity_id: int | None = None
+    created_at: datetime | None = None
+
+
+class CoachProactivePromptsResponse(BaseModel):
+    prompts: list[CoachProactivePromptRead] = []
+
+
+class CoachReviewFlagRequest(BaseModel):
+    notes: str | None = Field(default=None, max_length=2000)
+
+
+class CoachReviewFlagRead(BaseModel):
+    id: int
+    message_id: int
+    reason: str
+    category: str | None = None
+    notes: str | None = None
+    quality_score: float | None = None
+    status: str
+    created_at: datetime | None = None
+    message_preview: str | None = None
+
+
+class CoachReviewFlagsResponse(BaseModel):
+    flags: list[CoachReviewFlagRead] = []
+
+
+class CoachWarmResponse(BaseModel):
+    context: CoachContextResponse
+    context_cache_hit: bool = False
+    todays_call: TodaysCallResponse | None = None
+    proactive_prompts: list[CoachProactivePromptRead] = []
+    warmed_at: datetime
+
+
 class CoachChatResponse(BaseModel):
     provider: str
     model: str
@@ -535,6 +576,7 @@ class CoachChatResponse(BaseModel):
     history: list[CoachMessageRead] = []
     disclaimer: str | None = None
     plan: CoachPlanResponse | None = None
+    proactive_prompts: list[CoachProactivePromptRead] = []
 
 
 class ApplyChatWeekRequest(BaseModel):

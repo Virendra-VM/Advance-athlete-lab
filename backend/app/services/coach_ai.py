@@ -35,7 +35,10 @@ from app.models import (
     WeeklyAdviceSnapshot,
 )
 from app.services.ai import ProviderError, provider_chain
-from app.services.athlete_coach_context import build_athlete_coach_context
+from app.services.coach_context_cache import (
+    get_athlete_coach_context,
+    invalidate_coach_context_cache,
+)
 from app.services.coach_safety import (
     apply_joint_safe_recovery_mode,
     build_safety_profile,
@@ -69,6 +72,9 @@ from app.services.science_kb import (
 from app.services.ai_coach import (
     AUTOPSY_SCHEMA,
     BASE_SYSTEM_PROMPT as SYSTEM_PROMPT,
+    advisory_system_prompt,
+    advisory_task,
+    go_deeper_advisory_task,
     athlete_state_block,
     autopsy_task_for_packet,
     chat_system_prompt,
@@ -86,6 +92,9 @@ from app.services.ai_coach import (
     template_autopsy,
     template_clinical_veto,
     template_general_chat,
+    template_support_chat,
+    support_chat_system_prompt,
+    support_chat_task,
     template_off_topic,
     template_schedule,
     template_day_adjust,
@@ -136,6 +145,33 @@ from app.services.coach_schedule_mode import (
     finalize_schedule_narrator_reply,
     format_physiology_anchor_lines,
 )
+from app.services.coach_advisory import (
+    advisory_prompt_block,
+    finalize_advisory_reply,
+    go_deeper_prompt_block,
+    is_go_deeper_followup,
+    is_plan_advice_message,
+    polish_advisory_reply,
+    strip_schedule_sections,
+    template_go_deeper_brief,
+    template_plan_advice,
+)
+from app.services.coach_agent import CoachAgentRun, run_coach_agent
+from app.services.coach_memory import (
+    build_memory_bundle,
+    capture_chat_memories,
+    consume_proactive_for_activity,
+    list_proactive_prompts,
+    memory_snapshot,
+)
+from app.services.coach_skills import (
+    SKILL_GO_DEEPER,
+    SKILL_SUPPORT_CHAT,
+    SKILL_VALIDATE_PLAN,
+    resolve_coach_skill,
+    skill_prompt_block,
+)
+from app.services.coach_tools import CoachToolContext
 from app.services.coach_voice import (
     build_voice_context,
     finalize_general_chat_reply,
@@ -1073,7 +1109,7 @@ def generate_week_plan(
     timezone_name: str | None = None,
 ) -> dict:
     clock = resolve_clock(timezone_name)
-    context = build_athlete_coach_context(db, profile.id)
+    context = get_athlete_coach_context(db, profile.id)
     safety = context["safety"]
     start = _monday_of(week_start or clock["today"])
     allowed = current_week_monday(clock["today"])
@@ -1646,7 +1682,7 @@ def apply_week_from_chat(
 ) -> dict:
     """Turn a chat week table into the active plan and optionally put it on Schedule."""
     clock = resolve_clock(timezone_name)
-    context = build_athlete_coach_context(db, profile.id)
+    context = get_athlete_coach_context(db, profile.id)
     safety = context["safety"]
     stored_plan_id = None
     text = (markdown or "").strip()
@@ -1814,7 +1850,7 @@ def generate_daily_advice(
 ) -> dict:
     """Return today's brief. Rewrite only on Refresh or when signals changed."""
     clock = resolve_clock(timezone_name)
-    context = build_athlete_coach_context(db, profile.id)
+    context = get_athlete_coach_context(db, profile.id)
     fingerprint = advice_input_fingerprint(context, clock)
     try:
         advice_date = date.fromisoformat(str(clock["local_date"])[:10])
@@ -2302,7 +2338,7 @@ def generate_week_brief(
     """Return this week's page brief. Rewrite on Refresh or when that topic's signals change."""
     topic = normalize_week_topic(topic)
     clock = resolve_clock(timezone_name)
-    context = build_athlete_coach_context(db, profile.id)
+    context = get_athlete_coach_context(db, profile.id)
     current_plan = get_active_plan(db, profile.id, clock["week_start"])
     context["current_plan"] = current_plan or {}
     distance = _distance_load_dict(db, profile.id) if topic == "volume" else {}
@@ -2789,7 +2825,7 @@ def coach_chat(
     persist_plan: bool | None = None,
 ) -> dict:
     clock = resolve_clock(timezone_name)
-    context = build_athlete_coach_context(db, profile.id)
+    context = get_athlete_coach_context(db, profile.id)
     safety = context["safety"]
     red_flags = detect_red_flags(message)
 
@@ -2843,6 +2879,36 @@ def coach_chat(
         GENERAL_CHAT,
     ):
         intent = GENERAL_CHAT
+
+    plan_advice_mode = is_plan_advice_message(message)
+    go_deeper_mode = is_go_deeper_followup(message)
+    if plan_advice_mode or go_deeper_mode:
+        intent = GENERAL_CHAT
+        persist_plan = False
+    elif intent == SCHEDULE_UPDATE and plan_advice_mode:
+        intent = GENERAL_CHAT
+        persist_plan = False
+
+    skill_resolution = resolve_coach_skill(
+        intent,
+        message,
+        plan_advice_mode=plan_advice_mode,
+        go_deeper_mode=go_deeper_mode,
+    )
+    coach_skill = skill_resolution.skill
+    support_chat_mode = coach_skill == SKILL_SUPPORT_CHAT
+
+    capture_chat_memories(
+        db,
+        profile,
+        message,
+        skill=coach_skill,
+        clock=clock,
+    )
+    if activity_id:
+        consume_proactive_for_activity(db, profile.id, activity_id)
+    memory_bundle = build_memory_bundle(db, profile)
+    memory_block = memory_bundle.get("prompt_block") or ""
 
     if persist_plan is None:
         persist_plan = intent in {SCHEDULE_UPDATE, DAY_ADJUST}
@@ -2971,7 +3037,8 @@ def coach_chat(
         science_grounded = bool(strong)
         hits = strong if science_grounded else []
     else:
-        hits = _retrieve(db, _chat_retrieval_query(message), profile, k=5)
+        rag_k = 2 if (plan_advice_mode or go_deeper_mode) else 5
+        hits = _retrieve(db, _chat_retrieval_query(message), profile, k=rag_k)
         strong = grounded_hits(hits)
         if intent == GENERAL_CHAT:
             hits = strong if strong else hits[:1]
@@ -3101,20 +3168,63 @@ ROUTING (hard)
 Intent is SCIENCE_LOOKUP. Teach the concept. Do not autopsy a file.
 Grounded retrieval: {"yes — cite only [S#]" if science_grounded else "NO — Evidence: Not in playbook. Do not invent a paper."}
 Never more than two consecutive sentences per bullet.
+
+{skill_prompt_block(coach_skill)}
+"""
+    elif support_chat_mode:
+        extra_block = f"""
+{athlete_state_block(context, safety)}
+
+{skill_prompt_block(coach_skill)}
+"""
+    elif plan_advice_mode:
+        extra_block = f"""
+{athlete_state_block(context, safety)}
+
+CURRENT WEEK PLAN (reference only — do not paste as a table)
+{_plan_digest(current_plan, clock)}
+
+{advisory_prompt_block()}
+"""
+    elif go_deeper_mode:
+        extra_block = f"""
+{athlete_state_block(context, safety)}
+
+CURRENT WEEK PLAN (reference only — do not paste as a table)
+{_plan_digest(current_plan, clock)}
+
+{go_deeper_prompt_block()}
 """
     else:
         extra_block = f"""
 {athlete_state_block(context, safety)}
 
 ROUTING (hard)
-Intent is GENERAL_CHAT. Completely skip ⚡ THE BOTTOM LINE, 🔬 MECHANICAL PRECISION, and 🫀 CARDIOVASCULAR COST.
+Intent is GENERAL_CHAT. Follow ELITE COACH PERSONA — warm prose, no emoji section headers.
+Completely skip ⚡ THE BOTTOM LINE autopsy block, 🔬 MECHANICAL PRECISION, and 🫀 CARDIOVASCULAR COST.
 Do not load, invent, or quote the last synced workout's telemetry, laps, NP, IF, or TSS.
-Focus 100% on the athlete's specific biological, schedule-adjacent, or emotional question.
-Never more than two consecutive sentences per bullet.
-If they feel they failed or cut a session short: 💬 REFRAME as spaced **bold** bullets.
+BAN 🟢 TODAY'S CALL, 🗓️ REVISED WEEK, PRIMED/ACCUMULATE, and week tables.
+{skill_prompt_block(coach_skill)}
 {voice.conditional_teaching_block}
 {voice.plain_language_block}
 """
+
+    agent_run: CoachAgentRun = run_coach_agent(
+        CoachToolContext(
+            message=message,
+            skill=coach_skill,
+            context=context,
+            safety=safety,
+            clock=clock,
+            current_plan=current_plan,
+            hits=hits,
+            session_packet=session_packet,
+            week_packet=week_packet,
+            activity_id=activity_id,
+            memory_snapshot=memory_snapshot(memory_bundle.get("memories") or []),
+        )
+    )
+    agent_tool_block = agent_run.prompt_block()
 
     if intent == WORKOUT_AUDIT:
         task = autopsy_task_for_packet(modality, session_packet)
@@ -3145,6 +3255,18 @@ If they feel they failed or cut a session short: 💬 REFRAME as spaced **bold**
         task = science_task(grounded=science_grounded)
         chat_schema = SCIENCE_SCHEMA
         system_prompt = science_system_prompt()
+    elif plan_advice_mode:
+        task = advisory_task()
+        chat_schema = CHAT_SCHEMA
+        system_prompt = advisory_system_prompt()
+    elif go_deeper_mode:
+        task = go_deeper_advisory_task()
+        chat_schema = CHAT_SCHEMA
+        system_prompt = advisory_system_prompt()
+    elif support_chat_mode:
+        task = support_chat_task()
+        chat_schema = CHAT_SCHEMA
+        system_prompt = support_chat_system_prompt()
     else:
         task = chat_task()
         chat_schema = CHAT_SCHEMA
@@ -3173,8 +3295,11 @@ SAFETY RULES (hard limits)
 RECENT CONVERSATION
 {transcript or '(none)'}
 
+{memory_block}
+
 RETRIEVED EVIDENCE
 {format_science_for_prompt(hits, grounded=(science_grounded if intent == SCIENCE_LOOKUP else None))}
+{agent_tool_block}
 {extra_block}
 ATHLETE MESSAGE
 {message.strip()}
@@ -3186,7 +3311,7 @@ Respond with JSON matching exactly this shape:
 {chat_schema}"""
 
     variety_steering = ""
-    if intent in {SCHEDULE_UPDATE, GENERAL_CHAT}:
+    if intent in {SCHEDULE_UPDATE, GENERAL_CHAT} and not plan_advice_mode and not go_deeper_mode:
         variety_steering = variety_prompt_block(history)
     if variety_steering:
         user_prompt = f"{user_prompt}\n\n{variety_steering}"
@@ -3210,10 +3335,21 @@ Respond with JSON matching exactly this shape:
                 context=context,
                 clock=clock,
             )
+        if intent == GENERAL_CHAT and skill_resolution.uses_advisory_polish:
+            finalized = finalize_advisory_reply(candidate)
+            if not (plan_advice_mode or go_deeper_mode):
+                finalized = finalize_general_chat_reply(
+                    finalized, voice, context=context, safety=safety
+                )
+            return finalized
         if intent == GENERAL_CHAT:
-            return finalize_general_chat_reply(
+            finalized = finalize_general_chat_reply(
                 candidate, voice, context=context, safety=safety
             )
+            finalized["reply"] = polish_advisory_reply(
+                strip_schedule_sections(finalized.get("reply") or "")
+            )
+            return finalized
         return candidate
 
     def _parse_llm_reply(raw: dict) -> dict | None:
@@ -3231,12 +3367,18 @@ Respond with JSON matching exactly this shape:
         llm_temperature = 0.7
         llm_presence = 0.45
     elif intent == GENERAL_CHAT:
-        llm_temperature = 0.55
-        llm_presence = 0.35
+        if plan_advice_mode or go_deeper_mode:
+            llm_temperature = 0.68
+            llm_presence = 0.42
+        else:
+            llm_temperature = 0.55
+            llm_presence = 0.35
 
     result = None
     if not (intent == SCIENCE_LOOKUP and not science_grounded):
-        if intent in {SCHEDULE_UPDATE, GENERAL_CHAT} and (
+        if go_deeper_mode:
+            result = None
+        elif intent in {SCHEDULE_UPDATE, GENERAL_CHAT} and (
             intent != SCHEDULE_UPDATE or proposed_plan is not None
         ):
             result = _call_provider(
@@ -3252,7 +3394,16 @@ Respond with JSON matching exactly this shape:
         raw, provider_name, model_name = result
         raw_payload = raw if isinstance(raw, dict) else None
         reply = _parse_llm_reply(raw) if isinstance(raw, dict) else None
-        if reply and is_degenerate_reply(reply.get("reply") or "", history):
+        skip_variety_retry = (
+            plan_advice_mode
+            or go_deeper_mode
+            or skill_resolution.uses_advisory_polish
+        )
+        if (
+            reply
+            and not skip_variety_retry
+            and is_degenerate_reply(reply.get("reply") or "", history)
+        ):
             overlap, _ = max_overlap_with_recent(reply.get("reply") or "", history)
             priors = recent_assistant_replies(history, max_turns=1)
             retry_block = build_variety_retry_block(
@@ -3341,10 +3492,37 @@ Respond with JSON matching exactly this shape:
                 grounded=science_grounded,
                 context=context,
             )
+        elif plan_advice_mode:
+            reply = template_plan_advice(
+                message,
+                safety,
+                current_plan=current_plan,
+                context=context,
+                clock=clock,
+            )
+            provider_name, model_name = "rules", "plan-advice-v1"
+        elif go_deeper_mode:
+            reply = template_go_deeper_brief(
+                safety,
+                current_plan=current_plan,
+                clock=clock,
+                context=context,
+            )
+            provider_name, model_name = "rules", "go-deeper-v1"
+        elif support_chat_mode:
+            reply = template_support_chat(
+                message,
+                safety,
+                hits,
+                context=context,
+            )
+            provider_name, model_name = "rules", "support-chat-v1"
         else:
-            reply = template_general_chat(message, safety, hits)
+            reply = template_general_chat(message, safety, hits, context=context)
 
     reply["intent"] = intent
+    reply["skill"] = coach_skill
+    reply["tools"] = agent_run.tools_used
     if reply.get("reply"):
         variety_meta = analyze_reply_variety(reply.get("reply") or "", history)
         variety_meta["regenerated"] = variety_regenerated
@@ -3393,10 +3571,33 @@ Respond with JSON matching exactly this shape:
                 reply["plan_id"] = applied_plan.get("plan_id")
             except Exception as exc:  # noqa: BLE001 — chat must still return the table
                 logger.warning("Could not persist chat week: %s", exc)
-    logger.info("Coach routed intent=%s source=%s", intent, decision_source)
+    logger.info(
+        "Coach routed intent=%s skill=%s source=%s",
+        intent,
+        coach_skill,
+        decision_source,
+    )
+
+    if intent == GENERAL_CHAT and reply.get("reply"):
+        if skill_resolution.uses_advisory_polish:
+            reply["reply"] = polish_advisory_reply(reply["reply"])
+        else:
+            reply["reply"] = strip_schedule_sections(reply["reply"])
 
     variety_meta = reply.pop("_variety", None)
-    _store_assistant_message(db, profile.id, reply, provider_name, variety=variety_meta)
+    assistant_message_id = _store_assistant_message(
+        db, profile.id, reply, provider_name, variety=variety_meta
+    )
+    _maybe_auto_flag_coach_reply(
+        db,
+        profile.id,
+        assistant_message_id,
+        reply.get("reply") or "",
+        skill=coach_skill,
+    )
+
+    if applied_plan:
+        invalidate_coach_context_cache(profile.id)
 
     return {
         "provider": provider_name,
@@ -3406,6 +3607,7 @@ Respond with JSON matching exactly this shape:
         "history": chat_history(db, profile.id),
         "disclaimer": safety["disclaimer"],
         "plan": applied_plan,
+        "proactive_prompts": list_proactive_prompts(db, profile.id),
     }
 
 
@@ -3421,6 +3623,8 @@ def _decode_message_meta(raw: str | None) -> dict:
             "citations": data.get("citations") or [],
             "plan_id": data.get("plan_id"),
             "intent": data.get("intent"),
+            "skill": data.get("skill"),
+            "tools": data.get("tools"),
             "variety": data.get("variety"),
         }
     if isinstance(data, list):
@@ -3433,11 +3637,45 @@ def _history_meta_fields(raw: str | None) -> dict:
     fields = {}
     if meta.get("intent"):
         fields["intent"] = meta["intent"]
+    if meta.get("skill"):
+        fields["skill"] = meta["skill"]
+    if meta.get("tools"):
+        fields["tools"] = meta["tools"]
     if meta.get("plan_id"):
         fields["plan_id"] = meta["plan_id"]
     if meta.get("variety"):
         fields["variety"] = meta["variety"]
     return fields
+
+
+def _maybe_auto_flag_coach_reply(
+    db: Session,
+    profile_id: int,
+    message_id: int,
+    reply_text: str,
+    *,
+    skill: str | None,
+) -> None:
+    try:
+        from app.services.coach_reply_eval import CoachEvalExpectation, score_phase_e_reply
+        from app.services.coach_review import maybe_auto_flag_reply
+
+        scored = score_phase_e_reply(
+            reply_text,
+            skill=skill,
+            expectation=CoachEvalExpectation(),
+        )
+        if scored.get("auto_flag"):
+            maybe_auto_flag_reply(
+                db,
+                profile_id,
+                message_id,
+                reply_text,
+                skill=skill,
+                quality_score=scored["total"],
+            )
+    except Exception as exc:  # noqa: BLE001 — chat must not fail on quality sidecar
+        logger.debug("Coach auto-review flag skipped: %s", exc)
 
 
 def _store_assistant_message(
@@ -3447,26 +3685,35 @@ def _store_assistant_message(
     provider: str,
     *,
     variety: dict | None = None,
-) -> None:
+) -> int:
     citations = reply.get("citations") or []
     payload: dict | list = citations
-    if reply.get("plan_id") or reply.get("intent") or variety:
+    if (
+        reply.get("plan_id")
+        or reply.get("intent")
+        or reply.get("skill")
+        or reply.get("tools")
+        or variety
+    ):
         payload = {
             "citations": citations,
             "plan_id": reply.get("plan_id"),
             "intent": reply.get("intent"),
+            "skill": reply.get("skill"),
+            "tools": reply.get("tools"),
             "variety": variety,
         }
-    db.add(
-        CoachMessage(
-            athlete_profile_id=profile_id,
-            role="assistant",
-            content=reply["reply"],
-            citations=json.dumps(payload),
-            provider=provider,
-        )
+    row = CoachMessage(
+        athlete_profile_id=profile_id,
+        role="assistant",
+        content=reply["reply"],
+        citations=json.dumps(payload),
+        provider=provider,
     )
+    db.add(row)
     db.commit()
+    db.refresh(row)
+    return row.id
 
 
 def confirm_baseline(db: Session, profile: AthleteProfile) -> AthleteProfile:
@@ -3492,6 +3739,7 @@ def confirm_baseline(db: Session, profile: AthleteProfile) -> AthleteProfile:
     profile.baseline_confirmed_at = datetime.utcnow()
     db.commit()
     db.refresh(profile)
+    invalidate_coach_context_cache(profile.id)
     return profile
 
 

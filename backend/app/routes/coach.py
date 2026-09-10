@@ -1,8 +1,8 @@
-from datetime import date, timedelta
+from datetime import date, datetime, timedelta
 import json
 
 from fastapi import APIRouter, Depends, HTTPException, Query
-from fastapi.responses import JSONResponse, Response
+from fastapi.responses import JSONResponse, Response, StreamingResponse
 from sqlalchemy.orm import Session
 
 from app.auth_deps import get_current_user
@@ -14,6 +14,11 @@ from app.schemas import (
     CoachChatHistoryResponse,
     CoachChatRequest,
     CoachChatResponse,
+    CoachProactivePromptsResponse,
+    CoachReviewFlagRead,
+    CoachReviewFlagRequest,
+    CoachReviewFlagsResponse,
+    CoachWarmResponse,
     CoachContextResponse,
     CoachPlannedWorkoutRead,
     CoachPlanResponse,
@@ -27,7 +32,10 @@ from app.schemas import (
 )
 from app.services.autoregulation import compute_todays_call
 from app.services.ai import configured_providers, describe_ai_runtime
-from app.services.athlete_coach_context import build_athlete_coach_context
+from app.services.coach_context_cache import (
+    coach_context_for_response,
+    get_athlete_coach_context,
+)
 from app.services.athlete_profile import get_profile_consent
 from app.services.coach_ai import (
     PlanWeekNotCurrentError,
@@ -52,6 +60,20 @@ from app.services.coach_intent import (
     SCHEDULE_UPDATE,
     WEEK_PLAN_REVIEW,
     classify_chat_intent,
+)
+from app.services.coach_memory import dismiss_proactive_prompt, list_proactive_prompts
+from app.services.coach_review import (
+    flag_message_for_review,
+    list_review_flags,
+    resolve_review_flag,
+)
+from app.services.coach_stream import (
+    STREAM_STATUSES,
+    delta_event,
+    done_event,
+    error_event,
+    status_event,
+    stream_reply_deltas,
 )
 from app.services.periodization import build_season_context
 from app.services.schedule_completion import match_planned_workout_completions
@@ -90,8 +112,7 @@ def get_coach_context(
     db: Session = Depends(get_db),
 ):
     profile = _require_profile(current_user, db)
-    context = build_athlete_coach_context(db, profile.id)
-    return CoachContextResponse(**context)
+    return CoachContextResponse(**coach_context_for_response(db, profile.id))
 
 
 @router.get("/todays-call", response_model=TodaysCallResponse)
@@ -233,6 +254,100 @@ def read_chat_history(
     return CoachChatHistoryResponse(messages=chat_history(db, profile.id))
 
 
+@router.get("/proactive-prompts", response_model=CoachProactivePromptsResponse)
+def read_proactive_prompts(
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    profile = _require_profile(current_user, db)
+    return CoachProactivePromptsResponse(prompts=list_proactive_prompts(db, profile.id))
+
+
+@router.post("/proactive-prompts/{memory_id}/dismiss", response_model=dict)
+def dismiss_proactive(
+    memory_id: int,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    profile = _require_profile(current_user, db)
+    if not dismiss_proactive_prompt(db, profile.id, memory_id):
+        raise HTTPException(status_code=404, detail="Proactive prompt not found.")
+    return {"dismissed": True, "id": memory_id}
+
+
+@router.get("/reviews", response_model=CoachReviewFlagsResponse)
+def read_review_queue(
+    status: str = Query(default="open"),
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Human review queue — replies flagged by athletes or auto-quality checks."""
+    profile = _require_profile(current_user, db)
+    if status not in {"open", "resolved", "dismissed"}:
+        raise HTTPException(status_code=422, detail="status must be open, resolved, or dismissed")
+    return CoachReviewFlagsResponse(flags=list_review_flags(db, profile.id, status=status))
+
+
+@router.post("/reviews/{message_id}/flag", response_model=CoachReviewFlagRead)
+def flag_coach_reply(
+    message_id: int,
+    payload: CoachReviewFlagRequest | None = None,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    profile = _require_profile(current_user, db)
+    try:
+        row = flag_message_for_review(
+            db,
+            profile.id,
+            message_id,
+            reason="user_report",
+            notes=payload.notes if payload else None,
+        )
+    except LookupError:
+        raise HTTPException(status_code=404, detail="Coach message not found.")
+    preview_rows = list_review_flags(db, profile.id, status=row.status, limit=1)
+    preview = preview_rows[0] if preview_rows else {}
+    return CoachReviewFlagRead(
+        id=row.id,
+        message_id=row.message_id,
+        reason=row.reason,
+        category=row.category,
+        notes=row.notes,
+        quality_score=row.quality_score,
+        status=row.status,
+        created_at=row.created_at,
+        message_preview=preview.get("message_preview"),
+    )
+
+
+@router.post("/reviews/flags/{flag_id}/resolve", response_model=CoachReviewFlagRead)
+def resolve_coach_review_flag(
+    flag_id: int,
+    status: str = Query(default="resolved"),
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    profile = _require_profile(current_user, db)
+    try:
+        row = resolve_review_flag(db, profile.id, flag_id, status=status)
+    except LookupError:
+        raise HTTPException(status_code=404, detail="Review flag not found.")
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+    return CoachReviewFlagRead(
+        id=row.id,
+        message_id=row.message_id,
+        reason=row.reason,
+        category=row.category,
+        notes=row.notes,
+        quality_score=row.quality_score,
+        status=row.status,
+        created_at=row.created_at,
+        message_preview=None,
+    )
+
+
 @router.get("/week-plan/context", response_model=WeekPlanContextResponse)
 def read_week_plan_context(
     timezone: str | None = Query(default=None),
@@ -247,6 +362,25 @@ def read_week_plan_context(
         has_season=bool(season_ctx and season_ctx.get("has_plan")),
         planning_notes=profile.planning_notes,
         season=season_ctx,
+    )
+
+
+@router.get("/warm", response_model=CoachWarmResponse)
+def warm_coach(
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Preload coach context, today's call, and proactive prompts in one round trip."""
+    profile = _require_profile(current_user, db)
+    _require_ai_consent(db, profile)
+    context_raw = get_athlete_coach_context(db, profile.id)
+    cache_meta = context_raw.get("_cache") or {}
+    return CoachWarmResponse(
+        context=CoachContextResponse(**coach_context_for_response(db, profile.id)),
+        context_cache_hit=bool(cache_meta.get("hit")),
+        todays_call=compute_todays_call(db, profile.id, profile=profile),
+        proactive_prompts=list_proactive_prompts(db, profile.id),
+        warmed_at=datetime.utcnow(),
     )
 
 
@@ -287,6 +421,59 @@ def post_chat(
     )
 
 
+@router.post("/chat/stream")
+def post_chat_stream(
+    payload: CoachChatRequest,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """NDJSON stream: status updates, reply deltas, then full chat payload."""
+    profile = _require_profile(current_user, db)
+    _require_ai_consent(db, profile)
+    message = payload.message.strip()
+    if not message:
+        raise HTTPException(status_code=422, detail="Message cannot be empty.")
+
+    mode = (payload.chat_mode or "").strip().lower()
+    intent = None
+    persist_plan = None
+    if mode == "week_plan_commit":
+        intent = SCHEDULE_UPDATE
+        persist_plan = True
+    elif mode == "week_plan_review":
+        intent = WEEK_PLAN_REVIEW
+        persist_plan = False
+    else:
+        intent = classify_chat_intent(message, activity_id=payload.activity_id)
+
+    def event_generator():
+        for status in STREAM_STATUSES[:-1]:
+            yield status_event(status)
+        try:
+            result = coach_chat(
+                db,
+                profile,
+                message,
+                timezone_name=payload.timezone,
+                activity_id=payload.activity_id,
+                intent=intent,
+                persist_plan=persist_plan,
+            )
+            yield status_event(STREAM_STATUSES[-1])
+            reply_text = ""
+            reply_payload = result.get("reply")
+            if isinstance(reply_payload, dict):
+                reply_text = reply_payload.get("reply") or ""
+            for chunk in stream_reply_deltas(reply_text):
+                yield delta_event(chunk)
+            payload_json = CoachChatResponse(**result).model_dump(mode="json")
+            yield done_event(payload_json)
+        except Exception as exc:  # noqa: BLE001 — stream must emit error event
+            yield error_event(str(exc))
+
+    return StreamingResponse(event_generator(), media_type="application/x-ndjson")
+
+
 @router.post("/plan/from-chat", response_model=CoachPlanResponse)
 def apply_chat_week(
     payload: ApplyChatWeekRequest,
@@ -320,7 +507,7 @@ def confirm_wearable_baseline(
     """Athlete accepts the fitness estimates derived from their synced device data."""
     profile = _require_profile(current_user, db)
     confirm_baseline(db, profile)
-    return CoachContextResponse(**build_athlete_coach_context(db, profile.id))
+    return CoachContextResponse(**coach_context_for_response(db, profile.id, force_refresh=True))
 
 
 @router.get("/planned-workouts", response_model=list[CoachPlannedWorkoutRead])

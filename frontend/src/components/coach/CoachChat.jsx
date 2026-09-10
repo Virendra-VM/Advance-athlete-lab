@@ -634,6 +634,9 @@ export default function CoachChat({
   initialDraft = '',
   draftSeed = null,
   composerHint = '',
+  proactivePrompts = [],
+  onDismissProactive,
+  externalStream = null,
 }) {
   const [draft, setDraft] = useState('')
   const [pins, setPins] = useState(() => loadPins(profileId))
@@ -644,6 +647,7 @@ export default function CoachChat({
   const stickToBottom = useRef(true)
   const seenIds = useRef(new Set())
   const primed = useRef(false)
+  const hadExternalStream = useRef(false)
   const hasWeek = Boolean((plan?.plan?.workouts || []).length)
   const weekAnchorMessageId = useMemo(
     () => findWeekAnchorMessageId(messages, plan),
@@ -691,6 +695,22 @@ export default function CoachChat({
   }, [profileId, pins])
 
   useEffect(() => {
+    if (externalStream) {
+      hadExternalStream.current = true
+      return undefined
+    }
+    if (hadExternalStream.current) {
+      hadExternalStream.current = false
+      const latest = [...messages]
+        .reverse()
+        .find((item) => item.role !== 'user' && !String(item.id).startsWith('pending-'))
+      if (latest) {
+        seenIds.current.add(latest.id)
+        setStream({ id: latest.id, shown: latest.content || '', done: true })
+      }
+      return undefined
+    }
+
     if (!primed.current) {
       messages.forEach((item) => seenIds.current.add(item.id))
       primed.current = true
@@ -752,7 +772,9 @@ export default function CoachChat({
     const node = listRef.current
     if (!node || !stickToBottom.current) return
     node.scrollTop = node.scrollHeight
-  }, [messages.length, sending, stream?.shown, weekAnchorMessageId])
+  }, [messages.length, sending, stream?.shown, weekAnchorMessageId, externalStream])
+
+  const activeStream = externalStream ?? stream
 
   function resizeInput() {
     const node = inputRef.current
@@ -775,7 +797,7 @@ export default function CoachChat({
     target?.scrollIntoView({ behavior: 'smooth', block: 'center' })
   }
 
-  async function submit(text) {
+  async function submit(text, options = {}) {
     const message = (text ?? draft).trim()
     if (!message || sending || disabled) return
     stickToBottom.current = true
@@ -788,6 +810,7 @@ export default function CoachChat({
       }
     })
     await onSend(message, {
+      activityId: options.activityId,
       restoreOnCancel: (restoreText) => {
         skipDraftPersist.current = true
         setDraft(restoreText)
@@ -811,16 +834,20 @@ export default function CoachChat({
     .reverse()
     .find((item) => item.role !== 'user' && !String(item.id).startsWith('pending-'))
   const waitingForStream = Boolean(
-    primed.current &&
+    !externalStream &&
+      primed.current &&
       newestAssistant &&
-      stream?.id !== newestAssistant.id &&
+      activeStream?.id !== newestAssistant.id &&
       !seenIds.current.has(newestAssistant.id),
   )
   const emptyStream = Boolean(
-    newestAssistant && stream?.id === newestAssistant.id && !stream.done && !stream.shown,
+    newestAssistant &&
+      activeStream?.id === newestAssistant.id &&
+      !activeStream.done &&
+      !activeStream.shown,
   )
   const holdingReply = waitingForStream || emptyStream
-  const activelyStreaming = Boolean(stream && !stream.done && stream.shown)
+  const activelyStreaming = Boolean(activeStream && !activeStream.done && activeStream.shown)
   const showThinking = Boolean((sending || holdingReply) && !activelyStreaming)
 
   return (
@@ -875,6 +902,43 @@ export default function CoachChat({
                   Ask about today, remaining days, or how you feel. Your week, wearables, and profile
                   are already in context.
                 </p>
+                {proactivePrompts.length > 0 ? (
+                  <div className="mt-6 flex w-full max-w-xl flex-col gap-2">
+                    <p className="text-xs font-semibold uppercase tracking-wide text-indigo-500 dark:text-indigo-300">
+                      New activity synced
+                    </p>
+                    {proactivePrompts.map((prompt) => (
+                      <div
+                        key={prompt.id}
+                        className="flex items-stretch gap-2 rounded-xl border border-indigo-200/60 bg-indigo-50/40 dark:border-indigo-500/30 dark:bg-indigo-950/20"
+                      >
+                        <button
+                          type="button"
+                          disabled={disabled || sending}
+                          onClick={() =>
+                            submit(prompt.message, {
+                              activityId: prompt.activity_id,
+                            })
+                          }
+                          className="flex flex-1 items-center gap-2 px-4 py-3 text-left text-sm text-[var(--aal-ink)] transition hover:bg-indigo-100/50 disabled:opacity-60 dark:hover:bg-indigo-900/30"
+                        >
+                          <Sparkles className="h-4 w-4 shrink-0 text-indigo-500" />
+                          <span>{prompt.summary}</span>
+                        </button>
+                        {onDismissProactive ? (
+                          <button
+                            type="button"
+                            aria-label="Dismiss suggestion"
+                            onClick={() => onDismissProactive(prompt.id)}
+                            className="px-3 text-[var(--aal-muted)] transition hover:text-[var(--aal-ink)]"
+                          >
+                            <X className="h-4 w-4" />
+                          </button>
+                        ) : null}
+                      </div>
+                    ))}
+                  </div>
+                ) : null}
                 <div className="mt-8 flex w-full max-w-xl flex-col gap-2 sm:grid sm:grid-cols-2">
                   {PROMPTS.map((prompt) => (
                     <button
@@ -906,8 +970,8 @@ export default function CoachChat({
                     mine={mine}
                     pinned={pins.some((pin) => pin.id === pinId)}
                     onPin={() => togglePin(pinFromMessage(message))}
-                    streamed={stream?.id === message.id ? stream.shown : null}
-                    streaming={stream?.id === message.id && !stream.done}
+                    streamed={activeStream?.id === message.id ? activeStream.shown : null}
+                    streaming={activeStream?.id === message.id && !activeStream.done}
                     onApplyWeek={mine ? undefined : onApplyWeek}
                     applying={Boolean(applyingWeek)}
                     weekOnSchedule={Boolean(plan?.on_schedule)}
@@ -962,6 +1026,38 @@ export default function CoachChat({
         >
           {composerHint ? (
             <p className="mb-2 text-center text-xs text-[var(--aal-muted)]">{composerHint}</p>
+          ) : null}
+          {!empty && proactivePrompts.length > 0 ? (
+            <div className="mb-3 flex flex-col gap-2">
+              {proactivePrompts.map((prompt) => (
+                <div
+                  key={prompt.id}
+                  className="flex items-stretch gap-2 rounded-xl border border-indigo-200/50 bg-indigo-50/40 dark:border-indigo-500/25 dark:bg-indigo-950/20"
+                >
+                  <button
+                    type="button"
+                    disabled={disabled || sending}
+                    onClick={() =>
+                      submit(prompt.message, { activityId: prompt.activity_id })
+                    }
+                    className="flex flex-1 items-center gap-2 px-3 py-2 text-left text-sm text-[var(--aal-ink)] transition hover:bg-indigo-100/40 disabled:opacity-60 dark:hover:bg-indigo-900/25"
+                  >
+                    <Sparkles className="h-3.5 w-3.5 shrink-0 text-indigo-500" />
+                    <span>{prompt.summary}</span>
+                  </button>
+                  {onDismissProactive ? (
+                    <button
+                      type="button"
+                      aria-label="Dismiss suggestion"
+                      onClick={() => onDismissProactive(prompt.id)}
+                      className="px-2 text-[var(--aal-muted)] transition hover:text-[var(--aal-ink)]"
+                    >
+                      <X className="h-3.5 w-3.5" />
+                    </button>
+                  ) : null}
+                </div>
+              ))}
+            </div>
           ) : null}
           <div className="flex items-end gap-2 rounded-2xl border border-indigo-300/40 bg-indigo-50/50 px-3 py-2 shadow-sm transition focus-within:border-indigo-300/60 focus-within:bg-indigo-50/80 dark:border-indigo-500/30 dark:bg-indigo-950/25 dark:focus-within:border-indigo-500/50 dark:focus-within:bg-indigo-950/35">
             <textarea

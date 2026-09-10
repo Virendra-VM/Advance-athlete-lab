@@ -983,6 +983,9 @@ def sync_all_for_athlete(db: Session, athlete_profile_id: int) -> dict[str, Any]
 
         connection.last_synced_at = datetime.utcnow()
         db.commit()
+        from app.services.coach_context_cache import invalidate_coach_context_cache
+
+        invalidate_coach_context_cache(athlete_profile_id)
     finally:
         _set_status(
             athlete_profile_id,

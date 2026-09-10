@@ -185,8 +185,16 @@ SCIENCE_HINTS = (
 )
 
 SCIENCE_QUESTION_RE = re.compile(
-    r"\b(what is|what's|whats|how does|why does|explain|latest research|"
-    r"peer[- ]?reviewed|blood flow restriction|heat acclim)\b",
+    r"\b(what is|what's|whats|how does|why does|why is my|why has my|why's my|"
+    r"explain|latest research|peer[- ]?reviewed|blood flow restriction|heat acclim)\b",
+    re.IGNORECASE,
+)
+
+PERSONAL_METRIC_RE = re.compile(
+    r"\b("
+    r"why is my|why has my|why's my|why are my|what(?:'s| is) wrong with my|"
+    r"my hrv|my acwr|my ftp|my readiness|my sleep score|my resting heart"
+    r")\b",
     re.IGNORECASE,
 )
 
@@ -272,7 +280,8 @@ Choose exactly one intent:
 - CLINICAL_VETO: sharp/tissue pain, injury diagnosis requests, or asking the coach to prescribe medication.
 - OFF_TOPIC: stocks, politics, generic homework, anything outside athletic performance / recovery / sports science.
 - SCIENCE_LOOKUP: asking what a training concept is, or how a method works (ACWR, heat acclimation, zones, HRV).
-- GENERAL_CHAT: emotional support, missed sessions, casual coach chat. Default here if unsure.
+- GENERAL_CHAT: emotional support, missed sessions, validating a DIY plan ("should I use this plan?"), casual coach chat. Default here if unsure.
+Never pick SCHEDULE_UPDATE when they only want your opinion on a plan they already proposed.
 Never pick WORKOUT_AUDIT just because a ride exists or they said "how did I do".
 If they said "this week" / "my week" / "the week" and want a recap, pick WEEK_REVIEW, not WORKOUT_AUDIT.
 Never pick SCHEDULE_UPDATE for a retrospective week recap.
@@ -366,7 +375,13 @@ def _classify_structural(message: str) -> IntentDecision:
     if not text:
         return IntentDecision(GENERAL_CHAT, 1.0, "empty")
 
+    from app.services.coach_advisory import is_go_deeper_followup, is_plan_advice_message
     from app.services.coach_safety import detect_clinical_boundary
+
+    if is_go_deeper_followup(message):
+        return IntentDecision(GENERAL_CHAT, 0.94, "structural_go_deeper")
+    if is_plan_advice_message(message):
+        return IntentDecision(GENERAL_CHAT, 0.94, "structural_plan_advice")
 
     clinical = detect_clinical_boundary(message)
     if clinical:
@@ -425,6 +440,8 @@ def _classify_structural(message: str) -> IntentDecision:
         schedule = min(schedule, 2)
 
     if any(hint in text for hint in SCIENCE_HINTS):
+        science += 4
+    if PERSONAL_METRIC_RE.search(text):
         science += 4
     if SCIENCE_QUESTION_RE.search(text) and not week_scoped and audit < 3 and schedule < 3:
         science += 3
@@ -485,7 +502,8 @@ def _classify_structural(message: str) -> IntentDecision:
         return IntentDecision(SCIENCE_LOOKUP, confidence, "structural_science", audit, schedule, review)
     if review > 0 and review >= audit and review >= schedule:
         return IntentDecision(WEEK_REVIEW, 0.6, "structural_weak", audit, schedule, review)
-    if schedule > 0 and schedule >= audit:
+    # DIY "should I use this plan?" with day names is advice, not a calendar rebuild.
+    if schedule > 0 and schedule >= audit and not is_plan_advice_message(message):
         return IntentDecision(SCHEDULE_UPDATE, 0.55, "structural_weak", audit, schedule, review)
     if audit > 0:
         return IntentDecision(WORKOUT_AUDIT, 0.55, "structural_weak", audit, schedule, review)

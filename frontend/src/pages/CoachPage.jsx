@@ -4,13 +4,14 @@ import {
   addWeekPlanToSchedule,
   applyChatWeek,
   confirmWearableBaseline,
+  dismissProactivePrompt,
   getChatHistory,
   getCoachStatus,
   getDailyAdvice,
-  getTodaysCall,
   getWeekPlan,
   getWeekPlanContext,
-  sendChatMessage,
+  sendChatMessageStream,
+  warmCoach,
 } from '../api/coach'
 import {
   buildRecoveryShiftMessage,
@@ -53,10 +54,12 @@ export default function CoachPage() {
   const [advice, setAdvice] = useState(null)
   const [todaysCall, setTodaysCall] = useState(null)
   const [messages, setMessages] = useState([])
+  const [proactivePrompts, setProactivePrompts] = useState([])
   const [loading, setLoading] = useState(true)
   const [adviceLoading, setAdviceLoading] = useState(false)
   const [publishing, setPublishing] = useState(false)
   const [sending, setSending] = useState(false)
+  const [externalStream, setExternalStream] = useState(null)
   const [confirmingBaseline, setConfirmingBaseline] = useState(false)
   const [error, setError] = useState('')
   const [adviceError, setAdviceError] = useState('')
@@ -182,24 +185,25 @@ export default function CoachPage() {
       setLoading(true)
       setError('')
       try {
-        const [statusResult, contextResult] = await Promise.all([
-          getCoachStatus(),
-          getCoachContext().catch(() => null),
-        ])
+        const statusResult = await getCoachStatus()
         if (cancelled) return
         setStatus(statusResult)
-        setContext(contextResult)
         if (statusResult.ai_consent) {
-          const [planResult, historyResult, callResult] = await Promise.all([
+          const [planResult, historyResult, warmResult] = await Promise.all([
             getWeekPlan(weekStart).catch(() => null),
             getChatHistory().catch(() => ({ messages: [] })),
-            getTodaysCall().catch(() => null),
+            warmCoach().catch(() => null),
           ])
           if (cancelled) return
           setPlan(planResult)
+          setContext(warmResult?.context ?? null)
+          setProactivePrompts(warmResult?.proactive_prompts || [])
           setMessages(historyResult?.messages || [])
-          setTodaysCall(callResult)
+          setTodaysCall(warmResult?.todays_call ?? null)
           loadAdvice()
+        } else {
+          const contextResult = await getCoachContext().catch(() => null)
+          if (!cancelled) setContext(contextResult)
         }
       } catch (err) {
         if (!cancelled) setError(err.message || 'Could not load the coach.')
@@ -265,7 +269,16 @@ export default function CoachPage() {
     abortRef.current?.abort()
   }
 
-  async function handleSend(message, { restoreOnCancel } = {}) {
+  async function handleDismissProactive(promptId) {
+    try {
+      await dismissProactivePrompt(promptId)
+      setProactivePrompts((current) => current.filter((item) => item.id !== promptId))
+    } catch (err) {
+      setError(err.message || 'Could not dismiss suggestion.')
+    }
+  }
+
+  async function handleSend(message, { restoreOnCancel, activityId } = {}) {
     const controller = new AbortController()
     abortRef.current = controller
     setSending(true)
@@ -277,7 +290,15 @@ export default function CoachPage() {
       content: message,
       created_at: new Date().toISOString(),
     }
-    setMessages((current) => [...current, optimistic])
+    const streamId = `stream-${Date.now()}`
+    const streamPlaceholder = {
+      id: streamId,
+      role: 'assistant',
+      content: '',
+      created_at: new Date().toISOString(),
+    }
+    setMessages((current) => [...current, optimistic, streamPlaceholder])
+    setExternalStream({ id: streamId, shown: '', done: false })
 
     let chatMode
     if (weekFlowStep === 'review') {
@@ -287,12 +308,23 @@ export default function CoachPage() {
     }
 
     try {
-      const result = await sendChatMessage(message, {
-        activityId: focalActivityId,
+      const result = await sendChatMessageStream(message, {
+        activityId: activityId ?? focalActivityId,
         chatMode,
         signal: controller.signal,
+        onEvent: (event) => {
+          if (event.type === 'delta' && event.text) {
+            setExternalStream((current) =>
+              current
+                ? { ...current, shown: `${current.shown}${event.text}`, done: false }
+                : current,
+            )
+          }
+        },
       })
+      setExternalStream((current) => (current ? { ...current, done: true } : current))
       setMessages(result.history || [])
+      setProactivePrompts(result.proactive_prompts || [])
       if (result.plan) {
         setPlan(result.plan)
         setStatus((current) => (current ? { ...current, has_active_plan: true } : current))
@@ -315,7 +347,9 @@ export default function CoachPage() {
         if (profile?.id) clearWeekFlowState(profile.id)
       }
     } catch (err) {
-      setMessages((current) => current.filter((item) => item.id !== optimisticId))
+      setMessages((current) =>
+        current.filter((item) => item.id !== optimisticId && item.id !== streamId),
+      )
       if (err.name === 'AbortError') {
         restoreOnCancel?.(message)
         return
@@ -324,6 +358,7 @@ export default function CoachPage() {
     } finally {
       abortRef.current = null
       setSending(false)
+      setExternalStream(null)
     }
   }
 
@@ -438,6 +473,9 @@ export default function CoachPage() {
               initialDraft={chatDraft}
               draftSeed={draftSeed}
               composerHint={composerHint}
+              proactivePrompts={proactivePrompts}
+              onDismissProactive={handleDismissProactive}
+              externalStream={externalStream}
             />
           </div>
         </div>

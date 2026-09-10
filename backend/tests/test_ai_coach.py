@@ -224,44 +224,45 @@ def test_chat_and_schedule_prompts_skip_autopsy_sections():
     schedule = schedule_system_prompt()
     review = week_review_system_prompt()
     task = chat_task()
-    assert "THE BOTTOM LINE" in chat
-    assert "skip" in chat.lower()
+    assert "ELITE COACH PERSONA" in chat
+    assert "skip" in chat.lower() or "BAN" in chat
     assert "MECHANICAL PRECISION" in chat
     assert "CARDIOVASCULAR COST" in chat
-    assert "two consecutive sentences" in chat.lower()
-    assert "REFRAME" in chat
+    assert "emoji section headers" in chat.lower() or "THE CALL" in chat
     assert "THE BOTTOM LINE" in schedule
     assert "skip" in schedule.lower()
     assert "two consecutive sentences" in schedule.lower()
     assert "last synced" in task.lower() or "telemetry" in task.lower()
-    assert "BOTTOM LINE" in task
+    assert "ELITE COACH" in task
     assert "WEEK GRADE" in review
     assert "WHAT LANDED" in review
     assert "skip" in review.lower()
     assert "NP" in week_review_task()
 
 
-def test_template_general_chat_is_bullets_not_an_autopsy():
+def test_template_general_chat_is_elite_coach_not_an_autopsy():
     calm = template_general_chat(
         "What is ACWR?",
-        {"readiness": {"reason": "Sleep is adequate."}},
+        {"load": {"minutes_acwr": 0.88}, "readiness": {"reason": "Sleep is adequate."}},
         [],
+        context={"coros": {"latest_health": {"hrv": 55}}},
     )
     text = calm["reply"]
-    assert "🧠 THE CALL" in text
-    assert "📌 ANSWER" in text
-    assert "THE BOTTOM LINE" not in text
+    assert "🧠 THE CALL" not in text
+    assert "📌 ANSWER" not in text
     assert "MECHANICAL PRECISION" not in text
     assert "NP" not in text
+    assert "0.88" in text
     emotional = template_general_chat(
         "I failed. I cut the workout short and I feel guilty.",
-        {"readiness": {"reason": "Hold easy."}},
+        {"load": {"minutes_acwr": 1.1}, "readiness": {"reason": "Hold easy."}},
         [],
+        context={"coros": {"latest_health": {"hrv": 40}}},
     )
     reframe = emotional["reply"]
-    assert "💬 REFRAME" in reframe
-    assert "**" in reframe
-    assert "THE BOTTOM LINE" not in reframe
+    assert "💬 REFRAME" not in reframe
+    assert "Hey" in reframe
+    assert "autopsy" not in reframe.lower() or "not" in reframe.lower()
 
 
 def test_schedule_prompt_bypasses_autopsy():
