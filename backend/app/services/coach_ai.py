@@ -124,8 +124,34 @@ from app.services.workout_selection import (
     build_library_week,
 )
 from app.services.week_from_chat import coerce_week_plan, parse_week_plan_from_text
+from app.services.coach_schedule_mode import (
+    ACTION_SUMMARY,
+    FULL_REPORT,
+    build_planner_packet,
+    build_proposed_schedule_week,
+    build_schedule_narrator_block,
+    build_week_table_rows,
+    detect_schedule_response_mode,
+    diff_week_plans,
+    finalize_schedule_narrator_reply,
+    format_physiology_anchor_lines,
+)
+from app.services.coach_voice import (
+    build_voice_context,
+    finalize_general_chat_reply,
+    finalize_schedule_full_reply,
+)
+from app.services.coach_variety import (
+    analyze_reply_variety,
+    build_variety_retry_block,
+    is_degenerate_reply,
+    max_overlap_with_recent,
+    recent_assistant_replies,
+    variety_prompt_block,
+)
 
 logger = logging.getLogger(__name__)
+
 
 WEEK_PLAN_SCHEMA = """{
   "title": "string",
@@ -283,8 +309,34 @@ WEEK_PLAN_REVIEW_SCHEMA = """{
   "intent": "WEEK_PLAN_REVIEW"
 }"""
 
+SCHEDULE_ACTION_SCHEMA = """{
+  "reply": "string, action summary: WHAT CHANGED bullets, TODAY'S CALL, one DIRECTIVE, 5-col week table, spine lock if needed. NO WEEKLY TRANSLATIONS. No science/lingo/analogy triplets.",
+  "citations": ["S1"],
+  "escalate": false,
+  "escalation_reason": null,
+  "intent": "SCHEDULE_UPDATE",
+  "week_plan": {
+    "title": "string",
+    "summary": "string",
+    "focus": "string",
+    "week_start": "YYYY-MM-DD",
+    "workouts": [
+      {
+        "date": "YYYY-MM-DD",
+        "sport": "string",
+        "title": "string",
+        "session_type": "rest|easy|long|tempo|threshold|intervals|hills|speed|strength|mobility|cross-training|race",
+        "duration_min": number,
+        "intensity": "string",
+        "description": "string with warm-up, named main set, cool-down",
+        "structure": [{"segment": "Warm-up|Main set|Cool-down", "duration_min": number, "intensity": "string", "detail": "named exercises, intervals, poses, stretches, foam roll"}]
+      }
+    ]
+  }
+}"""
+
 SCHEDULE_SCHEMA = """{
-  "reply": "string, Pro Olympic Coach call: TODAY'S CALL status, one locker-room directive, 5-col week table, spine DO NOTs, science/lingo/analogy bullets. No essays.",
+  "reply": "string, Pro Olympic Coach call: TODAY'S CALL status, one locker-room directive, 5-col week table, spine DO NOTs. Optional Why this works / Why recovery only when earned. No triplet templates.",
   "citations": ["S1"],
   "escalate": false,
   "escalation_reason": null,
@@ -917,14 +969,25 @@ def _retrieve(
     return retrieve_science(db, query, sports=sports, k=k)
 
 
-def _call_provider(system: str, user: str) -> tuple[dict, str, str] | None:
+def _call_provider(
+    system: str,
+    user: str,
+    *,
+    temperature: float = 0.4,
+    presence_penalty: float | None = None,
+) -> tuple[dict, str, str] | None:
     """Try each configured provider once. Returns (data, provider, model) or None."""
     for provider in provider_chain():
         started = time.perf_counter()
         if AI_DEBUG:
             logger.info("Coach AI trying %s/%s", provider.name, provider.model)
         try:
-            response = provider.generate_json(system, user)
+            response = provider.generate_json(
+                system,
+                user,
+                temperature=temperature,
+                presence_penalty=presence_penalty,
+            )
             elapsed_ms = (time.perf_counter() - started) * 1000
             logger.info(
                 "Coach AI %s/%s succeeded in %.0fms",
@@ -2923,6 +2986,41 @@ def coach_chat(
     )
     drop_assistant = has_prescription or intent != WORKOUT_AUDIT
     transcript = _recent_transcript(history, drop_assistant=drop_assistant)
+    voice = build_voice_context(message, safety, context, history)
+
+    schedule_mode = FULL_REPORT
+    proposed_plan: dict | None = None
+    schedule_diff: dict | None = None
+    planner_packet: dict | None = None
+    physiology_lines: list[str] = []
+    if intent == SCHEDULE_UPDATE:
+        schedule_mode = detect_schedule_response_mode(message)
+        physiology_lines = format_physiology_anchor_lines(context)
+        proposed_plan = build_proposed_schedule_week(
+            context=context,
+            safety=safety,
+            clock=clock,
+            current_plan=current_plan,
+            message=message,
+        )
+        old_workouts = ((current_plan or {}).get("plan") or {}).get("workouts") or []
+        schedule_diff = diff_week_plans(old_workouts, proposed_plan.get("workouts") or [])
+        planner_packet = build_planner_packet(
+            proposed_plan=proposed_plan,
+            schedule_diff=schedule_diff or {"changes": []},
+            physiology_lines=physiology_lines,
+            safety=safety,
+            context=context,
+            schedule_mode=schedule_mode,
+            message=message,
+        )
+        logger.info(
+            "Coach schedule two-pass pass1 mode=%s workouts=%s changes=%s risks=%s",
+            schedule_mode,
+            len(proposed_plan.get("workouts") or []),
+            len((schedule_diff or {}).get("changes") or []),
+            len(planner_packet.get("risk_flags") or []),
+        )
 
     extra_block = ""
     if intent == WORKOUT_AUDIT and session_packet:
@@ -2968,23 +3066,20 @@ Do not autopsy a past ride. Skip ⚡ THE BOTTOM LINE, 🔬 MECHANICAL PRECISION,
 No NP / IF / TSS / laps. No 5-column week table. No week_plan JSON.
 Use SEASON PLAN limits and the athlete's stated constraints. Copy TODAY'S CALL status exactly.
 """
-    elif intent == SCHEDULE_UPDATE:
-        extra_block = f"""
-{today_call_prompt_block(context, safety)}
-
-{athlete_state_block(context, safety)}
-
-ROUTING (hard)
-Intent is SCHEDULE_UPDATE. Do not autopsy a past ride. Do not load or invent session telemetry.
-Completely skip ⚡ THE BOTTOM LINE, 🔬 MECHANICAL PRECISION, and 🫀 CARDIOVASCULAR COST.
-Do not inject the last synced workout's laps, NP, IF, TSS, or autopsy metrics.
-Do not write essays or paragraphs. Never more than two consecutive sentences per block.
-Bullets, key-values, and the week table only.
-Use CURRENT WEEK PLAN plus the athlete's proposed calendar.
-Copy TODAY'S CALL status line exactly. Guard active back/spine limits with non-negotiable DO NOT lifts on strength days.
-Every session needs Warm-up, a named Main set, and Cool-down (stretches / foam roll / mobility).
-If the athlete's only reason is today's HRV, readiness, stress, or ACWR, do not rewrite other days — that is a today-only change.
-"""
+    elif intent == SCHEDULE_UPDATE and proposed_plan is not None and planner_packet is not None:
+        table_rows = build_week_table_rows(proposed_plan, clock=clock)
+        voice_block = voice.conditional_teaching_block if schedule_mode == FULL_REPORT else ""
+        extra_block = build_schedule_narrator_block(
+            schedule_mode=schedule_mode,
+            planner_packet=planner_packet,
+            proposed_plan=proposed_plan,
+            schedule_diff=schedule_diff or {"changes": []},
+            physiology_lines=physiology_lines,
+            table_rows=table_rows,
+            today_call_block=today_call_prompt_block(context, safety),
+            athlete_state_block=athlete_state_block(context, safety),
+            voice_teaching_block=voice_block,
+        )
     elif intent == DAY_ADJUST:
         extra_block = f"""
 {today_call_prompt_block(context, safety)}
@@ -3017,6 +3112,8 @@ Do not load, invent, or quote the last synced workout's telemetry, laps, NP, IF,
 Focus 100% on the athlete's specific biological, schedule-adjacent, or emotional question.
 Never more than two consecutive sentences per bullet.
 If they feel they failed or cut a session short: 💬 REFRAME as spaced **bold** bullets.
+{voice.conditional_teaching_block}
+{voice.plain_language_block}
 """
 
     if intent == WORKOUT_AUDIT:
@@ -3032,9 +3129,14 @@ If they feel they failed or cut a session short: 💬 REFRAME as spaced **bold**
         chat_schema = WEEK_PLAN_REVIEW_SCHEMA
         system_prompt = schedule_system_prompt()
     elif intent == SCHEDULE_UPDATE:
-        task = schedule_task()
-        chat_schema = SCHEDULE_SCHEMA
-        system_prompt = schedule_system_prompt()
+        task = schedule_task(schedule_mode)
+        chat_schema = (
+            SCHEDULE_ACTION_SCHEMA if schedule_mode == ACTION_SUMMARY else SCHEDULE_SCHEMA
+        )
+        system_prompt = schedule_system_prompt(
+            schedule_mode,
+            voice if schedule_mode == FULL_REPORT else None,
+        )
     elif intent == DAY_ADJUST:
         task = day_adjust_task()
         chat_schema = DAY_ADJUST_SCHEMA
@@ -3046,7 +3148,7 @@ If they feel they failed or cut a session short: 💬 REFRAME as spaced **bold**
     else:
         task = chat_task()
         chat_schema = CHAT_SCHEMA
-        system_prompt = chat_system_prompt()
+        system_prompt = chat_system_prompt(voice)
 
     review_plan_block = ""
     if intent == WEEK_REVIEW and review_plan is not current_plan:
@@ -3083,21 +3185,106 @@ TASK
 Respond with JSON matching exactly this shape:
 {chat_schema}"""
 
-    result = None
-    if not (intent == SCIENCE_LOOKUP and not science_grounded):
-        result = _call_provider(system_prompt, user_prompt)
+    variety_steering = ""
+    if intent in {SCHEDULE_UPDATE, GENERAL_CHAT}:
+        variety_steering = variety_prompt_block(history)
+    if variety_steering:
+        user_prompt = f"{user_prompt}\n\n{variety_steering}"
+
     provider_name, model_name = "rules", "deterministic-template"
     reply: dict | None = None
     raw_payload: dict | None = None
+    variety_regenerated = False
+
+    def _finalize_llm_reply(candidate: dict) -> dict:
+        if intent == SCHEDULE_UPDATE and proposed_plan:
+            return finalize_schedule_narrator_reply(
+                candidate,
+                proposed_plan=proposed_plan,
+                schedule_mode=schedule_mode,
+                schedule_diff=schedule_diff or {"changes": []},
+                physiology_lines=physiology_lines,
+                message=message,
+                voice=voice,
+                safety=safety,
+                context=context,
+                clock=clock,
+            )
+        if intent == GENERAL_CHAT:
+            return finalize_general_chat_reply(
+                candidate, voice, context=context, safety=safety
+            )
+        return candidate
+
+    def _parse_llm_reply(raw: dict) -> dict | None:
+        try:
+            return _finalize_llm_reply(
+                ChatReplyJSON.model_validate(raw).model_dump(mode="json")
+            )
+        except ValidationError as exc:
+            logger.warning("Chat schema validation failed: %s", exc)
+            return None
+
+    llm_temperature = 0.4
+    llm_presence: float | None = None
+    if intent == SCHEDULE_UPDATE and proposed_plan is not None:
+        llm_temperature = 0.7
+        llm_presence = 0.45
+    elif intent == GENERAL_CHAT:
+        llm_temperature = 0.55
+        llm_presence = 0.35
+
+    result = None
+    if not (intent == SCIENCE_LOOKUP and not science_grounded):
+        if intent in {SCHEDULE_UPDATE, GENERAL_CHAT} and (
+            intent != SCHEDULE_UPDATE or proposed_plan is not None
+        ):
+            result = _call_provider(
+                system_prompt,
+                user_prompt,
+                temperature=llm_temperature,
+                presence_penalty=llm_presence,
+            )
+        elif intent not in {SCHEDULE_UPDATE, GENERAL_CHAT}:
+            result = _call_provider(system_prompt, user_prompt)
 
     if result is not None:
         raw, provider_name, model_name = result
         raw_payload = raw if isinstance(raw, dict) else None
-        try:
-            reply = ChatReplyJSON.model_validate(raw).model_dump(mode="json")
-        except ValidationError as exc:
-            logger.warning("Chat schema validation failed for %s: %s", provider_name, exc)
-            reply = None
+        reply = _parse_llm_reply(raw) if isinstance(raw, dict) else None
+        if reply and is_degenerate_reply(reply.get("reply") or "", history):
+            overlap, _ = max_overlap_with_recent(reply.get("reply") or "", history)
+            priors = recent_assistant_replies(history, max_turns=1)
+            retry_block = build_variety_retry_block(
+                overlap_score=overlap,
+                last_reply=priors[0] if priors else "",
+                section_signature=analyze_reply_variety(reply.get("reply") or "", history)[
+                    "section_signature"
+                ],
+                analogies_used=analyze_reply_variety(reply.get("reply") or "", history)[
+                    "analogies_used"
+                ],
+            )
+            logger.info(
+                "Coach variety retry overlap=%.2f intent=%s provider=%s",
+                overlap,
+                intent,
+                provider_name,
+            )
+            retry_result = _call_provider(
+                system_prompt,
+                f"{user_prompt}\n\n{retry_block}",
+                temperature=min(0.85, llm_temperature + 0.08),
+                presence_penalty=min(0.55, (llm_presence or 0.35) + 0.12),
+            )
+            if retry_result is not None:
+                retry_raw, provider_name, model_name = retry_result
+                raw_payload = retry_raw if isinstance(retry_raw, dict) else raw_payload
+                retry_reply = _parse_llm_reply(retry_raw) if isinstance(retry_raw, dict) else None
+                if retry_reply:
+                    reply = retry_reply
+                    variety_regenerated = True
+        if reply is None:
             provider_name, model_name = "rules", "deterministic-template"
 
     if reply is None:
@@ -3130,7 +3317,13 @@ Respond with JSON matching exactly this shape:
                 current_plan=current_plan,
                 context=context,
                 clock=clock,
+                response_mode=schedule_mode,
+                proposed_plan=proposed_plan,
+                diff=schedule_diff,
+                physiology_lines=physiology_lines,
             )
+            if proposed_plan:
+                provider_name, model_name = "rules", "library-selection-v2-two-pass"
         elif intent == DAY_ADJUST:
             reply = template_day_adjust(
                 message,
@@ -3152,6 +3345,10 @@ Respond with JSON matching exactly this shape:
             reply = template_general_chat(message, safety, hits)
 
     reply["intent"] = intent
+    if reply.get("reply"):
+        variety_meta = analyze_reply_variety(reply.get("reply") or "", history)
+        variety_meta["regenerated"] = variety_regenerated
+        reply["_variety"] = variety_meta
     applied_plan = None
     if intent == DAY_ADJUST and persist_plan:
         plan_data = extract_week_plan_from_chat(
@@ -3198,7 +3395,8 @@ Respond with JSON matching exactly this shape:
                 logger.warning("Could not persist chat week: %s", exc)
     logger.info("Coach routed intent=%s source=%s", intent, decision_source)
 
-    _store_assistant_message(db, profile.id, reply, provider_name)
+    variety_meta = reply.pop("_variety", None)
+    _store_assistant_message(db, profile.id, reply, provider_name, variety=variety_meta)
 
     return {
         "provider": provider_name,
@@ -3223,6 +3421,7 @@ def _decode_message_meta(raw: str | None) -> dict:
             "citations": data.get("citations") or [],
             "plan_id": data.get("plan_id"),
             "intent": data.get("intent"),
+            "variety": data.get("variety"),
         }
     if isinstance(data, list):
         return {"citations": data}
@@ -3236,17 +3435,27 @@ def _history_meta_fields(raw: str | None) -> dict:
         fields["intent"] = meta["intent"]
     if meta.get("plan_id"):
         fields["plan_id"] = meta["plan_id"]
+    if meta.get("variety"):
+        fields["variety"] = meta["variety"]
     return fields
 
 
-def _store_assistant_message(db: Session, profile_id: int, reply: dict, provider: str) -> None:
+def _store_assistant_message(
+    db: Session,
+    profile_id: int,
+    reply: dict,
+    provider: str,
+    *,
+    variety: dict | None = None,
+) -> None:
     citations = reply.get("citations") or []
     payload: dict | list = citations
-    if reply.get("plan_id") or reply.get("intent"):
+    if reply.get("plan_id") or reply.get("intent") or variety:
         payload = {
             "citations": citations,
             "plan_id": reply.get("plan_id"),
             "intent": reply.get("intent"),
+            "variety": variety,
         }
     db.add(
         CoachMessage(

@@ -41,7 +41,14 @@ class CoachProvider(Protocol):
     def is_configured(self) -> bool:
         ...
 
-    def generate_json(self, system: str, user: str) -> ProviderResponse:
+    def generate_json(
+        self,
+        system: str,
+        user: str,
+        *,
+        temperature: float = 0.4,
+        presence_penalty: float | None = None,
+    ) -> ProviderResponse:
         ...
 
 

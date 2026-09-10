@@ -1,7 +1,28 @@
 import { Fragment, useEffect, useMemo, useRef, useState } from 'react'
 import { AnimatePresence, motion } from 'framer-motion'
-import { Pin, Send, Sparkles, Square, X, CalendarPlus } from 'lucide-react'
+import {
+  Pin,
+  Send,
+  Sparkles,
+  Square,
+  X,
+  CalendarPlus,
+  ChevronDown,
+  ChevronUp,
+  Lightbulb,
+} from 'lucide-react'
 import { loadComposerDraft, saveComposerDraft } from '../../utils/coachComposerStorage'
+import {
+  extractDeepDiveBlocks,
+  foldCoachContent,
+  goDeeperPrompt,
+  hasGoDeeperContent,
+  isCoachSectionHeader,
+  isRevisedWeekHeader,
+  isTableDivider,
+  parseTableRow,
+  countWeekTableRows,
+} from '../../utils/coachChatLayout'
 import { parseUtcDate } from '../../utils/formatters'
 import WeekPlan from './WeekPlan'
 import { loadPins, pinFromMessage, removePin, savePins, upsertPin } from './chatPins'
@@ -100,126 +121,114 @@ function renderInline(text) {
   })
 }
 
-function parseTableRow(line) {
-  return line
-    .trim()
-    .replace(/^\|/, '')
-    .replace(/\|$/, '')
-    .split('|')
-    .map((cell) => cell.trim())
-}
-
-function isTableDivider(cells) {
-  return cells.length > 0 && cells.every((cell) => /^:?-{2,}:?$/.test(cell.replace(/\s/g, '')) || cell === '')
-}
-
-function isTableLine(line) {
-  const trimmed = line.trim()
-  return trimmed.startsWith('|') && trimmed.endsWith('|') && trimmed.length > 2
-}
-
-function isRevisedWeekHeader(trimmed) {
-  return /REVISED WEEK/i.test(trimmed) || /^🗓️\s/.test(trimmed)
-}
-
-function todayCallTone(text) {
-  if (/PRIMED\s*\/\s*ACCUMULATE/i.test(text)) return 'green'
-  if (/CAUTION\s*\/\s*ABSORB/i.test(text)) return 'amber'
-  if (/REST\s*\/\s*RESTORE/i.test(text)) return 'red'
-  return null
-}
-
-function isTodayCallHeader(trimmed) {
-  return /TODAY'S CALL/i.test(trimmed)
-}
-
-function isLockerHeader(trimmed) {
-  return /LOCKER ROOM DIRECTIVE/i.test(trimmed)
-}
-
-function isSpineHeader(trimmed) {
-  return /SPINE LOCK/i.test(trimmed)
-}
-
-function isCoachSectionHeader(trimmed) {
+function WhatChangedCard({ block, caret }) {
+  const [open, setOpen] = useState(false)
+  const bodyLines = block.lines.slice(1)
   return (
-    /^(⚡|🔬|🫀|🧠|🧭|📅|🗓️|⚠️|🟢|🟡|🔴|🗣️|💡|🛡️|💬|📌|⚕️)\s/.test(trimmed) ||
-    isTodayCallHeader(trimmed) ||
-    isLockerHeader(trimmed) ||
-    isSpineHeader(trimmed) ||
-    /WEEKLY TRANSLATIONS/i.test(trimmed) ||
-    /WHAT LANDED/i.test(trimmed) ||
-    isRevisedWeekHeader(trimmed)
+    <div className="coach-what-changed my-3 overflow-hidden rounded-xl border border-indigo-200/50 bg-indigo-50/40 dark:border-indigo-500/25 dark:bg-indigo-950/20">
+      <button
+        type="button"
+        onClick={() => setOpen((value) => !value)}
+        aria-expanded={open}
+        className="flex w-full items-center justify-between gap-3 px-3 py-2.5 text-left transition hover:bg-indigo-100/40 dark:hover:bg-indigo-900/20"
+      >
+        <span className="text-sm font-semibold text-[var(--aal-ink)]">
+          📊 {block.summary || 'What changed this week'}
+        </span>
+        {open ? (
+          <ChevronUp className="h-4 w-4 shrink-0 text-indigo-500" />
+        ) : (
+          <ChevronDown className="h-4 w-4 shrink-0 text-indigo-500" />
+        )}
+      </button>
+      {open ? (
+        <div className="border-t border-indigo-200/40 px-3 py-2 dark:border-indigo-500/20">
+          {renderLineStack(bodyLines, caret)}
+        </div>
+      ) : null}
+    </div>
   )
 }
 
-function foldCoachBlocks(blocks) {
-  const out = []
-  for (let index = 0; index < blocks.length; index += 1) {
-    const block = blocks[index]
-    if (block.type !== 'line') {
-      out.push(block)
-      continue
-    }
-    const trimmed = block.line.trim()
-    if (isTodayCallHeader(trimmed)) {
-      const lines = [block.line]
-      let cursor = index + 1
-      while (cursor < blocks.length && blocks[cursor].type === 'line') {
-        const next = blocks[cursor].line.trim()
-        if (
-          next &&
-          isCoachSectionHeader(next) &&
-          !isTodayCallHeader(next) &&
-          !todayCallTone(next)
-        ) {
-          break
-        }
-        lines.push(blocks[cursor].line)
-        cursor += 1
-      }
-      out.push({
-        type: 'todayCall',
-        lines,
-        tone: todayCallTone(lines.join('\n')) || 'amber',
-      })
-      index = cursor - 1
-      continue
-    }
-    if (isLockerHeader(trimmed)) {
-      const lines = [block.line]
-      let cursor = index + 1
-      while (cursor < blocks.length && blocks[cursor].type === 'line') {
-        const next = blocks[cursor].line.trim()
-        if (!next) {
-          cursor += 1
-          continue
-        }
-        if (isCoachSectionHeader(next) && !isLockerHeader(next)) break
-        lines.push(blocks[cursor].line)
-        cursor += 1
-        break
-      }
-      out.push({ type: 'locker', lines })
-      index = cursor - 1
-      continue
-    }
-    if (isSpineHeader(trimmed)) {
-      const lines = [block.line]
-      let cursor = index + 1
-      while (cursor < blocks.length && blocks[cursor].type === 'line') {
-        const next = blocks[cursor].line.trim()
-        if (next && isCoachSectionHeader(next) && !isSpineHeader(next)) break
-        lines.push(blocks[cursor].line)
-        cursor += 1
-      }
-      out.push({ type: 'spine', lines })
-      index = cursor - 1
-      continue
-    }
-    out.push(block)
-  }
-  return out
+function CollapsibleWeekTable({ tableEl, applyWeek, defaultOpen, rowCount }) {
+  const [open, setOpen] = useState(defaultOpen)
+  const label = open
+    ? 'Hide week plan'
+    : rowCount > 0
+      ? `Show week plan (${rowCount} days)`
+      : 'Show week plan'
+  return (
+    <div className="my-3 space-y-2">
+      <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+        {applyWeek}
+        <button
+          type="button"
+          onClick={() => setOpen((value) => !value)}
+          aria-expanded={open}
+          className="inline-flex items-center gap-1.5 rounded-lg border border-[var(--aal-line)] px-3 py-1.5 text-xs font-semibold text-[var(--aal-ink)] transition hover:bg-[var(--aal-card)]"
+        >
+          {open ? <ChevronUp className="h-3.5 w-3.5" /> : <ChevronDown className="h-3.5 w-3.5" />}
+          {label}
+        </button>
+      </div>
+      {open ? tableEl : null}
+    </div>
+  )
+}
+
+function GoDeeperSection({ deepDiveBlocks, onAskCoach, disabled }) {
+  const [open, setOpen] = useState(false)
+  const hasInline = deepDiveBlocks.length > 0
+  if (!hasInline && !onAskCoach) return null
+  return (
+    <div className="coach-go-deeper my-3">
+      {!open ? (
+        <button
+          type="button"
+          disabled={disabled}
+          onClick={() => {
+            if (hasInline) {
+              setOpen(true)
+              return
+            }
+            onAskCoach?.()
+          }}
+          className="inline-flex items-center gap-2 rounded-full border border-[var(--aal-line)] bg-[var(--aal-card)] px-3 py-1.5 text-xs font-semibold text-indigo-600 transition hover:border-indigo-300 hover:bg-indigo-50/50 disabled:opacity-50 dark:text-indigo-300 dark:hover:bg-indigo-950/30"
+        >
+          <Lightbulb className="h-3.5 w-3.5" />
+          Go deeper — why this week?
+        </button>
+      ) : (
+        <div className="rounded-xl border border-[var(--aal-line)] bg-[var(--aal-card)]/80 px-3 py-2">
+          <div className="mb-2 flex items-center justify-between gap-2">
+            <span className="text-xs font-semibold uppercase tracking-wide text-indigo-500 dark:text-indigo-300">
+              Why this works
+            </span>
+            <button
+              type="button"
+              onClick={() => setOpen(false)}
+              className="text-[10px] font-medium text-[var(--aal-muted)] hover:text-[var(--aal-ink)]"
+            >
+              Hide
+            </button>
+          </div>
+          {deepDiveBlocks.map((block, index) => (
+            <div key={index}>{renderLineStack(block.lines, false)}</div>
+          ))}
+          {onAskCoach ? (
+            <button
+              type="button"
+              disabled={disabled}
+              onClick={onAskCoach}
+              className="mt-2 text-xs font-medium text-indigo-600 hover:underline disabled:opacity-50 dark:text-indigo-300"
+            >
+              Ask the coach for more detail
+            </button>
+          ) : null}
+        </div>
+      )}
+    </div>
+  )
 }
 
 function renderLineStack(lines, caret) {
@@ -264,36 +273,44 @@ function CoachReplyBody({
   mine,
   caret = false,
   applyWeek = null,
+  weekTableDefaultOpen = true,
+  onGoDeeper,
+  goDeeperDisabled = false,
 }) {
   if (mine) {
     return <p className="whitespace-pre-wrap leading-relaxed">{content}</p>
   }
-  const lines = String(content || '').split('\n')
-  const blocks = []
-  let table = []
-  lines.forEach((line) => {
-    if (isTableLine(line)) {
-      table.push(line)
-      return
-    }
-    if (table.length) {
-      blocks.push({ type: 'table', rows: table })
-      table = []
-    }
-    blocks.push({ type: 'line', line })
-  })
-  if (table.length) {
-    blocks.push({ type: 'table', rows: table })
-  }
 
-  const folded = foldCoachBlocks(blocks)
+  const folded = foldCoachContent(content)
+  const deepDiveBlocks = extractDeepDiveBlocks(folded)
+  const visibleBlocks = folded.filter((block) => block.type !== 'deepDive')
+  const showGoDeeper = hasGoDeeperContent(folded, content)
   let placedApply = false
-  const lastFolded = folded.length - 1
+  const lastVisible = visibleBlocks.length - 1
+
+  const handleAskCoach = onGoDeeper
+    ? () => onGoDeeper(goDeeperPrompt(content))
+    : undefined
 
   return (
     <div className="space-y-0.5 text-[15px] leading-7">
-      {folded.map((block, blockIndex) => {
-        const last = blockIndex === lastFolded
+      {visibleBlocks.map((block, blockIndex) => {
+        const last = blockIndex === lastVisible && !showGoDeeper
+        if (block.type === 'plainLead') {
+          return (
+            <div
+              key={blockIndex}
+              className={`coach-plain-lead coach-today-call-${block.tone} my-3 rounded-lg border border-white/10 bg-white/5 px-3 py-2`}
+            >
+              {renderLineStack(block.lines, last && caret)}
+            </div>
+          )
+        }
+        if (block.type === 'whatChanged') {
+          return (
+            <WhatChangedCard key={blockIndex} block={block} caret={last && caret} />
+          )
+        }
         if (block.type === 'todayCall') {
           return (
             <div
@@ -322,6 +339,7 @@ function CoachReplyBody({
           const parsed = block.rows.map(parseTableRow).filter((row) => row.length)
           const header = parsed[0] || []
           const body = parsed.slice(1).filter((row) => !isTableDivider(row))
+          const rowCount = countWeekTableRows(block.rows)
           const tableEl = (
             <div className="coach-md-table-wrap overflow-x-auto">
               <table className="coach-md-table">
@@ -347,18 +365,23 @@ function CoachReplyBody({
           if (applyWeek && !placedApply) {
             placedApply = true
             return (
-              <div key={blockIndex} className="my-3 space-y-2">
-                <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-                  {applyWeek}
-                </div>
-                {tableEl}
-              </div>
+              <CollapsibleWeekTable
+                key={blockIndex}
+                tableEl={tableEl}
+                applyWeek={applyWeek}
+                defaultOpen={weekTableDefaultOpen}
+                rowCount={rowCount}
+              />
             )
           }
           return (
-            <div key={blockIndex} className="my-3">
-              {tableEl}
-            </div>
+            <CollapsibleWeekTable
+              key={blockIndex}
+              tableEl={tableEl}
+              applyWeek={null}
+              defaultOpen={weekTableDefaultOpen}
+              rowCount={rowCount}
+            />
           )
         }
         const line = block.line
@@ -400,6 +423,13 @@ function CoachReplyBody({
           </p>
         )
       })}
+      {showGoDeeper && !caret ? (
+        <GoDeeperSection
+          deepDiveBlocks={deepDiveBlocks}
+          onAskCoach={handleAskCoach}
+          disabled={goDeeperDisabled}
+        />
+      ) : null}
     </div>
   )
 }
@@ -497,6 +527,9 @@ function MessageRow({
   onApplyWeek,
   applying,
   weekOnSchedule,
+  isLatestAssistant,
+  onGoDeeper,
+  goDeeperDisabled,
 }) {
   const canPin =
     !streaming &&
@@ -554,6 +587,9 @@ function MessageRow({
           mine={false}
           caret={Boolean(streaming)}
           applyWeek={applyWeek}
+          weekTableDefaultOpen={Boolean(isLatestAssistant)}
+          onGoDeeper={onGoDeeper}
+          goDeeperDisabled={goDeeperDisabled}
         />
       </motion.div>
       {streaming ? null : (
@@ -875,6 +911,13 @@ export default function CoachChat({
                     onApplyWeek={mine ? undefined : onApplyWeek}
                     applying={Boolean(applyingWeek)}
                     weekOnSchedule={Boolean(plan?.on_schedule)}
+                    isLatestAssistant={
+                      !mine &&
+                      newestAssistant != null &&
+                      message.id === newestAssistant.id
+                    }
+                    onGoDeeper={mine ? undefined : submit}
+                    goDeeperDisabled={disabled || sending}
                   />
                   {showWeekAfter ? (
                     <div id={`coach-week-artifact-${message.id}`}>

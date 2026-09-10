@@ -265,18 +265,18 @@ def test_template_general_chat_is_bullets_not_an_autopsy():
 
 
 def test_schedule_prompt_bypasses_autopsy():
-    system = schedule_system_prompt()
-    task = schedule_task()
+    system = schedule_system_prompt("full_report")
+    task = schedule_task("full_report")
     assert "Olympic Coach" in system or "Athletic Director" in system
     assert "do not autopsy" in system.lower() or "Do NOT autopsy" in system
     assert "TODAY'S CALL" in system
     assert "LOCKER ROOM DIRECTIVE" in system
     assert "Coach's Secret Rule" in system
     assert "PRIMED" in system and "CAUTION" in system and "REST / RESTORE" in system
-    assert "THE SCIENCE" in system
-    assert "LOCKER ROOM LINGO" in system
+    assert "CONDITIONAL TEACHING" in system or "Do NOT add 🔬 WEEKLY TRANSLATIONS" in system
+    assert "80-180 words" in system
     assert "DO NOT" in system
-    assert "ACWR" in task
+    assert "Why this works" in task or "Why recovery" in task
     assert "autopsy" in task.lower()
     assert "Secret Rule" in task
     assert "BOTTOM LINE" in task or "skip" in system.lower()
