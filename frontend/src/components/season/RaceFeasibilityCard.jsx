@@ -63,7 +63,7 @@ export default function RaceFeasibilityCard({ feasibility, aRace }) {
         {target ? null : (
           <>
             {' '}
-            <Link to="/profile#profile-training" className="font-medium underline">
+            <Link to="/profile/training" className="font-medium underline">
               Add a target time
             </Link>{' '}
             to see how close you are.

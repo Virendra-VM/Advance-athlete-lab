@@ -6,7 +6,11 @@ import ConnectStrava from './components/ConnectStrava'
 import CorosCallback from './components/CorosCallback'
 import Dashboard from './components/Dashboard'
 import OnboardingWizard from './components/OnboardingWizard'
-import ProfilePage from './components/ProfilePage'
+import ProfileLayout from './pages/profile/ProfileLayout'
+import ProfileDetailsRedirect from './pages/profile/ProfileDetailsRedirect'
+import ProfileHubPage from './pages/profile/ProfileHubPage'
+import ProfileTrainingPage from './pages/profile/ProfileTrainingPage'
+import ProfileZonesPage from './pages/profile/ProfileZonesPage'
 import SettingsPage from './components/SettingsPage'
 import SignIn from './components/SignIn'
 import StravaCallback from './components/StravaCallback'
@@ -180,9 +184,15 @@ const router = createBrowserRouter([
         path: '/profile',
         element: (
           <ProtectedRoute>
-            <ProfilePage />
+            <ProfileLayout />
           </ProtectedRoute>
         ),
+        children: [
+          { index: true, element: <ProfileHubPage /> },
+          { path: 'training', element: <ProfileTrainingPage /> },
+          { path: 'zones', element: <ProfileZonesPage /> },
+          { path: 'details', element: <ProfileDetailsRedirect /> },
+        ],
       },
       {
         path: '/settings',

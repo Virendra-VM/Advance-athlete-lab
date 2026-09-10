@@ -183,6 +183,16 @@ def complete_b_race_event(
     )
     calibration = calibrate_from_b_race(event, a_event, result_metric=event.result_metric)
 
+    zones_updated: dict[str, Any] = {}
+    if profile.threshold_pace_sec_per_km is None:
+        from app.services.test_activity_detection import threshold_pace_from_event_result
+
+        pace_sec = threshold_pace_from_event_result(event, event.result_metric)
+        if pace_sec:
+            profile.threshold_pace_sec_per_km = pace_sec
+            zones_updated["threshold_pace_sec_per_km"] = pace_sec
+            zones_updated["threshold_pace_source"] = "b_race_result"
+
     plan = (
         db.query(SeasonPlan)
         .filter(
@@ -213,4 +223,5 @@ def complete_b_race_event(
         "status": event.status,
         "result_metric": event.result_metric,
         "calibration": calibration,
+        "zones_updated": zones_updated,
     }

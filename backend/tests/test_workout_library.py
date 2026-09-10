@@ -239,7 +239,8 @@ def test_physiology_from_context_merges_profile_and_coros():
     assert merged["ftp_watts"] == 260
     assert merged["lthr_bpm"] == 168
     assert merged["max_hr_bpm"] == 190
-    assert merged["threshold_pace"] == "4:25/km"
+    assert merged["threshold_pace_sec_per_km"] == 265
+    assert merged["run_pace_zones"]
 
 
 def test_template_week_quality_uses_library():

@@ -231,14 +231,32 @@ export function TextPills({ items }) {
   )
 }
 
-export function FactStrip({ form }) {
+export function FactStrip({ form, compact = false }) {
   const age = form.displayAge
   const facts = [
     { label: 'Age', value: age != null ? String(age) : null },
     { label: 'Height', value: formatHeight(form.height_cm, form.units) },
     { label: 'Weight', value: formatWeight(form.weight, form.units) },
-    { label: 'Week', value: weekSummary(form) },
+    { label: 'Weekly plan', value: weekSummary(form) },
   ]
+
+  if (compact) {
+    return (
+      <div className="flex flex-wrap gap-x-5 gap-y-2 border-t border-[var(--aal-line)] pt-4">
+        {facts.map((fact) => (
+          <div key={fact.label} className="flex items-baseline gap-2 text-sm">
+            <span className="text-[11px] font-semibold uppercase tracking-[0.12em] text-[var(--aal-muted)]">
+              {fact.label}
+            </span>
+            <span className="font-medium text-[var(--aal-ink)]">
+              {fact.value || <span className="italic text-[var(--aal-muted)]">—</span>}
+            </span>
+          </div>
+        ))}
+      </div>
+    )
+  }
+
   return (
     <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
       {facts.map((fact, index) => (
@@ -280,20 +298,23 @@ export function JumpNav({ onJump }) {
   )
 }
 
-export function SectionEditButton({ editing, onEdit }) {
+export function SectionEditButton({ editing, onEdit, label = 'Edit' }) {
   if (editing) {
     return (
-      <span className="text-xs font-semibold uppercase tracking-[0.14em] text-sage">Editing</span>
+      <span className="inline-flex items-center gap-1.5 rounded-full bg-sage/15 px-3 py-1 text-xs font-semibold uppercase tracking-[0.12em] text-sage">
+        <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-sage" aria-hidden />
+        Editing
+      </span>
     )
   }
   return (
     <button
       type="button"
       onClick={onEdit}
-      className="inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-sm font-semibold text-[var(--aal-muted)] transition hover:bg-sage/10 hover:text-[var(--aal-ink)]"
+      className="inline-flex items-center gap-1.5 rounded-xl border border-[var(--aal-line)] bg-[var(--aal-card)] px-3 py-1.5 text-sm font-semibold text-[var(--aal-ink)] shadow-sm transition hover:border-sage/40 hover:bg-sage/5"
     >
-      <Pencil className="h-3.5 w-3.5" />
-      Edit
+      <Pencil className="h-3.5 w-3.5 text-sage" />
+      {label}
     </button>
   )
 }
@@ -324,20 +345,20 @@ export function MissingCompleteness({ items, onJump }) {
 
 export function StickySaveBar({ dirty, saving, message, error, onDone, onDiscard }) {
   return (
-    <div className="sticky bottom-4 z-20">
-      <div className="flex flex-col gap-3 rounded-2xl border border-[var(--aal-line)] bg-[var(--aal-card)]/95 px-4 py-3 backdrop-blur sm:flex-row sm:items-center sm:justify-between">
+    <div className="sticky bottom-0 z-30 shrink-0 border-t border-[var(--aal-line)] bg-[var(--aal-card)]/98 px-4 py-3 shadow-[0_-8px_24px_rgba(0,0,0,0.12)] backdrop-blur-md sm:px-6">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div className="min-w-0">
           {error ? (
-            <p className="text-sm text-danger-muted">{error}</p>
+            <p className="text-sm font-medium text-danger-muted">{error}</p>
           ) : message ? (
-            <p className="text-sm text-sage">{message}</p>
+            <p className="text-sm font-medium text-sage">{message}</p>
           ) : (
             <p className="text-sm text-[var(--aal-muted)]">
-              {dirty ? 'You have unsaved changes.' : 'Editing profile — nothing to save yet.'}
+              {dirty ? 'Unsaved changes — save before leaving.' : 'Make changes, then save when ready.'}
             </p>
           )}
         </div>
-        <div className="flex flex-wrap items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2 sm:justify-end">
           {dirty ? (
             <button
               type="button"
@@ -352,18 +373,26 @@ export function StickySaveBar({ dirty, saving, message, error, onDone, onDiscard
               onClick={onDone}
               className="rounded-xl border border-[var(--aal-line)] px-4 py-2.5 text-sm font-semibold hover:bg-[var(--aal-bg)]"
             >
-              Done
+              Done editing
             </button>
           )}
           <button
             type="submit"
             disabled={saving || !dirty}
-            className="rounded-xl bg-sage px-5 py-2.5 text-sm font-semibold text-white disabled:opacity-50"
+            className="rounded-xl bg-sage px-5 py-2.5 text-sm font-semibold text-white shadow-sm disabled:opacity-45"
           >
-            {saving ? 'Saving…' : 'Save'}
+            {saving ? 'Saving…' : 'Save changes'}
           </button>
         </div>
       </div>
+    </div>
+  )
+}
+
+export function ProfileTip({ children }) {
+  return (
+    <div className="rounded-2xl border border-sage/20 bg-sage/[0.06] px-4 py-3 text-sm leading-relaxed text-[var(--aal-muted)]">
+      {children}
     </div>
   )
 }
@@ -463,7 +492,12 @@ export function IdentityEditFields({ form, onChange, nameClass, children }) {
   )
 }
 
-export function TrainingView({ form, middleContent = null }) {
+export function TrainingView({
+  form,
+  middleContent = null,
+  leadingOnly = false,
+  trailingOnly = false,
+}) {
   const leadingGroups = [
     {
       key: 'goals',
@@ -542,6 +576,16 @@ export function TrainingView({ form, middleContent = null }) {
         <FactorItem key="maxhr" label="Max HR">
           <DisplayValue>{form.max_hr_bpm != null ? `${form.max_hr_bpm} bpm` : null}</DisplayValue>
         </FactorItem>,
+        <FactorItem key="zones-link" label="Zone tables" wide>
+          <DisplayValue>
+            <Link
+              to="/profile/zones"
+              className="font-medium text-sage underline-offset-2 hover:underline"
+            >
+              View training zones
+            </Link>
+          </DisplayValue>
+        </FactorItem>,
       ],
     },
     {
@@ -567,6 +611,14 @@ export function TrainingView({ form, middleContent = null }) {
       ],
     },
   ]
+
+  if (leadingOnly) {
+    return <FactorSections groups={leadingGroups} />
+  }
+
+  if (trailingOnly) {
+    return <FactorSections groups={trailingGroups} />
+  }
 
   return (
     <div>

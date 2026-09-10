@@ -207,6 +207,60 @@ export const ONBOARDING_STEPS = [
     ],
   },
   {
+    id: 'physiology',
+    eyebrow: 'Optional',
+    title: 'Know your numbers?',
+    subtitle:
+      'FTP, heart rate, and pace anchors sharpen day-one prescriptions. Skip if you will connect a watch or fill these in later on Profile.',
+    optional: true,
+    fields: [
+      {
+        key: 'ftp_watts',
+        label: 'Cycling FTP (watts)',
+        type: 'number',
+        min: 50,
+        max: 500,
+        help: 'Leave blank to estimate from recent rides after you connect Strava or COROS.',
+      },
+      {
+        key: 'lthr_bpm',
+        label: 'Lactate threshold HR (bpm)',
+        type: 'number',
+        min: 90,
+        max: 230,
+      },
+      {
+        key: 'max_hr_bpm',
+        label: 'Max heart rate (bpm)',
+        type: 'number',
+        min: 120,
+        max: 230,
+      },
+      {
+        key: 'threshold_pace',
+        label: 'Threshold run pace',
+        type: 'text',
+        placeholder: '4:30/km',
+      },
+      {
+        key: 'css_pace',
+        label: 'Swim CSS pace',
+        type: 'text',
+        placeholder: '1:35/100m',
+      },
+      {
+        key: 'zone_run_hr_method',
+        label: 'Run HR zone model',
+        type: 'chips-single',
+        options: [
+          { value: 'lthr', label: 'LTHR (Friel)' },
+          { value: 'max_hr', label: 'Max HR %' },
+          { value: 'hrr', label: 'Heart-rate reserve' },
+        ],
+      },
+    ],
+  },
+  {
     id: 'time',
     eyebrow: 'Your week',
     title: 'How much time do you really have?',
@@ -363,6 +417,7 @@ export function defaultAnswers(profile) {
     sports: [],
     injuries: [],
     current_weekly_volume: {},
+    zone_run_hr_method: 'lthr',
     consents: { ai_coaching: false, health_data: false, research: false },
   }
 }
@@ -434,6 +489,12 @@ export function buildOnboardingPayload(answers) {
     goal_event_name: cleanText(answers.goal_event_name),
     goal_event_date: cleanText(answers.goal_event_date),
     goal_metric: cleanText(answers.goal_metric),
+    ftp_watts: toNumber(answers.ftp_watts),
+    lthr_bpm: toNumber(answers.lthr_bpm),
+    max_hr_bpm: toNumber(answers.max_hr_bpm),
+    threshold_pace: cleanText(answers.threshold_pace),
+    css_pace: cleanText(answers.css_pace),
+    zone_run_hr_method: cleanText(answers.zone_run_hr_method) || 'lthr',
     sports,
     injuries,
     consents: {

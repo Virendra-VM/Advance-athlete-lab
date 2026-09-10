@@ -73,6 +73,17 @@ def _resolve_library_sport(workout: dict[str, Any], family: str) -> str:
     return _normalize_sport(workout.get("sport"), family)
 
 
+def parse_swim_pace_seconds(value: str | float | int | None) -> float | None:
+    """Parse swim pace to seconds per 100m (e.g. '1:35/100m')."""
+    if value is None:
+        return None
+    if isinstance(value, (int, float)):
+        return float(value) if value > 0 else None
+    text = str(value).strip().lower()
+    text = text.replace("/100m", "").replace("min/100m", "").strip()
+    return parse_pace_seconds(text)
+
+
 def parse_pace_seconds(value: str | float | int | None) -> float | None:
     """Parse pace to seconds per km (e.g. '5:30/km', \"5'30\", 330)."""
     if value is None:
@@ -175,42 +186,68 @@ def physiology_from_context(context: dict[str, Any] | None) -> dict[str, Any]:
     profile = context.get("profile") or {}
     physiology = dict(context.get("physiology") or {})
     coros_fitness = (context.get("coros") or {}).get("fitness") or {}
-    for key in ("ftp_watts", "lthr_bpm", "max_hr_bpm"):
+    anchor_keys = (
+        "ftp_watts",
+        "lthr_bpm",
+        "max_hr_bpm",
+        "bike_lthr_bpm",
+        "resting_hr_bpm",
+        "threshold_pace_sec_per_km",
+        "lt1_pace_sec_per_km",
+        "marathon_pace_sec_per_km",
+        "css_sec_per_100m",
+        "vo2max",
+        "zone_run_hr_method",
+        "zone_bike_power_method",
+        "zone_run_pace_method",
+    )
+    for key in anchor_keys:
         if physiology.get(key) is None and profile.get(key) is not None:
             physiology[key] = profile.get(key)
-    if physiology.get("threshold_pace") is None and coros_fitness.get("threshold_pace"):
-        physiology["threshold_pace"] = coros_fitness.get("threshold_pace")
-    return physiology
+    if physiology.get("threshold_pace_sec_per_km") is None:
+        parsed = parse_pace_seconds(
+            physiology.get("threshold_pace") or coros_fitness.get("threshold_pace")
+        )
+        if parsed:
+            physiology["threshold_pace_sec_per_km"] = parsed
+    if physiology.get("vo2max") is None and coros_fitness.get("vo2max"):
+        physiology["vo2max"] = coros_fitness.get("vo2max")
+    from app.services.zone_engine import attach_zone_tables
+
+    return attach_zone_tables(physiology)
 
 
 def physiology_from_profile(profile: Any) -> dict[str, Any]:
     if profile is None:
         return {}
-    return {
-        "ftp_watts": getattr(profile, "ftp_watts", None),
-        "lthr_bpm": getattr(profile, "lthr_bpm", None),
-        "max_hr_bpm": getattr(profile, "max_hr_bpm", None),
+    from app.services.zone_engine import attach_zone_tables, profile_anchor_fields
+
+    anchors = profile_anchor_fields(profile)
+    base = {
+        "ftp_watts": anchors.get("ftp_watts"),
+        "lthr_bpm": anchors.get("lthr_bpm"),
+        "max_hr_bpm": anchors.get("max_hr_bpm"),
+        "bike_lthr_bpm": anchors.get("bike_lthr_bpm"),
+        "resting_hr_bpm": anchors.get("resting_hr_bpm"),
+        "threshold_pace_sec_per_km": anchors.get("threshold_pace_sec_per_km"),
+        "lt1_pace_sec_per_km": anchors.get("lt1_pace_sec_per_km"),
+        "marathon_pace_sec_per_km": anchors.get("marathon_pace_sec_per_km"),
+        "css_sec_per_100m": anchors.get("css_sec_per_100m"),
+        "vo2max": anchors.get("vo2max"),
+        "zone_run_hr_method": anchors.get("zone_run_hr_method"),
+        "zone_bike_power_method": anchors.get("zone_bike_power_method"),
+        "zone_run_pace_method": anchors.get("zone_run_pace_method"),
     }
+    return attach_zone_tables(base)
 
 
 def anchors_from_physiology(physiology: dict[str, Any] | None) -> dict[str, Any]:
+    from app.services.zone_engine import build_anchors
+
     physiology = physiology or {}
-    profile = physiology if physiology.get("ftp_watts") is not None else {}
-    threshold_pace_sec = parse_pace_seconds(
-        physiology.get("threshold_pace")
-        or physiology.get("threshold_pace_sec_per_km")
-    )
-    css_sec = physiology.get("css_sec_per_100m")
-    if css_sec is None and threshold_pace_sec:
-        # Rough swim proxy when CSS not tested — coaching estimate only.
-        css_sec = threshold_pace_sec * 0.18
-    return {
-        "ftp_watts": physiology.get("ftp_watts") or profile.get("ftp_watts"),
-        "lthr_bpm": physiology.get("lthr_bpm") or profile.get("lthr_bpm"),
-        "max_hr_bpm": physiology.get("max_hr_bpm") or profile.get("max_hr_bpm"),
-        "threshold_pace_sec_per_km": threshold_pace_sec,
-        "css_sec_per_100m": css_sec,
-    }
+    if physiology.get("anchors"):
+        return dict(physiology["anchors"])
+    return build_anchors(physiology)
 
 
 def resolve_target_band(

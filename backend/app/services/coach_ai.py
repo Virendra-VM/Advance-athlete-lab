@@ -592,6 +592,22 @@ def _context_digest(
             }
             for zone in (physiology.get("hr_zones") or [])
         ],
+        "run_pace": [
+            {
+                "name": zone.get("name"),
+                "low_pace": zone.get("low_pace"),
+                "high_pace": zone.get("high_pace"),
+            }
+            for zone in (physiology.get("run_pace_zones") or [])
+        ],
+        "swim_pace": [
+            {
+                "name": zone.get("name"),
+                "low_pace": zone.get("low_pace"),
+                "high_pace": zone.get("high_pace"),
+            }
+            for zone in (physiology.get("swim_pace_zones") or [])
+        ],
     }
     digest = {
         "data_sources": context.get("data_sources") or {},
@@ -605,6 +621,10 @@ def _context_digest(
             "max_hr_bpm": physiology.get("max_hr_bpm"),
             "max_hr_source": physiology.get("max_hr_source"),
             "resting_hr_bpm": physiology.get("resting_hr_bpm"),
+            "threshold_pace_sec_per_km": physiology.get("threshold_pace_sec_per_km"),
+            "css_sec_per_100m": physiology.get("css_sec_per_100m"),
+            "vo2max": physiology.get("vo2max"),
+            "zone_methods": physiology.get("methods"),
             "zones": zones,
         },
         "readiness_flags": context.get("readiness_flags") or [],
@@ -3241,6 +3261,25 @@ def _store_assistant_message(db: Session, profile_id: int, reply: dict, provider
 
 
 def confirm_baseline(db: Session, profile: AthleteProfile) -> AthleteProfile:
+    from app.models import FitnessAssessment
+    from app.services.workout_library import parse_pace_seconds
+
+    fitness = (
+        db.query(FitnessAssessment)
+        .filter(
+            FitnessAssessment.athlete_profile_id == profile.id,
+            FitnessAssessment.provider == "coros",
+        )
+        .order_by(FitnessAssessment.snapshot_at.desc())
+        .first()
+    )
+    if fitness:
+        if fitness.vo2max and not profile.vo2max:
+            profile.vo2max = fitness.vo2max
+        if fitness.threshold_pace and not profile.threshold_pace_sec_per_km:
+            parsed = parse_pace_seconds(fitness.threshold_pace)
+            if parsed:
+                profile.threshold_pace_sec_per_km = parsed
     profile.baseline_confirmed_at = datetime.utcnow()
     db.commit()
     db.refresh(profile)

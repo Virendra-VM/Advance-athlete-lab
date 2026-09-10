@@ -861,6 +861,8 @@ class CycleContextResponse(BaseModel):
 class EventCompleteRequest(BaseModel):
     ftp_watts: float | None = Field(default=None, ge=50, le=500)
     lthr_bpm: float | None = Field(default=None, ge=90, le=230)
+    threshold_pace: str | None = Field(default=None, max_length=32)
+    threshold_pace_sec_per_km: float | None = Field(default=None, ge=120, le=900)
     result_metric: str | None = Field(default=None, max_length=255)
 
 

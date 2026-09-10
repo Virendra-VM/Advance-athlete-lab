@@ -19,32 +19,12 @@ from app.models import Activity, ActivityNote, AthleteProfile
 from app.services.activity_detail import activity_sport_family, parse_activity_detail
 from app.services.activity_points import _resolve_parquet_path
 
-# Coggan power zones as fractions of FTP.
-POWER_ZONE_DEFS: tuple[tuple[str, float, float], ...] = (
-    ("Z1 recovery", 0.0, 0.55),
-    ("Z2 endurance", 0.56, 0.75),
-    ("Z3 tempo", 0.76, 0.90),
-    ("Z4 threshold", 0.91, 1.05),
-    ("Z5 VO2max", 1.06, 1.20),
-    ("Z6 anaerobic", 1.21, 1.50),
-    ("Z7 neuromuscular", 1.51, 3.00),
-)
-
-# Friel-style HR zones relative to lactate threshold (LT2 / LTHR).
-LTHR_ZONE_DEFS: tuple[tuple[str, float, float], ...] = (
-    ("Z1 recovery", 0.0, 0.81),
-    ("Z2 aerobic", 0.81, 0.89),
-    ("Z3 tempo", 0.90, 0.93),
-    ("Z4 threshold", 0.94, 0.99),
-    ("Z5 super-threshold", 1.00, 1.06),
-)
-
-MAX_HR_ZONE_DEFS: tuple[tuple[str, float, float], ...] = (
-    ("Z1 recovery", 0.50, 0.60),
-    ("Z2 aerobic", 0.60, 0.70),
-    ("Z3 tempo", 0.70, 0.80),
-    ("Z4 threshold", 0.80, 0.90),
-    ("Z5 VO2max", 0.90, 1.05),
+from app.services.zone_engine import (  # noqa: E402
+    attach_zone_tables,
+    bike_power_zones as coggan_power_zones,
+    build_anchor_nudges,
+    profile_anchor_fields,
+    run_hr_zones as heart_rate_zones,
 )
 
 ANALYSIS_HINTS = (
@@ -184,50 +164,7 @@ def parse_duration_minutes(text: str | None) -> int | None:
     return None
 
 
-def coggan_power_zones(ftp: float | None) -> list[dict[str, Any]]:
-    if not ftp or ftp < 50:
-        return []
-    ftp = float(ftp)
-    zones = []
-    for name, low_frac, high_frac in POWER_ZONE_DEFS:
-        zones.append(
-            {
-                "name": name,
-                "low_w": round(ftp * low_frac),
-                "high_w": round(ftp * high_frac),
-                "low_frac": low_frac,
-                "high_frac": high_frac,
-            }
-        )
-    return zones
-
-
-def heart_rate_zones(
-    *, lthr_bpm: float | None = None, max_hr_bpm: float | None = None
-) -> list[dict[str, Any]]:
-    if lthr_bpm and lthr_bpm >= 90:
-        anchor = float(lthr_bpm)
-        defs = LTHR_ZONE_DEFS
-        kind = "lthr"
-    elif max_hr_bpm and max_hr_bpm >= 120:
-        anchor = float(max_hr_bpm)
-        defs = MAX_HR_ZONE_DEFS
-        kind = "max_hr"
-    else:
-        return []
-    zones = []
-    for name, low_frac, high_frac in defs:
-        zones.append(
-            {
-                "name": name,
-                "low_bpm": round(anchor * low_frac),
-                "high_bpm": round(anchor * high_frac),
-                "low_frac": low_frac,
-                "high_frac": high_frac,
-                "relative_to": kind,
-            }
-        )
-    return zones
+# coggan_power_zones and heart_rate_zones are imported from zone_engine above.
 
 
 def _to_1hz(elapsed_s: list[float], values: list[float | None]) -> list[float | None]:
@@ -852,7 +789,13 @@ def resolve_physiology(
         lthr_source = "estimated_from_max_hr"
     else:
         lthr_source = "manual" if lthr_manual else None
-    return {
+
+    profile_resting = getattr(profile, "resting_hr_bpm", None)
+    effective_resting = resting_hr if resting_hr is not None else profile_resting
+    anchors = profile_anchor_fields(profile)
+    run_hr_method = anchors.get("zone_run_hr_method") or "lthr"
+
+    base = {
         "ftp_watts": _round(ftp, 0),
         "ftp_source": "manual" if ftp_manual else ("estimated" if estimated_ftp else None),
         "ftp_estimated_watts": _round(estimated_ftp, 0),
@@ -860,10 +803,20 @@ def resolve_physiology(
         "lthr_source": lthr_source,
         "max_hr_bpm": _round(max_hr, 0),
         "max_hr_source": "manual" if max_hr_manual else ("estimated" if estimated_max else None),
-        "resting_hr_bpm": _round(resting_hr, 0),
-        "power_zones": coggan_power_zones(ftp),
-        "hr_zones": heart_rate_zones(lthr_bpm=lthr, max_hr_bpm=max_hr),
+        "resting_hr_bpm": _round(effective_resting, 0),
+        "threshold_pace_sec_per_km": anchors.get("threshold_pace_sec_per_km"),
+        "lt1_pace_sec_per_km": anchors.get("lt1_pace_sec_per_km"),
+        "marathon_pace_sec_per_km": anchors.get("marathon_pace_sec_per_km"),
+        "css_sec_per_100m": anchors.get("css_sec_per_100m"),
+        "vo2max": anchors.get("vo2max"),
+        "bike_lthr_bpm": anchors.get("bike_lthr_bpm"),
+        "zone_run_hr_method": run_hr_method,
+        "zone_bike_power_method": anchors.get("zone_bike_power_method"),
+        "zone_run_pace_method": anchors.get("zone_run_pace_method"),
     }
+    enriched = attach_zone_tables(base)
+    enriched["nudges"] = build_anchor_nudges(profile, enriched)
+    return enriched
 
 
 def persist_physiology_estimate(profile: AthleteProfile, physiology: dict[str, Any]) -> None:
