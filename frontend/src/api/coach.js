@@ -164,3 +164,60 @@ export async function confirmWearableBaseline(token = getStoredToken()) {
   })
   return handleResponse(response)
 }
+
+export async function repeatWorkout(workoutId, targetDate, token = getStoredToken()) {
+  const response = await fetch(`${API_BASE_URL}/api/coach/workouts/${workoutId}/repeat`, {
+    method: 'POST',
+    headers: authHeaders(token),
+    body: JSON.stringify({ target_date: targetDate ?? null }),
+  })
+  return handleResponse(response)
+}
+
+export async function getWorkoutCompliance(workoutId, token = getStoredToken()) {
+  const response = await fetch(`${API_BASE_URL}/api/coach/workouts/${workoutId}/compliance`, {
+    headers: authHeaders(token),
+  })
+  return handleResponse(response)
+}
+
+export async function getFavoriteTemplates(token = getStoredToken()) {
+  const response = await fetch(`${API_BASE_URL}/api/coach/library/favorites`, {
+    headers: authHeaders(token),
+  })
+  return handleResponse(response)
+}
+
+export async function addFavoriteTemplate(templateId, token = getStoredToken()) {
+  const response = await fetch(`${API_BASE_URL}/api/coach/library/favorites/${encodeURIComponent(templateId)}`, {
+    method: 'POST',
+    headers: authHeaders(token),
+  })
+  return handleResponse(response)
+}
+
+export async function removeFavoriteTemplate(templateId, token = getStoredToken()) {
+  const response = await fetch(`${API_BASE_URL}/api/coach/library/favorites/${encodeURIComponent(templateId)}`, {
+    method: 'DELETE',
+    headers: authHeaders(token),
+  })
+  return handleResponse(response)
+}
+
+export async function exportWorkout(workoutId, format = 'fit', token = getStoredToken()) {
+  const params = new URLSearchParams({ format })
+  const response = await fetch(
+    `${API_BASE_URL}/api/coach/workouts/${workoutId}/export?${params}`,
+    { headers: authHeaders(token) },
+  )
+  if (!response.ok) {
+    const errorBody = await response.json().catch(() => ({}))
+    const message = errorBody.detail || `Export failed with status ${response.status}`
+    throw new Error(typeof message === 'string' ? message : JSON.stringify(message))
+  }
+  const blob = await response.blob()
+  const disposition = response.headers.get('Content-Disposition') || ''
+  const match = disposition.match(/filename=\"?([^\";]+)\"?/)
+  const filename = match ? match[1] : `workout.${format}`
+  return { blob, filename }
+}

@@ -1,0 +1,109 @@
+{
+  "templates": [
+    {
+      "id": "run_threshold_2x10_lthr1",
+      "version": 2,
+      "sports": [
+        "running"
+      ],
+      "session_types": [
+        "threshold"
+      ],
+      "intent": "threshold",
+      "priority": 22,
+      "title": "Threshold repeats (2\u00d710) v2",
+      "summary": "Extended recovery variant \u2014 4 min jog between reps",
+      "evidence_tags": [
+        "threshold",
+        "lactate-clearance"
+      ],
+      "warmup_min": 10,
+      "cooldown_min": 8,
+      "warmup": {
+        "detail": "Easy aerobic start. Dynamic mobility. No hard efforts yet."
+      },
+      "cooldown": {
+        "detail": "Easy cool-down. Stretch primary movers. Breathe."
+      },
+      "main": {
+        "type": "repeat",
+        "intensity": "Threshold (LTHR1)",
+        "reps": 2,
+        "on": {
+          "duration_min": 10,
+          "label": "work",
+          "targets": {
+            "hr_pct_lthr": {
+              "low": 0.95,
+              "high": 1.02
+            }
+          }
+        },
+        "off": {
+          "duration_min": 4,
+          "label": "recovery",
+          "targets": {
+            "hr_pct_lthr": {
+              "low": 0.65,
+              "high": 0.75
+            }
+          }
+        },
+        "detail_intro": "v2: longer recovery for better lactate clearance."
+      }
+    },
+    {
+      "id": "bike_sweet_spot_2x20",
+      "version": 2,
+      "sports": [
+        "cycling"
+      ],
+      "session_types": [
+        "threshold",
+        "tempo"
+      ],
+      "intent": "sweet_spot",
+      "priority": 24,
+      "title": "Sweet spot (2\u00d720) v2",
+      "summary": "Three-block sweet spot variant for build phase density",
+      "evidence_tags": [
+        "sweet-spot",
+        "ftp"
+      ],
+      "warmup_min": 10,
+      "cooldown_min": 8,
+      "warmup": {
+        "detail": "Easy aerobic start. Dynamic mobility. No hard efforts yet."
+      },
+      "cooldown": {
+        "detail": "Easy cool-down. Stretch primary movers. Breathe."
+      },
+      "main": {
+        "type": "repeat",
+        "intensity": "Sweet spot",
+        "reps": 3,
+        "on": {
+          "duration_min": 15,
+          "label": "work",
+          "targets": {
+            "pct_ftp": {
+              "low": 0.84,
+              "high": 0.94
+            }
+          }
+        },
+        "off": {
+          "duration_min": 5,
+          "label": "recovery",
+          "targets": {
+            "rpe": {
+              "low": 3,
+              "high": 4
+            }
+          }
+        },
+        "detail_intro": "v2: three blocks instead of two."
+      }
+    }
+  ]
+}

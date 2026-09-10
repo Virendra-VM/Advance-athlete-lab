@@ -19,13 +19,23 @@ HARD_TYPES = {
 _QUALITY_TOKENS = ("interval", "threshold", "vo2", "ftp", "over-under", "over under")
 
 
-def enrich_plan(plan_data: dict, safety: dict | None = None) -> dict:
+def enrich_plan(
+    plan_data: dict,
+    safety: dict | None = None,
+    physiology: dict | None = None,
+) -> dict:
     plan = dict(plan_data or {})
-    plan["workouts"] = [enrich_workout(item, safety) for item in plan.get("workouts") or []]
+    plan["workouts"] = [
+        enrich_workout(item, safety, physiology=physiology) for item in plan.get("workouts") or []
+    ]
     return plan
 
 
-def enrich_workout(workout: dict, safety: dict | None = None) -> dict:
+def enrich_workout(
+    workout: dict,
+    safety: dict | None = None,
+    physiology: dict | None = None,
+) -> dict:
     """Return a copy with warmup / main / cooldown detail when the row is thin."""
     item = dict(workout or {})
     session_type = str(item.get("session_type") or "easy").strip().lower()
@@ -40,6 +50,12 @@ def enrich_workout(workout: dict, safety: dict | None = None) -> dict:
     duration = _duration(item.get("duration_min"))
     if not _structure_is_thin(item.get("structure"), session_type):
         return item
+
+    from app.services.workout_library import apply_library_template
+
+    library_item = apply_library_template(item, physiology, safety=safety)
+    if library_item:
+        return library_item
 
     family = sport_family(item.get("sport"), session_type, item.get("title"))
     spine_lock = bool((safety or {}).get("spine_lock"))

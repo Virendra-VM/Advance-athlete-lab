@@ -1,0 +1,516 @@
+{
+  "templates": [
+    {
+      "id": "row_easy_aerobic",
+      "version": 1,
+      "sports": [
+        "rowing"
+      ],
+      "session_types": [
+        "easy"
+      ],
+      "intent": "easy",
+      "priority": 10,
+      "title": "Easy aerobic row",
+      "summary": "Z2 rowing base",
+      "evidence_tags": [
+        "rowing",
+        "endurance"
+      ],
+      "warmup_min": 10,
+      "cooldown_min": 8,
+      "warmup": {
+        "detail": "Easy aerobic start. Dynamic mobility. No hard efforts yet."
+      },
+      "cooldown": {
+        "detail": "Easy cool-down. Stretch primary movers. Breathe."
+      },
+      "main": {
+        "intensity": "Moderate",
+        "detail": "Easy aerobic row.",
+        "targets": {
+          "rpe": {
+            "low": 4,
+            "high": 6
+          }
+        }
+      }
+    },
+    {
+      "id": "row_long_steady",
+      "version": 1,
+      "sports": [
+        "rowing"
+      ],
+      "session_types": [
+        "long"
+      ],
+      "intent": "long",
+      "priority": 10,
+      "title": "Long steady row",
+      "summary": "Aerobic endurance row",
+      "evidence_tags": [
+        "rowing",
+        "endurance"
+      ],
+      "warmup_min": 10,
+      "cooldown_min": 8,
+      "warmup": {
+        "detail": "Easy aerobic start. Dynamic mobility. No hard efforts yet."
+      },
+      "cooldown": {
+        "detail": "Easy cool-down. Stretch primary movers. Breathe."
+      },
+      "main": {
+        "intensity": "Moderate",
+        "detail": "Long steady row.",
+        "targets": {
+          "rpe": {
+            "low": 4,
+            "high": 6
+          }
+        }
+      }
+    },
+    {
+      "id": "row_2k_pace_intervals",
+      "version": 1,
+      "sports": [
+        "rowing"
+      ],
+      "session_types": [
+        "intervals"
+      ],
+      "intent": "vo2",
+      "priority": 10,
+      "title": "2K pace intervals",
+      "summary": "VO2 rowing intervals",
+      "evidence_tags": [
+        "rowing",
+        "endurance"
+      ],
+      "warmup_min": 10,
+      "cooldown_min": 8,
+      "warmup": {
+        "detail": "Easy aerobic start. Dynamic mobility. No hard efforts yet."
+      },
+      "cooldown": {
+        "detail": "Easy cool-down. Stretch primary movers. Breathe."
+      },
+      "main": {
+        "type": "repeat",
+        "intensity": "Hard",
+        "reps": 6,
+        "on": {
+          "duration_min": 2,
+          "label": "work",
+          "targets": {
+            "rpe": {
+              "low": 6,
+              "high": 8
+            }
+          }
+        },
+        "off": {
+          "duration_min": 2,
+          "label": "recovery",
+          "targets": {
+            "rpe": {
+              "low": 3,
+              "high": 4
+            }
+          }
+        },
+        "detail_intro": ""
+      }
+    },
+    {
+      "id": "row_6k_pace_steady",
+      "version": 1,
+      "sports": [
+        "rowing"
+      ],
+      "session_types": [
+        "threshold"
+      ],
+      "intent": "threshold",
+      "priority": 10,
+      "title": "6K pace steady",
+      "summary": "Threshold row",
+      "evidence_tags": [
+        "rowing",
+        "endurance"
+      ],
+      "warmup_min": 10,
+      "cooldown_min": 8,
+      "warmup": {
+        "detail": "Easy aerobic start. Dynamic mobility. No hard efforts yet."
+      },
+      "cooldown": {
+        "detail": "Easy cool-down. Stretch primary movers. Breathe."
+      },
+      "main": {
+        "type": "repeat",
+        "intensity": "Threshold",
+        "reps": 3,
+        "on": {
+          "duration_min": 10,
+          "label": "work",
+          "targets": {
+            "rpe": {
+              "low": 6,
+              "high": 8
+            }
+          }
+        },
+        "off": {
+          "duration_min": 3,
+          "label": "recovery",
+          "targets": {
+            "rpe": {
+              "low": 3,
+              "high": 4
+            }
+          }
+        },
+        "detail_intro": ""
+      }
+    },
+    {
+      "id": "row_500m_repeats",
+      "version": 1,
+      "sports": [
+        "rowing"
+      ],
+      "session_types": [
+        "intervals"
+      ],
+      "intent": "vo2",
+      "priority": 10,
+      "title": "500 m repeats",
+      "summary": "Anaerobic power repeats",
+      "evidence_tags": [
+        "rowing",
+        "endurance"
+      ],
+      "warmup_min": 10,
+      "cooldown_min": 8,
+      "warmup": {
+        "detail": "Easy aerobic start. Dynamic mobility. No hard efforts yet."
+      },
+      "cooldown": {
+        "detail": "Easy cool-down. Stretch primary movers. Breathe."
+      },
+      "main": {
+        "type": "repeat",
+        "intensity": "Hard",
+        "reps": 6,
+        "on": {
+          "duration_min": 2,
+          "label": "work",
+          "targets": {
+            "rpe": {
+              "low": 6,
+              "high": 8
+            }
+          }
+        },
+        "off": {
+          "duration_min": 2,
+          "label": "recovery",
+          "targets": {
+            "rpe": {
+              "low": 3,
+              "high": 4
+            }
+          }
+        },
+        "detail_intro": ""
+      }
+    },
+    {
+      "id": "row_technique_drills",
+      "version": 1,
+      "sports": [
+        "rowing"
+      ],
+      "session_types": [
+        "easy"
+      ],
+      "intent": "easy",
+      "priority": 10,
+      "title": "Rowing technique",
+      "summary": "Catch and drive drills",
+      "evidence_tags": [
+        "rowing",
+        "endurance"
+      ],
+      "warmup_min": 10,
+      "cooldown_min": 8,
+      "warmup": {
+        "detail": "Easy aerobic start. Dynamic mobility. No hard efforts yet."
+      },
+      "cooldown": {
+        "detail": "Easy cool-down. Stretch primary movers. Breathe."
+      },
+      "main": {
+        "intensity": "Moderate",
+        "detail": "Rowing technique.",
+        "targets": {
+          "rpe": {
+            "low": 4,
+            "high": 6
+          }
+        }
+      }
+    },
+    {
+      "id": "row_steady_state_3x10",
+      "version": 1,
+      "sports": [
+        "rowing"
+      ],
+      "session_types": [
+        "threshold"
+      ],
+      "intent": "threshold",
+      "priority": 10,
+      "title": "3\u00d710 min threshold",
+      "summary": "Threshold blocks",
+      "evidence_tags": [
+        "rowing",
+        "endurance"
+      ],
+      "warmup_min": 10,
+      "cooldown_min": 8,
+      "warmup": {
+        "detail": "Easy aerobic start. Dynamic mobility. No hard efforts yet."
+      },
+      "cooldown": {
+        "detail": "Easy cool-down. Stretch primary movers. Breathe."
+      },
+      "main": {
+        "type": "repeat",
+        "intensity": "Threshold",
+        "reps": 3,
+        "on": {
+          "duration_min": 10,
+          "label": "work",
+          "targets": {
+            "rpe": {
+              "low": 6,
+              "high": 8
+            }
+          }
+        },
+        "off": {
+          "duration_min": 3,
+          "label": "recovery",
+          "targets": {
+            "rpe": {
+              "low": 3,
+              "high": 4
+            }
+          }
+        },
+        "detail_intro": ""
+      }
+    },
+    {
+      "id": "row_paddle_easy",
+      "version": 1,
+      "sports": [
+        "rowing"
+      ],
+      "session_types": [
+        "easy"
+      ],
+      "intent": "easy",
+      "priority": 10,
+      "title": "Easy paddle",
+      "summary": "Recovery row",
+      "evidence_tags": [
+        "rowing",
+        "endurance"
+      ],
+      "warmup_min": 10,
+      "cooldown_min": 8,
+      "warmup": {
+        "detail": "Easy aerobic start. Dynamic mobility. No hard efforts yet."
+      },
+      "cooldown": {
+        "detail": "Easy cool-down. Stretch primary movers. Breathe."
+      },
+      "main": {
+        "intensity": "Moderate",
+        "detail": "Easy paddle.",
+        "targets": {
+          "rpe": {
+            "low": 4,
+            "high": 6
+          }
+        }
+      }
+    },
+    {
+      "id": "row_race_pace_4x2",
+      "version": 1,
+      "sports": [
+        "rowing"
+      ],
+      "session_types": [
+        "race"
+      ],
+      "intent": "race_pace",
+      "priority": 10,
+      "title": "Race pace 4\u00d72 min",
+      "summary": "2K race pace practice",
+      "evidence_tags": [
+        "rowing",
+        "endurance"
+      ],
+      "warmup_min": 10,
+      "cooldown_min": 8,
+      "warmup": {
+        "detail": "Easy aerobic start. Dynamic mobility. No hard efforts yet."
+      },
+      "cooldown": {
+        "detail": "Easy cool-down. Stretch primary movers. Breathe."
+      },
+      "main": {
+        "intensity": "Moderate",
+        "detail": "Race pace 4\u00d72 min.",
+        "targets": {
+          "rpe": {
+            "low": 6,
+            "high": 8
+          }
+        }
+      }
+    },
+    {
+      "id": "row_strength_endurance",
+      "version": 1,
+      "sports": [
+        "rowing"
+      ],
+      "session_types": [
+        "tempo"
+      ],
+      "intent": "tempo",
+      "priority": 10,
+      "title": "Strength endurance row",
+      "summary": "High-drag steady row",
+      "evidence_tags": [
+        "rowing",
+        "endurance"
+      ],
+      "warmup_min": 10,
+      "cooldown_min": 8,
+      "warmup": {
+        "detail": "Easy aerobic start. Dynamic mobility. No hard efforts yet."
+      },
+      "cooldown": {
+        "detail": "Easy cool-down. Stretch primary movers. Breathe."
+      },
+      "main": {
+        "intensity": "Moderate",
+        "detail": "Strength endurance row.",
+        "targets": {
+          "rpe": {
+            "low": 4,
+            "high": 6
+          }
+        }
+      }
+    },
+    {
+      "id": "row_30_30s",
+      "version": 1,
+      "sports": [
+        "rowing"
+      ],
+      "session_types": [
+        "intervals"
+      ],
+      "intent": "vo2",
+      "priority": 10,
+      "title": "Row 30/30s",
+      "summary": "Micro-intervals on erg",
+      "evidence_tags": [
+        "rowing",
+        "endurance"
+      ],
+      "warmup_min": 10,
+      "cooldown_min": 8,
+      "warmup": {
+        "detail": "Easy aerobic start. Dynamic mobility. No hard efforts yet."
+      },
+      "cooldown": {
+        "detail": "Easy cool-down. Stretch primary movers. Breathe."
+      },
+      "main": {
+        "type": "repeat",
+        "intensity": "Hard",
+        "reps": 6,
+        "on": {
+          "duration_min": 2,
+          "label": "work",
+          "targets": {
+            "rpe": {
+              "low": 6,
+              "high": 8
+            }
+          }
+        },
+        "off": {
+          "duration_min": 2,
+          "label": "recovery",
+          "targets": {
+            "rpe": {
+              "low": 3,
+              "high": 4
+            }
+          }
+        },
+        "detail_intro": ""
+      }
+    },
+    {
+      "id": "row_cooldown_only",
+      "version": 1,
+      "sports": [
+        "rowing"
+      ],
+      "session_types": [
+        "easy"
+      ],
+      "intent": "easy",
+      "priority": 10,
+      "title": "Short recovery row",
+      "summary": "Very easy recovery",
+      "evidence_tags": [
+        "rowing",
+        "endurance"
+      ],
+      "warmup_min": 10,
+      "cooldown_min": 8,
+      "warmup": {
+        "detail": "Easy aerobic start. Dynamic mobility. No hard efforts yet."
+      },
+      "cooldown": {
+        "detail": "Easy cool-down. Stretch primary movers. Breathe."
+      },
+      "main": {
+        "intensity": "Moderate",
+        "detail": "Short recovery row.",
+        "targets": {
+          "rpe": {
+            "low": 4,
+            "high": 6
+          }
+        }
+      }
+    }
+  ]
+}

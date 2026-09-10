@@ -2,6 +2,7 @@ from datetime import date, timedelta
 import json
 
 from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi.responses import JSONResponse, Response
 from sqlalchemy.orm import Session
 
 from app.auth_deps import get_current_user
@@ -17,9 +18,12 @@ from app.schemas import (
     CoachPlannedWorkoutRead,
     CoachPlanResponse,
     CoachStatusResponse,
+    FavoriteTemplateRead,
     PlanGenerateRequest,
+    RepeatWorkoutRequest,
     TodaysCallResponse,
     WeekPlanContextResponse,
+    WorkoutComplianceRead,
 )
 from app.services.autoregulation import compute_todays_call
 from app.services.ai import configured_providers, describe_ai_runtime
@@ -27,16 +31,21 @@ from app.services.athlete_coach_context import build_athlete_coach_context
 from app.services.athlete_profile import get_profile_consent
 from app.services.coach_ai import (
     PlanWeekNotCurrentError,
+    add_favorite_template,
     apply_week_from_chat,
     chat_history,
     coach_chat,
+    compute_workout_compliance,
     confirm_baseline,
     current_week_monday,
     generate_daily_advice,
     generate_week_brief,
     generate_week_plan,
     get_active_plan,
+    list_favorite_templates,
     publish_plan_to_schedule,
+    remove_favorite_template,
+    repeat_planned_workout,
     resolve_clock,
 )
 from app.services.coach_intent import (
@@ -47,6 +56,8 @@ from app.services.coach_intent import (
 from app.services.periodization import build_season_context
 from app.services.schedule_completion import match_planned_workout_completions
 from app.services.session_blueprints import enrich_workout
+from app.services.workout_device_export import build_device_export
+from app.services.workout_library import physiology_from_profile
 
 router = APIRouter(prefix="/coach", tags=["coach"])
 
@@ -367,8 +378,20 @@ def list_planned_workouts(
                 "duration_min": workout.duration_min,
                 "description": workout.description,
                 "structure": structure,
+                "library_template_id": workout.library_template_id,
             }
         )
+        compliance = None
+        if workout.compliance_json:
+            try:
+                payload = json.loads(workout.compliance_json)
+                compliance = WorkoutComplianceRead(
+                    score=payload.get("score"),
+                    grade=payload.get("grade"),
+                    dimensions=payload.get("dimensions") or {},
+                )
+            except json.JSONDecodeError:
+                compliance = None
         rows.append(
             CoachPlannedWorkoutRead(
                 external_id=f"coach-{workout.id}",
@@ -389,6 +412,9 @@ def list_planned_workouts(
                 intensity=workout.intensity,
                 description=filled.get("description") or workout.description,
                 structure=filled.get("structure") or [],
+                library_template_id=workout.library_template_id,
+                library_version=workout.library_version,
+                compliance=compliance,
             )
         )
     return rows
@@ -413,5 +439,155 @@ def link_workout_completion(
     if workout is None:
         raise HTTPException(status_code=404, detail="Planned workout not found.")
     workout.completed_activity_id = activity_id
+    if activity_id:
+        from app.services.schedule_completion import _store_workout_compliance
+
+        activity = (
+            db.query(Activity)
+            .filter(
+                Activity.id == activity_id,
+                Activity.athlete_profile_id == profile.id,
+            )
+            .first()
+        )
+        if activity:
+            _store_workout_compliance(db, workout, activity)
+    else:
+        workout.compliance_json = None
     db.commit()
     return {"id": workout.id, "completed_activity_id": workout.completed_activity_id}
+
+
+@router.post("/workouts/{workout_id}/repeat", response_model=dict)
+def repeat_workout(
+    workout_id: int,
+    payload: RepeatWorkoutRequest | None = None,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    profile = _require_profile(current_user, db)
+    _require_ai_consent(db, profile)
+    try:
+        return repeat_planned_workout(
+            db,
+            profile,
+            workout_id,
+            target_date=payload.target_date if payload else None,
+        )
+    except LookupError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+
+
+@router.get("/workouts/{workout_id}/export")
+def export_planned_workout(
+    workout_id: int,
+    format: str = Query(default="fit", pattern="^(fit|zwo|json)$"),
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Download a structured workout for Garmin / COROS / Zwift."""
+    profile = _require_profile(current_user, db)
+    workout = (
+        db.query(PlannedWorkout)
+        .filter(
+            PlannedWorkout.id == workout_id,
+            PlannedWorkout.athlete_profile_id == profile.id,
+        )
+        .first()
+    )
+    if workout is None:
+        raise HTTPException(status_code=404, detail="Planned workout not found.")
+
+    try:
+        structure = json.loads(workout.structure_json) if workout.structure_json else []
+    except json.JSONDecodeError:
+        structure = []
+
+    physiology = physiology_from_profile(profile)
+    try:
+        package = build_device_export(
+            {
+                "sport": workout.sport,
+                "title": workout.title,
+                "session_type": workout.session_type,
+                "duration_min": workout.duration_min,
+                "description": workout.description,
+                "structure": structure,
+                "library_template_id": workout.library_template_id,
+            },
+            physiology=physiology,
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+    export = package["formats"].get(format)
+    if export is None:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Format '{format}' is not available for this workout.",
+        )
+
+    filename = export["filename"]
+    if format == "fit":
+        return Response(
+            content=export["bytes"],
+            media_type=export["content_type"],
+            headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+        )
+    if format == "zwo":
+        return Response(
+            content=export["text"],
+            media_type=export["content_type"],
+            headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+        )
+    return JSONResponse(
+        content=export["payload"],
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+    )
+
+
+@router.get("/workouts/{workout_id}/compliance", response_model=dict)
+def read_workout_compliance(
+    workout_id: int,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    profile = _require_profile(current_user, db)
+    try:
+        return compute_workout_compliance(db, profile, workout_id)
+    except LookupError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@router.get("/library/favorites", response_model=list[FavoriteTemplateRead])
+def read_favorite_templates(
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    profile = _require_profile(current_user, db)
+    return [FavoriteTemplateRead(**row) for row in list_favorite_templates(db, profile.id)]
+
+
+@router.post("/library/favorites/{template_id}", response_model=dict)
+def create_favorite_template(
+    template_id: str,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    profile = _require_profile(current_user, db)
+    try:
+        return add_favorite_template(db, profile.id, template_id)
+    except LookupError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+
+
+@router.delete("/library/favorites/{template_id}", response_model=dict)
+def delete_favorite_template(
+    template_id: str,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    profile = _require_profile(current_user, db)
+    return remove_favorite_template(db, profile.id, template_id)

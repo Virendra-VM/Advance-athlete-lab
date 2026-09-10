@@ -23,11 +23,22 @@ from sqlalchemy.orm import Session
 
 from app.config import AI_DEBUG
 from app.ai_schemas import ChatReplyJSON, DailyAdviceJSON, WeekPlanJSON
-from app.models import Activity, ActivityNote, AthleteProfile, CoachMessage, DailyAdviceSnapshot, PlannedWorkout, TrainingPlan, WeeklyAdviceSnapshot
+from app.models import (
+    Activity,
+    ActivityNote,
+    AthleteProfile,
+    CoachMessage,
+    DailyAdviceSnapshot,
+    FavoriteWorkoutTemplate,
+    PlannedWorkout,
+    TrainingPlan,
+    WeeklyAdviceSnapshot,
+)
 from app.services.ai import ProviderError, provider_chain
 from app.services.athlete_coach_context import build_athlete_coach_context
 from app.services.coach_safety import (
     apply_joint_safe_recovery_mode,
+    build_safety_profile,
     detect_clinical_boundary,
     detect_red_flags,
     flag_clinical_injury,
@@ -36,6 +47,7 @@ from app.services.coach_safety import (
     strip_intensity,
     validate_plan,
 )
+from app.services.workout_compliance import compliance_for_planned_workout
 from app.services.coach_templates import (
     build_template_advice,
     build_template_daily_brief,
@@ -106,6 +118,11 @@ from app.services.session_telemetry import (
     match_activity_for_message,
 )
 from app.services.session_blueprints import downgrade_today_workout, enrich_plan, enrich_workout
+from app.services.workout_library import physiology_from_context, physiology_from_profile
+from app.services.workout_selection import (
+    apply_library_selection_to_plan,
+    build_library_week,
+)
 from app.services.week_from_chat import coerce_week_plan, parse_week_plan_from_text
 
 logger = logging.getLogger(__name__)
@@ -124,8 +141,9 @@ WEEK_PLAN_SCHEMA = """{
       "duration_min": number,
       "distance_m": number or null,
       "intensity": "string",
-      "description": "string with warm-up, named main set, cool-down stretches/foam roll",
-      "structure": [{"segment": "Warm-up|Main set|Cool-down", "duration_min": number, "intensity": "string", "detail": "named work: exercises, intervals, poses, stretches"}]
+      "description": "string — coaching rationale; structure is filled from library when library_template_id is set",
+      "library_template_id": "optional string — prefer library ids over inventing structure",
+      "structure": [{"segment": "Warm-up|Main set|Cool-down", "duration_min": number, "intensity": "string", "detail": "optional if library_template_id is set"}]
     }
   ],
   "coach_notes": "string",
@@ -948,9 +966,9 @@ Build the training week starting {week_start.isoformat()} (Monday).
 Today is {clock['weekday']} {clock['local_date']}. Do not prescribe new training on dates before today
 — those days already happened. Plan only {remaining_start.isoformat()} through {remaining_end.isoformat()}.
 If they already trained today, do not stack another hard session on top.
-Give every remaining session a concrete main set, not a vague label. Respect every safety limit above.
-Every workout must include structure with Warm-up, Main set, and Cool-down. Main set names the actual work
-(exercises, interval reps, swim sets, yoga poses). Cool-down includes stretches, foam roll, or mobility.
+Respect every safety limit above. Prefer assigning library_template_id for each workout when you know the
+session type (the app resolves zone-based structure from the library). You may omit structure when
+library_template_id is set; otherwise include Warm-up, Main set, and Cool-down with named work.
 
 Respond with JSON matching exactly this shape:
 {WEEK_PLAN_SCHEMA}"""
@@ -1007,26 +1025,30 @@ def generate_week_plan(
         )
 
     if plan_data is None:
-        plan_data = build_template_week(context, safety, start, today=clock["today"])
+        plan_data = build_library_week(context, safety, start, today=clock["today"])
+        provider_name, model_name = "rules", "library-selection-v2"
 
     # Force the requested week regardless of what the model produced.
     plan_data["week_start"] = start.isoformat()
+    plan_data = apply_library_selection_to_plan(plan_data, context, safety)
 
     validation = validate_plan(plan_data, safety)
     if validation["blocked"]:
         generation_notes.append(
             "Generated plan failed safety validation and was replaced with a conservative week."
         )
-        fallback = build_template_week(context, safety, start, today=clock["today"])
+        fallback = build_library_week(context, safety, start, today=clock["today"])
+        fallback = apply_library_selection_to_plan(fallback, context, safety)
         validation = validate_plan(fallback, safety)
-        provider_name, model_name = "rules", "deterministic-template"
+        provider_name, model_name = "rules", "library-selection-v2"
         if validation["blocked"]:
             # Last resort: an all-easy week is always safe to show.
             validation = validate_plan(strip_intensity(fallback), safety)
 
     plan_data = validation["plan"]
     issues = validation["issues"]
-    plan_data = enrich_plan(plan_data, safety)
+    physiology = physiology_from_context(context)
+    plan_data = enrich_plan(plan_data, safety, physiology=physiology)
     citations = citation_slugs(hits) if provider_name != "rules" else []
 
     stored_id = None
@@ -1041,6 +1063,7 @@ def generate_week_plan(
             issues,
             citations,
             safety=safety,
+            physiology=physiology,
         )
 
     return {
@@ -1057,6 +1080,78 @@ def generate_week_plan(
     }
 
 
+def _load_compliance(value: str | None) -> dict | None:
+    if not value:
+        return None
+    try:
+        payload = json.loads(value)
+    except json.JSONDecodeError:
+        return None
+    if not isinstance(payload, dict):
+        return None
+    return {
+        "score": payload.get("score"),
+        "grade": payload.get("grade"),
+        "dimensions": payload.get("dimensions") or {},
+    }
+
+
+def _compliance_payload(report: dict | None) -> str | None:
+    if not report:
+        return None
+    return json.dumps(
+        {
+            "score": report.get("score"),
+            "grade": report.get("grade"),
+            "dimensions": report.get("dimensions") or {},
+        },
+        default=str,
+    )
+
+
+def _favorite_template_ids(db: Session, profile_id: int) -> set[str]:
+    rows = (
+        db.query(FavoriteWorkoutTemplate.template_id)
+        .filter(FavoriteWorkoutTemplate.athlete_profile_id == profile_id)
+        .all()
+    )
+    return {str(row[0]) for row in rows}
+
+
+def _workout_read_payload(
+    workout: PlannedWorkout,
+    *,
+    physiology: dict | None = None,
+    favorite_ids: set[str] | None = None,
+) -> dict:
+    try:
+        structure = json.loads(workout.structure_json) if workout.structure_json else []
+    except json.JSONDecodeError:
+        structure = []
+    payload = enrich_workout(
+        {
+            "id": workout.id,
+            "date": workout.workout_date.isoformat(),
+            "sport": workout.sport,
+            "title": workout.title,
+            "session_type": workout.session_type,
+            "duration_min": workout.duration_min,
+            "distance_m": workout.distance_m,
+            "intensity": workout.intensity,
+            "description": workout.description,
+            "structure": structure,
+            "completed_activity_id": workout.completed_activity_id,
+            "library_template_id": workout.library_template_id,
+            "library_version": workout.library_version,
+        },
+        physiology=physiology,
+    )
+    payload["compliance"] = _load_compliance(workout.compliance_json)
+    template_id = payload.get("library_template_id")
+    payload["is_favorite"] = bool(template_id and favorite_ids and template_id in favorite_ids)
+    return payload
+
+
 def _persist_plan(
     db: Session,
     profile: AthleteProfile,
@@ -1067,6 +1162,7 @@ def _persist_plan(
     issues: list[dict],
     citations: list[str],
     safety: dict | None = None,
+    physiology: dict | None = None,
 ) -> int:
     existing = (
         db.query(TrainingPlan)
@@ -1102,7 +1198,7 @@ def _persist_plan(
             workout_date = date.fromisoformat(str(workout.get("date"))[:10])
         except (TypeError, ValueError):
             continue
-        filled = enrich_workout(workout, safety)
+        filled = enrich_workout(workout, safety, physiology=physiology)
         db.add(
             PlannedWorkout(
                 training_plan_id=record.id,
@@ -1116,6 +1212,8 @@ def _persist_plan(
                 intensity=filled.get("intensity"),
                 description=filled.get("description"),
                 structure_json=json.dumps(filled.get("structure") or []),
+                library_template_id=filled.get("library_template_id"),
+                library_version=filled.get("library_version"),
             )
         )
 
@@ -1133,6 +1231,10 @@ def get_active_plan(db: Session, profile_id: int, week_start: date | None = None
     record = query.order_by(TrainingPlan.week_start.desc()).first()
     if record is None:
         return None
+
+    profile = db.query(AthleteProfile).filter(AthleteProfile.id == profile_id).first()
+    physiology = physiology_from_profile(profile)
+    favorite_ids = _favorite_template_ids(db, profile_id)
 
     workouts = (
         db.query(PlannedWorkout)
@@ -1160,20 +1262,10 @@ def get_active_plan(db: Session, profile_id: int, week_start: date | None = None
             "focus": record.focus,
             "week_start": record.week_start.isoformat(),
             "workouts": [
-                enrich_workout(
-                    {
-                        "id": workout.id,
-                        "date": workout.workout_date.isoformat(),
-                        "sport": workout.sport,
-                        "title": workout.title,
-                        "session_type": workout.session_type,
-                        "duration_min": workout.duration_min,
-                        "distance_m": workout.distance_m,
-                        "intensity": workout.intensity,
-                        "description": workout.description,
-                        "structure": _load(workout.structure_json, []),
-                        "completed_activity_id": workout.completed_activity_id,
-                    }
+                _workout_read_payload(
+                    workout,
+                    physiology=physiology,
+                    favorite_ids=favorite_ids,
                 )
                 for workout in workouts
             ],
@@ -1233,13 +1325,16 @@ def persist_week_from_chat(
     hits: list[dict] | None,
     provider: str,
     model: str,
+    context: dict | None = None,
 ) -> dict:
     """Save a chat-revised week as the active draft, replacing the previous draft."""
     start = clock["week_start"]
     plan_data = dict(plan_data)
     plan_data["week_start"] = start.isoformat()
+    plan_data = apply_library_selection_to_plan(plan_data, context or {}, safety)
     validation = validate_plan(plan_data, safety)
-    plan_data = enrich_plan(validation["plan"], safety)
+    physiology = physiology_from_context(context) or physiology_from_profile(profile)
+    plan_data = enrich_plan(validation["plan"], safety, physiology=physiology)
     issues = validation["issues"]
     citations = citation_slugs(hits or []) if provider != "rules" else []
     plan_id = _persist_plan(
@@ -1252,6 +1347,7 @@ def persist_week_from_chat(
         issues,
         citations,
         safety=safety,
+        physiology=physiology,
     )
     _copy_completions_from_superseded(db, profile.id, start, plan_id)
     payload = get_active_plan(db, profile.id, start) or {}
@@ -1286,6 +1382,9 @@ def _row_as_workout(row: PlannedWorkout) -> dict:
         "description": row.description,
         "structure": structure,
         "completed_activity_id": row.completed_activity_id,
+        "library_template_id": row.library_template_id,
+        "library_version": row.library_version,
+        "compliance": _load_compliance(row.compliance_json),
     }
 
 
@@ -1338,19 +1437,24 @@ def persist_today_adjustment(
             "summary": "Today's session adjusted for readiness. Other days were not rewritten.",
             "focus": "Today only",
             "week_start": week_start.isoformat(),
-            "workouts": [enrich_workout(item, safety) for item in seed],
+            "workouts": [
+                enrich_workout(item, safety, physiology=physiology_from_profile(profile))
+                for item in seed
+            ],
         }
         validation = validate_plan(draft, safety)
+        physiology = physiology_from_profile(profile)
         plan_id = _persist_plan(
             db,
             profile,
-            enrich_plan(validation["plan"], safety),
+            enrich_plan(validation["plan"], safety, physiology=physiology),
             week_start,
             provider,
             model,
             validation["issues"],
             citation_slugs(hits or []) if provider != "rules" else [],
             safety=safety,
+            physiology=physiology,
         )
         payload = get_active_plan(db, profile.id, week_start) or {}
         payload["disclaimer"] = safety.get("disclaimer")
@@ -1400,8 +1504,9 @@ def persist_today_adjustment(
     for row in open_rows:
         db.delete(row)
     db.flush()
+    physiology = physiology_from_profile(profile)
     for workout in proposed:
-        filled = enrich_workout(workout, safety)
+        filled = enrich_workout(workout, safety, physiology=physiology)
         db.add(
             PlannedWorkout(
                 training_plan_id=record.id,
@@ -1415,6 +1520,8 @@ def persist_today_adjustment(
                 intensity=filled.get("intensity"),
                 description=filled.get("description"),
                 structure_json=json.dumps(filled.get("structure") or []),
+                library_template_id=filled.get("library_template_id"),
+                library_version=filled.get("library_version"),
             )
         )
     notes = [
@@ -1519,6 +1626,7 @@ def apply_week_from_chat(
         hits=[],
         provider="chat",
         model="week-from-chat",
+        context=context,
     )
     if publish and payload.get("plan_id"):
         return publish_plan_to_schedule(db, profile, payload["plan_id"])
@@ -2724,6 +2832,8 @@ def coach_chat(
                 week_plan=current_plan,
                 session_date=session_packet.get("date"),
                 family=session_packet.get("family") or session_packet.get("modality"),
+                physiology=physiology_from_profile(profile),
+                telemetry=session_packet,
             )
             session_packet.update(overlay)
             if overlay.get("prescribed_vs_executed"):
@@ -2785,7 +2895,11 @@ def coach_chat(
 
     has_prescription = bool(
         session_packet
-        and (session_packet.get("prescription") or session_packet.get("prescribed_vs_executed"))
+        and (
+            session_packet.get("prescription")
+            or session_packet.get("prescribed_vs_executed")
+            or session_packet.get("library_compliance")
+        )
     )
     drop_assistant = has_prescription or intent != WORKOUT_AUDIT
     transcript = _recent_transcript(history, drop_assistant=drop_assistant)
@@ -3057,6 +3171,7 @@ Respond with JSON matching exactly this shape:
                     hits=hits,
                     provider=provider_name,
                     model=model_name,
+                    context=context,
                 )
                 reply["plan_id"] = applied_plan.get("plan_id")
             except Exception as exc:  # noqa: BLE001 — chat must still return the table
@@ -3130,3 +3245,179 @@ def confirm_baseline(db: Session, profile: AthleteProfile) -> AthleteProfile:
     db.commit()
     db.refresh(profile)
     return profile
+
+
+def repeat_planned_workout(
+    db: Session,
+    profile: AthleteProfile,
+    workout_id: int,
+    *,
+    target_date: date | None = None,
+) -> dict:
+    """Schedule the same library workout again on a future date."""
+    source = (
+        db.query(PlannedWorkout)
+        .filter(
+            PlannedWorkout.id == workout_id,
+            PlannedWorkout.athlete_profile_id == profile.id,
+        )
+        .first()
+    )
+    if source is None:
+        raise LookupError("Planned workout not found.")
+
+    repeat_day = target_date or (source.workout_date + timedelta(days=7))
+    week_start = current_week_monday(repeat_day)
+    physiology = physiology_from_profile(profile)
+    safety = build_safety_profile(db, profile, readiness_flags=[])
+
+    record = (
+        db.query(TrainingPlan)
+        .filter(
+            TrainingPlan.athlete_profile_id == profile.id,
+            TrainingPlan.week_start == week_start,
+            TrainingPlan.status == "active",
+        )
+        .order_by(TrainingPlan.id.desc())
+        .first()
+    )
+    if record is None:
+        record = TrainingPlan(
+            athlete_profile_id=profile.id,
+            week_start=week_start,
+            title=f"Repeat week — {week_start.isoformat()}",
+            summary="Repeated library session from a prior plan.",
+            focus="repeat",
+            provider="swl",
+            model="repeat",
+            status="active",
+        )
+        db.add(record)
+        db.flush()
+
+    workout = _row_as_workout(source)
+    workout["date"] = repeat_day.isoformat()
+    filled = enrich_workout(workout, safety, physiology=physiology)
+    row = PlannedWorkout(
+        training_plan_id=record.id,
+        athlete_profile_id=profile.id,
+        workout_date=repeat_day,
+        sport=filled.get("sport"),
+        title=filled.get("title"),
+        session_type=filled.get("session_type"),
+        duration_min=filled.get("duration_min"),
+        distance_m=filled.get("distance_m"),
+        intensity=filled.get("intensity"),
+        description=filled.get("description"),
+        structure_json=json.dumps(filled.get("structure") or []),
+        library_template_id=filled.get("library_template_id") or source.library_template_id,
+        library_version=filled.get("library_version") or source.library_version,
+    )
+    db.add(row)
+    db.commit()
+    db.refresh(row)
+    return {
+        "workout_id": row.id,
+        "plan_id": record.id,
+        "date": repeat_day.isoformat(),
+        "library_template_id": row.library_template_id,
+        "title": row.title,
+    }
+
+
+def list_favorite_templates(db: Session, profile_id: int) -> list[dict]:
+    from app.services.workout_library import get_template_by_id
+
+    rows = (
+        db.query(FavoriteWorkoutTemplate)
+        .filter(FavoriteWorkoutTemplate.athlete_profile_id == profile_id)
+        .order_by(FavoriteWorkoutTemplate.created_at.desc())
+        .all()
+    )
+    favorites: list[dict] = []
+    for row in rows:
+        template = get_template_by_id(row.template_id)
+        sports = (template or {}).get("sports") or []
+        favorites.append(
+            {
+                "template_id": row.template_id,
+                "title": (template or {}).get("title"),
+                "sport": sports[0] if sports else None,
+                "intent": (template or {}).get("intent"),
+                "created_at": row.created_at.isoformat() if row.created_at else None,
+            }
+        )
+    return favorites
+
+
+def add_favorite_template(db: Session, profile_id: int, template_id: str) -> dict:
+    from app.services.workout_library import get_template_by_id
+
+    template = get_template_by_id(template_id)
+    if template is None:
+        raise LookupError("Library template not found.")
+    existing = (
+        db.query(FavoriteWorkoutTemplate)
+        .filter(
+            FavoriteWorkoutTemplate.athlete_profile_id == profile_id,
+            FavoriteWorkoutTemplate.template_id == template_id,
+        )
+        .first()
+    )
+    if existing is None:
+        db.add(
+            FavoriteWorkoutTemplate(
+                athlete_profile_id=profile_id,
+                template_id=template_id,
+            )
+        )
+        db.commit()
+    return {"template_id": template_id, "favorited": True}
+
+
+def remove_favorite_template(db: Session, profile_id: int, template_id: str) -> dict:
+    (
+        db.query(FavoriteWorkoutTemplate)
+        .filter(
+            FavoriteWorkoutTemplate.athlete_profile_id == profile_id,
+            FavoriteWorkoutTemplate.template_id == template_id,
+        )
+        .delete()
+    )
+    db.commit()
+    return {"template_id": template_id, "favorited": False}
+
+
+def compute_workout_compliance(
+    db: Session,
+    profile: AthleteProfile,
+    workout_id: int,
+) -> dict:
+    workout = (
+        db.query(PlannedWorkout)
+        .filter(
+            PlannedWorkout.id == workout_id,
+            PlannedWorkout.athlete_profile_id == profile.id,
+        )
+        .first()
+    )
+    if workout is None:
+        raise LookupError("Planned workout not found.")
+    if not workout.completed_activity_id:
+        raise ValueError("Workout has no linked activity.")
+    activity = (
+        db.query(Activity)
+        .filter(
+            Activity.id == workout.completed_activity_id,
+            Activity.athlete_profile_id == profile.id,
+        )
+        .first()
+    )
+    if activity is None:
+        raise ValueError("Linked activity not found.")
+    physiology = physiology_from_profile(profile)
+    report = compliance_for_planned_workout(_row_as_workout(workout), activity, physiology)
+    if report:
+        workout.compliance_json = _compliance_payload(report)
+        db.commit()
+    return report or {}

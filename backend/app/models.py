@@ -517,11 +517,27 @@ class PlannedWorkout(Base):
     intensity = Column(String(255), nullable=True)
     description = Column(Text, nullable=True)
     structure_json = Column(Text, nullable=True)
+    library_template_id = Column(String(128), nullable=True, index=True)
+    library_version = Column(String(32), nullable=True)
+    compliance_json = Column(Text, nullable=True)
     completed_activity_id = Column(
         Integer, ForeignKey("activities.id"), nullable=True, index=True
     )
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+
+class FavoriteWorkoutTemplate(Base):
+    """Athlete bookmarked SWL templates for repeat scheduling."""
+
+    __tablename__ = "favorite_workout_templates"
+
+    id = Column(Integer, primary_key=True, index=True, autoincrement=True)
+    athlete_profile_id = Column(
+        Integer, ForeignKey("athlete_profiles.id"), nullable=False, index=True
+    )
+    template_id = Column(String(128), nullable=False)
+    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
 
 
 class CoachMessage(Base):

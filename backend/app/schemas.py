@@ -400,6 +400,12 @@ class SafetyIssue(BaseModel):
     message: str
 
 
+class WorkoutComplianceRead(BaseModel):
+    score: float | None = None
+    grade: str | None = None
+    dimensions: dict = {}
+
+
 class PlanWorkoutRead(BaseModel):
     id: int | None = None
     date: Date
@@ -412,6 +418,10 @@ class PlanWorkoutRead(BaseModel):
     description: str | None = None
     structure: list[dict] = []
     completed_activity_id: int | None = None
+    library_template_id: str | None = None
+    library_version: str | None = None
+    compliance: WorkoutComplianceRead | None = None
+    is_favorite: bool = False
 
 
 class WeekPlanRead(BaseModel):
@@ -565,6 +575,21 @@ class CoachPlannedWorkoutRead(BaseModel):
     intensity: str | None = None
     description: str | None = None
     structure: list[dict] = []
+    library_template_id: str | None = None
+    library_version: str | None = None
+    compliance: WorkoutComplianceRead | None = None
+
+
+class FavoriteTemplateRead(BaseModel):
+    template_id: str
+    title: str | None = None
+    sport: str | None = None
+    intent: str | None = None
+    created_at: datetime | None = None
+
+
+class RepeatWorkoutRequest(BaseModel):
+    target_date: Date | None = None
 
 
 class CoachStatusResponse(BaseModel):

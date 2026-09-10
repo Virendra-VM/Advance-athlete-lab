@@ -1,0 +1,292 @@
+{
+  "templates": [
+    {
+      "id": "xt_elliptical_easy",
+      "version": 1,
+      "sports": [
+        "cross_training"
+      ],
+      "session_types": [
+        "easy"
+      ],
+      "intent": "easy",
+      "priority": 10,
+      "title": "Elliptical easy",
+      "summary": "Low-impact aerobic",
+      "evidence_tags": [
+        "cross-training",
+        "aerobic_base"
+      ],
+      "warmup_min": 10,
+      "cooldown_min": 8,
+      "warmup": {
+        "detail": "Easy aerobic start. Dynamic mobility. No hard efforts yet."
+      },
+      "cooldown": {
+        "detail": "Easy cool-down. Stretch primary movers. Breathe."
+      },
+      "main": {
+        "intensity": "Moderate",
+        "detail": "Elliptical easy.",
+        "targets": {
+          "rpe": {
+            "low": 5,
+            "high": 7
+          }
+        }
+      }
+    },
+    {
+      "id": "xt_stair_climber",
+      "version": 1,
+      "sports": [
+        "cross_training"
+      ],
+      "session_types": [
+        "tempo"
+      ],
+      "intent": "tempo",
+      "priority": 10,
+      "title": "Stair climber tempo",
+      "summary": "Vertical aerobic load",
+      "evidence_tags": [
+        "cross-training",
+        "aerobic_base"
+      ],
+      "warmup_min": 10,
+      "cooldown_min": 8,
+      "warmup": {
+        "detail": "Easy aerobic start. Dynamic mobility. No hard efforts yet."
+      },
+      "cooldown": {
+        "detail": "Easy cool-down. Stretch primary movers. Breathe."
+      },
+      "main": {
+        "intensity": "Moderate",
+        "detail": "Stair climber tempo.",
+        "targets": {
+          "rpe": {
+            "low": 5,
+            "high": 7
+          }
+        }
+      }
+    },
+    {
+      "id": "xt_pool_running",
+      "version": 1,
+      "sports": [
+        "cross_training"
+      ],
+      "session_types": [
+        "easy"
+      ],
+      "intent": "easy",
+      "priority": 10,
+      "title": "Pool running",
+      "summary": "Deep-water running",
+      "evidence_tags": [
+        "cross-training",
+        "aerobic_base"
+      ],
+      "warmup_min": 10,
+      "cooldown_min": 8,
+      "warmup": {
+        "detail": "Easy aerobic start. Dynamic mobility. No hard efforts yet."
+      },
+      "cooldown": {
+        "detail": "Easy cool-down. Stretch primary movers. Breathe."
+      },
+      "main": {
+        "intensity": "Moderate",
+        "detail": "Pool running.",
+        "targets": {
+          "rpe": {
+            "low": 5,
+            "high": 7
+          }
+        }
+      }
+    },
+    {
+      "id": "xt_skate_ski",
+      "version": 1,
+      "sports": [
+        "cross_training"
+      ],
+      "session_types": [
+        "tempo"
+      ],
+      "intent": "tempo",
+      "priority": 10,
+      "title": "Skate ski simulation",
+      "summary": "Winter cross-training",
+      "evidence_tags": [
+        "cross-training",
+        "aerobic_base"
+      ],
+      "warmup_min": 10,
+      "cooldown_min": 8,
+      "warmup": {
+        "detail": "Easy aerobic start. Dynamic mobility. No hard efforts yet."
+      },
+      "cooldown": {
+        "detail": "Easy cool-down. Stretch primary movers. Breathe."
+      },
+      "main": {
+        "intensity": "Moderate",
+        "detail": "Skate ski simulation.",
+        "targets": {
+          "rpe": {
+            "low": 5,
+            "high": 7
+          }
+        }
+      }
+    },
+    {
+      "id": "xt_hiking_strength",
+      "version": 1,
+      "sports": [
+        "cross_training"
+      ],
+      "session_types": [
+        "hills"
+      ],
+      "intent": "hills",
+      "priority": 10,
+      "title": "Hike with pack",
+      "summary": "Loaded hiking",
+      "evidence_tags": [
+        "cross-training",
+        "aerobic_base"
+      ],
+      "warmup_min": 10,
+      "cooldown_min": 8,
+      "warmup": {
+        "detail": "Easy aerobic start. Dynamic mobility. No hard efforts yet."
+      },
+      "cooldown": {
+        "detail": "Easy cool-down. Stretch primary movers. Breathe."
+      },
+      "main": {
+        "intensity": "Moderate",
+        "detail": "Hike with pack.",
+        "targets": {
+          "rpe": {
+            "low": 5,
+            "high": 7
+          }
+        }
+      }
+    },
+    {
+      "id": "xt_soccer_easy",
+      "version": 1,
+      "sports": [
+        "cross_training"
+      ],
+      "session_types": [
+        "cross-training"
+      ],
+      "intent": "cross_training",
+      "priority": 10,
+      "title": "Easy football",
+      "summary": "Team sport aerobic",
+      "evidence_tags": [
+        "cross-training",
+        "aerobic_base"
+      ],
+      "warmup_min": 10,
+      "cooldown_min": 8,
+      "warmup": {
+        "detail": "Easy aerobic start. Dynamic mobility. No hard efforts yet."
+      },
+      "cooldown": {
+        "detail": "Easy cool-down. Stretch primary movers. Breathe."
+      },
+      "main": {
+        "intensity": "Moderate",
+        "detail": "Easy football.",
+        "targets": {
+          "rpe": {
+            "low": 5,
+            "high": 7
+          }
+        }
+      }
+    },
+    {
+      "id": "xt_basketball_shootaround",
+      "version": 1,
+      "sports": [
+        "cross_training"
+      ],
+      "session_types": [
+        "cross-training"
+      ],
+      "intent": "cross_training",
+      "priority": 10,
+      "title": "Basketball shootaround",
+      "summary": "Low-intensity court work",
+      "evidence_tags": [
+        "cross-training",
+        "aerobic_base"
+      ],
+      "warmup_min": 10,
+      "cooldown_min": 8,
+      "warmup": {
+        "detail": "Easy aerobic start. Dynamic mobility. No hard efforts yet."
+      },
+      "cooldown": {
+        "detail": "Easy cool-down. Stretch primary movers. Breathe."
+      },
+      "main": {
+        "intensity": "Moderate",
+        "detail": "Basketball shootaround.",
+        "targets": {
+          "rpe": {
+            "low": 5,
+            "high": 7
+          }
+        }
+      }
+    },
+    {
+      "id": "xt_ski_erg",
+      "version": 1,
+      "sports": [
+        "cross_training"
+      ],
+      "session_types": [
+        "tempo"
+      ],
+      "intent": "tempo",
+      "priority": 10,
+      "title": "SkiErg tempo",
+      "summary": "Upper-body aerobic tempo",
+      "evidence_tags": [
+        "cross-training",
+        "aerobic_base"
+      ],
+      "warmup_min": 10,
+      "cooldown_min": 8,
+      "warmup": {
+        "detail": "Easy aerobic start. Dynamic mobility. No hard efforts yet."
+      },
+      "cooldown": {
+        "detail": "Easy cool-down. Stretch primary movers. Breathe."
+      },
+      "main": {
+        "intensity": "Moderate",
+        "detail": "SkiErg tempo.",
+        "targets": {
+          "rpe": {
+            "low": 5,
+            "high": 7
+          }
+        }
+      }
+    }
+  ]
+}

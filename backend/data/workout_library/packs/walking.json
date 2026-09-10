@@ -1,0 +1,364 @@
+{
+  "templates": [
+    {
+      "id": "walk_easy_recovery",
+      "version": 1,
+      "sports": [
+        "walking"
+      ],
+      "session_types": [
+        "easy"
+      ],
+      "intent": "easy",
+      "priority": 10,
+      "title": "Easy recovery walk",
+      "summary": "Active recovery walking",
+      "evidence_tags": [
+        "aerobic_base",
+        "walking"
+      ],
+      "warmup_min": 10,
+      "cooldown_min": 8,
+      "warmup": {
+        "detail": "Easy aerobic start. Dynamic mobility. No hard efforts yet."
+      },
+      "cooldown": {
+        "detail": "Easy cool-down. Stretch primary movers. Breathe."
+      },
+      "main": {
+        "intensity": "Easy-moderate",
+        "detail": "Easy recovery walk for {main_min} min.",
+        "targets": {
+          "rpe": {
+            "low": 4,
+            "high": 6
+          }
+        }
+      }
+    },
+    {
+      "id": "walk_brisk_aerobic",
+      "version": 1,
+      "sports": [
+        "walking"
+      ],
+      "session_types": [
+        "easy"
+      ],
+      "intent": "easy",
+      "priority": 10,
+      "title": "Brisk aerobic walk",
+      "summary": "Moderate walking aerobic",
+      "evidence_tags": [
+        "aerobic_base",
+        "walking"
+      ],
+      "warmup_min": 10,
+      "cooldown_min": 8,
+      "warmup": {
+        "detail": "Easy aerobic start. Dynamic mobility. No hard efforts yet."
+      },
+      "cooldown": {
+        "detail": "Easy cool-down. Stretch primary movers. Breathe."
+      },
+      "main": {
+        "intensity": "Easy-moderate",
+        "detail": "Brisk aerobic walk for {main_min} min.",
+        "targets": {
+          "rpe": {
+            "low": 4,
+            "high": 6
+          }
+        }
+      }
+    },
+    {
+      "id": "walk_hike_long",
+      "version": 1,
+      "sports": [
+        "walking"
+      ],
+      "session_types": [
+        "long"
+      ],
+      "intent": "long",
+      "priority": 10,
+      "title": "Long hike",
+      "summary": "Hiking endurance",
+      "evidence_tags": [
+        "aerobic_base",
+        "walking"
+      ],
+      "warmup_min": 10,
+      "cooldown_min": 8,
+      "warmup": {
+        "detail": "Easy aerobic start. Dynamic mobility. No hard efforts yet."
+      },
+      "cooldown": {
+        "detail": "Easy cool-down. Stretch primary movers. Breathe."
+      },
+      "main": {
+        "intensity": "Easy-moderate",
+        "detail": "Long hike for {main_min} min.",
+        "targets": {
+          "rpe": {
+            "low": 4,
+            "high": 6
+          }
+        }
+      }
+    },
+    {
+      "id": "walk_hill_repeats",
+      "version": 1,
+      "sports": [
+        "walking"
+      ],
+      "session_types": [
+        "hills"
+      ],
+      "intent": "hills",
+      "priority": 10,
+      "title": "Hill walk repeats",
+      "summary": "Uphill walking power",
+      "evidence_tags": [
+        "aerobic_base",
+        "walking"
+      ],
+      "warmup_min": 10,
+      "cooldown_min": 8,
+      "warmup": {
+        "detail": "Easy aerobic start. Dynamic mobility. No hard efforts yet."
+      },
+      "cooldown": {
+        "detail": "Easy cool-down. Stretch primary movers. Breathe."
+      },
+      "main": {
+        "intensity": "Easy-moderate",
+        "detail": "Hill walk repeats for {main_min} min.",
+        "targets": {
+          "rpe": {
+            "low": 4,
+            "high": 6
+          }
+        }
+      }
+    },
+    {
+      "id": "walk_ruck_light",
+      "version": 1,
+      "sports": [
+        "walking"
+      ],
+      "session_types": [
+        "tempo"
+      ],
+      "intent": "tempo",
+      "priority": 10,
+      "title": "Light ruck walk",
+      "summary": "Loaded walking",
+      "evidence_tags": [
+        "aerobic_base",
+        "walking"
+      ],
+      "warmup_min": 10,
+      "cooldown_min": 8,
+      "warmup": {
+        "detail": "Easy aerobic start. Dynamic mobility. No hard efforts yet."
+      },
+      "cooldown": {
+        "detail": "Easy cool-down. Stretch primary movers. Breathe."
+      },
+      "main": {
+        "intensity": "Easy-moderate",
+        "detail": "Light ruck walk for {main_min} min.",
+        "targets": {
+          "rpe": {
+            "low": 4,
+            "high": 6
+          }
+        }
+      }
+    },
+    {
+      "id": "walk_nordic_poles",
+      "version": 1,
+      "sports": [
+        "walking"
+      ],
+      "session_types": [
+        "easy"
+      ],
+      "intent": "easy",
+      "priority": 10,
+      "title": "Nordic walking",
+      "summary": "Pole walking aerobic",
+      "evidence_tags": [
+        "aerobic_base",
+        "walking"
+      ],
+      "warmup_min": 10,
+      "cooldown_min": 8,
+      "warmup": {
+        "detail": "Easy aerobic start. Dynamic mobility. No hard efforts yet."
+      },
+      "cooldown": {
+        "detail": "Easy cool-down. Stretch primary movers. Breathe."
+      },
+      "main": {
+        "intensity": "Easy-moderate",
+        "detail": "Nordic walking for {main_min} min.",
+        "targets": {
+          "rpe": {
+            "low": 4,
+            "high": 6
+          }
+        }
+      }
+    },
+    {
+      "id": "walk_treadmill_incline",
+      "version": 1,
+      "sports": [
+        "walking"
+      ],
+      "session_types": [
+        "tempo"
+      ],
+      "intent": "tempo",
+      "priority": 10,
+      "title": "Incline treadmill walk",
+      "summary": "Incline walking aerobic",
+      "evidence_tags": [
+        "aerobic_base",
+        "walking"
+      ],
+      "warmup_min": 10,
+      "cooldown_min": 8,
+      "warmup": {
+        "detail": "Easy aerobic start. Dynamic mobility. No hard efforts yet."
+      },
+      "cooldown": {
+        "detail": "Easy cool-down. Stretch primary movers. Breathe."
+      },
+      "main": {
+        "intensity": "Easy-moderate",
+        "detail": "Incline treadmill walk for {main_min} min.",
+        "targets": {
+          "rpe": {
+            "low": 4,
+            "high": 6
+          }
+        }
+      }
+    },
+    {
+      "id": "walk_post_meal",
+      "version": 1,
+      "sports": [
+        "walking"
+      ],
+      "session_types": [
+        "easy"
+      ],
+      "intent": "easy",
+      "priority": 10,
+      "title": "Post-meal walk",
+      "summary": "Glycemic recovery walk",
+      "evidence_tags": [
+        "aerobic_base",
+        "walking"
+      ],
+      "warmup_min": 10,
+      "cooldown_min": 8,
+      "warmup": {
+        "detail": "Easy aerobic start. Dynamic mobility. No hard efforts yet."
+      },
+      "cooldown": {
+        "detail": "Easy cool-down. Stretch primary movers. Breathe."
+      },
+      "main": {
+        "intensity": "Easy-moderate",
+        "detail": "Post-meal walk for {main_min} min.",
+        "targets": {
+          "rpe": {
+            "low": 4,
+            "high": 6
+          }
+        }
+      }
+    },
+    {
+      "id": "walk_ultra_hike",
+      "version": 1,
+      "sports": [
+        "walking"
+      ],
+      "session_types": [
+        "long"
+      ],
+      "intent": "long",
+      "priority": 10,
+      "title": "Ultra hike",
+      "summary": "Ultra hiking time-on-feet",
+      "evidence_tags": [
+        "aerobic_base",
+        "walking"
+      ],
+      "warmup_min": 10,
+      "cooldown_min": 8,
+      "warmup": {
+        "detail": "Easy aerobic start. Dynamic mobility. No hard efforts yet."
+      },
+      "cooldown": {
+        "detail": "Easy cool-down. Stretch primary movers. Breathe."
+      },
+      "main": {
+        "intensity": "Easy-moderate",
+        "detail": "Ultra hike for {main_min} min.",
+        "targets": {
+          "rpe": {
+            "low": 4,
+            "high": 6
+          }
+        }
+      }
+    },
+    {
+      "id": "walk_snow_shoe",
+      "version": 1,
+      "sports": [
+        "walking"
+      ],
+      "session_types": [
+        "easy"
+      ],
+      "intent": "easy",
+      "priority": 10,
+      "title": "Snowshoe easy",
+      "summary": "Winter aerobic walking",
+      "evidence_tags": [
+        "aerobic_base",
+        "walking"
+      ],
+      "warmup_min": 10,
+      "cooldown_min": 8,
+      "warmup": {
+        "detail": "Easy aerobic start. Dynamic mobility. No hard efforts yet."
+      },
+      "cooldown": {
+        "detail": "Easy cool-down. Stretch primary movers. Breathe."
+      },
+      "main": {
+        "intensity": "Easy-moderate",
+        "detail": "Snowshoe easy for {main_min} min.",
+        "targets": {
+          "rpe": {
+            "low": 4,
+            "high": 6
+          }
+        }
+      }
+    }
+  ]
+}

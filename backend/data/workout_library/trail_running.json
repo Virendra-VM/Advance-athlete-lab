@@ -1,0 +1,170 @@
+{
+  "templates": [
+    {
+      "id": "trail_easy_terrain",
+      "sports": ["trail_running"],
+      "session_types": ["easy"],
+      "intent": "easy",
+      "priority": 15,
+      "title": "Easy trail run",
+      "summary": "Time-on-feet on terrain — aerobic base with proprioception",
+      "evidence_tags": ["trail", "aerobic_base", "technique"],
+      "warmup_min": 10,
+      "cooldown_min": 8,
+      "warmup": {"detail": "Easy jog on flat 6 min. Ankle mobility. 2 × 30 s on easy trail to preview footing."},
+      "main": {
+        "intensity": "Easy / conversational",
+        "detail": "Easy trail run {main_min} min. Power-hike steep sections. Keep effort conversational on flats.",
+        "targets": {"hr_pct_lthr": {"low": 0.69, "high": 0.83}, "rpe": {"low": 4, "high": 6}}
+      },
+      "cooldown": {"detail": "Walk 5 min. Stretch calves and ankles."}
+    },
+    {
+      "id": "trail_hills_8x60",
+      "sports": ["trail_running"],
+      "session_types": ["hills"],
+      "intent": "hills",
+      "priority": 20,
+      "title": "Trail hill repeats (8×60 s)",
+      "summary": "Uphill power for trail and vert races",
+      "evidence_tags": ["hills", "trail", "strength"],
+      "warmup_min": 12,
+      "cooldown_min": 10,
+      "warmup": {"detail": "Easy jog 8 min. Leg swings. 2 × 30 s moderate uphill."},
+      "main": {
+        "type": "repeat",
+        "intensity": "Hard / uphill",
+        "reps": 8,
+        "on": {"duration_min": 1, "label": "uphill strong", "targets": {"hr_pct_lthr": {"low": 0.95, "high": 1.05}, "rpe": {"low": 8, "high": 9}}},
+        "off": {"duration_min": 2, "label": "hike/jog down", "targets": {"hr_pct_lthr": {"low": 0.60, "high": 0.70}}},
+        "detail_intro": "Short quick steps uphill. Walk technical descents."
+      },
+      "cooldown": {"detail": "Easy jog flat 8 min."}
+    },
+    {
+      "id": "trail_vert_long",
+      "sports": ["trail_running"],
+      "session_types": ["long"],
+      "intent": "long",
+      "priority": 18,
+      "match_keywords": ["vert", "elevation", "mountain"],
+      "title": "Vert long run",
+      "summary": "Elevation-specific durability — ultra and skyrunning prep",
+      "evidence_tags": ["trail", "long", "race-specific"],
+      "warmup_min": 12,
+      "cooldown_min": 10,
+      "warmup": {"detail": "Easy jog 10 min. Ankle and hip prep."},
+      "main": {
+        "intensity": "Easy / time on feet",
+        "detail": "Long trail run {main_min} min with significant vert. Power-hike climbs >15%. Run flats and gentle descents. Fuel every 45 min.",
+        "targets": {"hr_pct_lthr": {"low": 0.68, "high": 0.80}, "rpe": {"low": 5, "high": 7}}
+      },
+      "cooldown": {"detail": "Walk 10 min. Calf and hip stretch. Rehydrate."}
+    },
+    {
+      "id": "trail_downhill_eccentric",
+      "sports": ["trail_running"],
+      "session_types": ["hills", "intervals"],
+      "intent": "hills",
+      "priority": 16,
+      "match_keywords": ["downhill", "eccentric", "descent"],
+      "title": "Downhill eccentric repeats",
+      "summary": "Eccentric loading for descents — quad durability",
+      "evidence_tags": ["trail", "eccentric", "injury-prevention"],
+      "warmup_min": 12,
+      "cooldown_min": 10,
+      "warmup": {"detail": "Easy jog 10 min. 2 × 30 s gentle downhill to preview."},
+      "main": {
+        "type": "repeat",
+        "intensity": "Moderate / downhill",
+        "reps": 6,
+        "on": {"duration_min": 2, "label": "controlled downhill", "targets": {"rpe": {"low": 6, "high": 7}}},
+        "off": {"duration_min": 3, "label": "hike up easy", "targets": {"rpe": {"low": 4, "high": 5}}},
+        "detail_intro": "Short quick steps, lean slightly forward. Stop if quads scream or form breaks."
+      },
+      "cooldown": {"detail": "Easy jog flat 8 min. Quad stretch."}
+    },
+    {
+      "id": "trail_technical_skills",
+      "sports": ["trail_running"],
+      "session_types": ["easy", "cross-training"],
+      "intent": "easy",
+      "priority": 14,
+      "match_keywords": ["technical", "skills", "roots"],
+      "title": "Technical trail skills",
+      "summary": "Footwork and proprioception — roots, rocks, uneven terrain",
+      "evidence_tags": ["trail", "technique", "injury-prevention"],
+      "warmup_min": 10,
+      "cooldown_min": 8,
+      "warmup": {"detail": "Easy jog 8 min. Ankle circles, single-leg balance 30 s/side."},
+      "main": {
+        "intensity": "Easy / skill focus",
+        "detail": "Easy trail run on technical terrain {main_min} min. Focus on eyes up, short steps, active feet. No pace goals — skill only.",
+        "targets": {"hr_pct_lthr": {"low": 0.65, "high": 0.78}, "rpe": {"low": 4, "high": 5}}
+      },
+      "cooldown": {"detail": "Walk 5 min. Ankle stretch."}
+    },
+    {
+      "id": "trail_fartlek_vert",
+      "sports": ["trail_running"],
+      "session_types": ["intervals", "tempo"],
+      "intent": "fartlek",
+      "priority": 14,
+      "title": "Trail fartlek (vert)",
+      "summary": "Unstructured hard/easy on terrain — race-specific effort management",
+      "evidence_tags": ["trail", "fartlek", "race-specific"],
+      "warmup_min": 12,
+      "cooldown_min": 10,
+      "warmup": {"detail": "Easy jog 10 min on trail."},
+      "main": {
+        "type": "repeat",
+        "intensity": "Varied / terrain",
+        "reps": 5,
+        "on": {"duration_min": 4, "label": "hard on climbs/flats", "targets": {"hr_pct_lthr": {"low": 0.90, "high": 1.00}, "rpe": {"low": 7, "high": 8}}},
+        "off": {"duration_min": 3, "label": "easy on flats/down", "targets": {"hr_pct_lthr": {"low": 0.65, "high": 0.75}}},
+        "detail_intro": "Use terrain as the interval — power-hike steeps on hard sections."
+      },
+      "cooldown": {"detail": "Easy jog/walk 8 min."}
+    },
+    {
+      "id": "trail_race_pace",
+      "sports": ["trail_running"],
+      "session_types": ["race", "tempo"],
+      "intent": "race_pace",
+      "priority": 14,
+      "match_keywords": ["race", "trail race"],
+      "title": "Trail race-pace simulation",
+      "summary": "Race-effort on similar terrain — pacing and fueling practice",
+      "evidence_tags": ["trail", "race-specific", "periodization"],
+      "warmup_min": 15,
+      "cooldown_min": 10,
+      "warmup": {"detail": "Easy jog 12 min. Include 2 × 1 min at race feel."},
+      "main": {
+        "intensity": "Race effort",
+        "detail": "2 × 20 min at trail race effort on rolling terrain with 5 min easy between. Practice fueling and power-hiking strategy.",
+        "targets": {"hr_pct_lthr": {"low": 0.88, "high": 0.95}, "rpe": {"low": 7, "high": 8}}
+      },
+      "cooldown": {"detail": "Walk 8 min. Refuel."}
+    },
+    {
+      "id": "trail_hike_run",
+      "sports": ["trail_running", "walking"],
+      "session_types": ["long", "easy"],
+      "intent": "long",
+      "priority": 12,
+      "match_keywords": ["hike", "run hike"],
+      "title": "Hike-run long",
+      "summary": "Ultra strategy — hike the climbs, run the rest",
+      "evidence_tags": ["trail", "ultra", "race-specific"],
+      "warmup_min": 10,
+      "cooldown_min": 8,
+      "warmup": {"detail": "Easy walk/jog 8 min."},
+      "main": {
+        "intensity": "Easy / hike-run",
+        "detail": "Hike-run {main_min} min: hike all climbs >12%, run everything else easy. Practice poles if using them in your race.",
+        "targets": {"hr_pct_lthr": {"low": 0.65, "high": 0.80}, "rpe": {"low": 5, "high": 7}}
+      },
+      "cooldown": {"detail": "Walk 10 min. Stretch calves and hips."}
+    }
+  ]
+}

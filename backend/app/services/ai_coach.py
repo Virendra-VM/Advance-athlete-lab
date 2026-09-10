@@ -580,6 +580,15 @@ def autopsy_task_for_packet(modality: str | None, packet: dict | None) -> str:
             "Match this file to week_plan_session / CURRENT WEEK PLAN for that date. "
             "Say whether Tuesday's scheduled session was this quality bike or a different planned day."
         )
+    library = packet.get("library_compliance") or {}
+    if (prescription or {}).get("source") == "library_template" or library:
+        extra.extend(
+            [
+                "Prescription comes from the Science Workout Library template — grade execution against resolved LTHR/FTP/pace/CSS bands, not generic RPE.",
+                "If library_compliance.score is present, reference the grade (A–F) and whether duration + intensity targets were hit.",
+                "Cite evidence_tags from the prescription when explaining why this session was planned.",
+            ]
+        )
     if not extra:
         return base
     return base + "\n\nCORRECTION / PRESCRIPTION RULES\n" + "\n".join(f"- {line}" for line in extra)

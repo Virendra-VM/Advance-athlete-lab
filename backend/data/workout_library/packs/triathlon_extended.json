@@ -1,0 +1,292 @@
+{
+  "templates": [
+    {
+      "id": "tri_70_3_brick_long",
+      "version": 1,
+      "sports": [
+        "triathlon"
+      ],
+      "session_types": [
+        "cross-training"
+      ],
+      "intent": "cross_training",
+      "priority": 10,
+      "title": "70.3 long brick",
+      "summary": "Long race-specific brick",
+      "evidence_tags": [
+        "triathlon",
+        "race-specific"
+      ],
+      "warmup_min": 10,
+      "cooldown_min": 8,
+      "warmup": {
+        "detail": "Easy aerobic start. Dynamic mobility. No hard efforts yet."
+      },
+      "cooldown": {
+        "detail": "Easy cool-down. Stretch primary movers. Breathe."
+      },
+      "main": {
+        "intensity": "Race prep",
+        "detail": "70.3 long brick.",
+        "targets": {
+          "hr_pct_lthr": {
+            "low": 0.95,
+            "high": 1.02
+          }
+        }
+      }
+    },
+    {
+      "id": "tri_ironman_brick",
+      "version": 1,
+      "sports": [
+        "triathlon"
+      ],
+      "session_types": [
+        "cross-training"
+      ],
+      "intent": "cross_training",
+      "priority": 10,
+      "title": "Ironman brick",
+      "summary": "IM distance brick simulation",
+      "evidence_tags": [
+        "triathlon",
+        "race-specific"
+      ],
+      "warmup_min": 10,
+      "cooldown_min": 8,
+      "warmup": {
+        "detail": "Easy aerobic start. Dynamic mobility. No hard efforts yet."
+      },
+      "cooldown": {
+        "detail": "Easy cool-down. Stretch primary movers. Breathe."
+      },
+      "main": {
+        "intensity": "Race prep",
+        "detail": "Ironman brick.",
+        "targets": {
+          "hr_pct_lthr": {
+            "low": 0.95,
+            "high": 1.02
+          }
+        }
+      }
+    },
+    {
+      "id": "tri_swim_run",
+      "version": 1,
+      "sports": [
+        "triathlon"
+      ],
+      "session_types": [
+        "cross-training"
+      ],
+      "intent": "cross_training",
+      "priority": 10,
+      "title": "Swim-run combo",
+      "summary": "Aquathlon prep",
+      "evidence_tags": [
+        "triathlon",
+        "race-specific"
+      ],
+      "warmup_min": 10,
+      "cooldown_min": 8,
+      "warmup": {
+        "detail": "Easy aerobic start. Dynamic mobility. No hard efforts yet."
+      },
+      "cooldown": {
+        "detail": "Easy cool-down. Stretch primary movers. Breathe."
+      },
+      "main": {
+        "intensity": "Race prep",
+        "detail": "Swim-run combo.",
+        "targets": {
+          "hr_pct_lthr": {
+            "low": 0.95,
+            "high": 1.02
+          }
+        }
+      }
+    },
+    {
+      "id": "tri_bike_focus_day",
+      "version": 1,
+      "sports": [
+        "triathlon"
+      ],
+      "session_types": [
+        "threshold"
+      ],
+      "intent": "threshold",
+      "priority": 10,
+      "title": "Tri bike focus",
+      "summary": "Bike-heavy tri day",
+      "evidence_tags": [
+        "triathlon",
+        "race-specific"
+      ],
+      "warmup_min": 10,
+      "cooldown_min": 8,
+      "warmup": {
+        "detail": "Easy aerobic start. Dynamic mobility. No hard efforts yet."
+      },
+      "cooldown": {
+        "detail": "Easy cool-down. Stretch primary movers. Breathe."
+      },
+      "main": {
+        "intensity": "Race prep",
+        "detail": "Tri bike focus.",
+        "targets": {
+          "pct_ftp": {
+            "low": 0.84,
+            "high": 0.94
+          }
+        }
+      }
+    },
+    {
+      "id": "tri_run_focus_day",
+      "version": 1,
+      "sports": [
+        "triathlon"
+      ],
+      "session_types": [
+        "threshold"
+      ],
+      "intent": "race_pace",
+      "priority": 10,
+      "title": "Tri run focus",
+      "summary": "Run-heavy off bike",
+      "evidence_tags": [
+        "triathlon",
+        "race-specific"
+      ],
+      "warmup_min": 10,
+      "cooldown_min": 8,
+      "warmup": {
+        "detail": "Easy aerobic start. Dynamic mobility. No hard efforts yet."
+      },
+      "cooldown": {
+        "detail": "Easy cool-down. Stretch primary movers. Breathe."
+      },
+      "main": {
+        "intensity": "Race prep",
+        "detail": "Tri run focus.",
+        "targets": {
+          "hr_pct_lthr": {
+            "low": 0.95,
+            "high": 1.02
+          }
+        }
+      }
+    },
+    {
+      "id": "tri_race_week_prep",
+      "version": 1,
+      "sports": [
+        "triathlon"
+      ],
+      "session_types": [
+        "easy"
+      ],
+      "intent": "easy",
+      "priority": 10,
+      "title": "Tri race week prep",
+      "summary": "Pre-race activation",
+      "evidence_tags": [
+        "triathlon",
+        "race-specific"
+      ],
+      "warmup_min": 10,
+      "cooldown_min": 8,
+      "warmup": {
+        "detail": "Easy aerobic start. Dynamic mobility. No hard efforts yet."
+      },
+      "cooldown": {
+        "detail": "Easy cool-down. Stretch primary movers. Breathe."
+      },
+      "main": {
+        "intensity": "Race prep",
+        "detail": "Tri race week prep.",
+        "targets": {
+          "hr_pct_lthr": {
+            "low": 0.95,
+            "high": 1.02
+          }
+        }
+      }
+    },
+    {
+      "id": "tri_open_water_bike",
+      "version": 1,
+      "sports": [
+        "triathlon"
+      ],
+      "session_types": [
+        "cross-training"
+      ],
+      "intent": "cross_training",
+      "priority": 10,
+      "title": "OW swim + bike",
+      "summary": "Open-water to bike transition",
+      "evidence_tags": [
+        "triathlon",
+        "race-specific"
+      ],
+      "warmup_min": 10,
+      "cooldown_min": 8,
+      "warmup": {
+        "detail": "Easy aerobic start. Dynamic mobility. No hard efforts yet."
+      },
+      "cooldown": {
+        "detail": "Easy cool-down. Stretch primary movers. Breathe."
+      },
+      "main": {
+        "intensity": "Race prep",
+        "detail": "OW swim + bike.",
+        "targets": {
+          "pct_ftp": {
+            "low": 0.84,
+            "high": 0.94
+          }
+        }
+      }
+    },
+    {
+      "id": "tri_duathlon_run_bike_run",
+      "version": 1,
+      "sports": [
+        "triathlon"
+      ],
+      "session_types": [
+        "cross-training"
+      ],
+      "intent": "cross_training",
+      "priority": 10,
+      "title": "Duathlon simulation",
+      "summary": "Run-bike-run practice",
+      "evidence_tags": [
+        "triathlon",
+        "race-specific"
+      ],
+      "warmup_min": 10,
+      "cooldown_min": 8,
+      "warmup": {
+        "detail": "Easy aerobic start. Dynamic mobility. No hard efforts yet."
+      },
+      "cooldown": {
+        "detail": "Easy cool-down. Stretch primary movers. Breathe."
+      },
+      "main": {
+        "intensity": "Race prep",
+        "detail": "Duathlon simulation.",
+        "targets": {
+          "pct_ftp": {
+            "low": 0.84,
+            "high": 0.94
+          }
+        }
+      }
+    }
+  ]
+}

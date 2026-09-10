@@ -1,0 +1,724 @@
+{
+  "templates": [
+    {
+      "id": "strength_kettlebell_complex",
+      "version": 1,
+      "sports": [
+        "strength"
+      ],
+      "session_types": [
+        "strength"
+      ],
+      "intent": "strength_general",
+      "priority": 10,
+      "title": "Kettlebell complex",
+      "summary": "KB full-body strength",
+      "evidence_tags": [
+        "strength",
+        "periodization"
+      ],
+      "warmup_min": 10,
+      "cooldown_min": 8,
+      "warmup": {
+        "detail": "Easy aerobic start. Dynamic mobility. No hard efforts yet."
+      },
+      "cooldown": {
+        "detail": "Easy cool-down. Stretch primary movers. Breathe."
+      },
+      "main": {
+        "intensity": "RPE guided",
+        "detail": "Kettlebell complex: 3\u20134 exercises, 3\u20134 sets, quality reps with full rest.",
+        "targets": {
+          "rpe": {
+            "low": 7,
+            "high": 8
+          }
+        }
+      },
+      "match_keywords": [
+        "kettlebell",
+        "complex"
+      ]
+    },
+    {
+      "id": "strength_barbell_squat_day",
+      "version": 1,
+      "sports": [
+        "strength"
+      ],
+      "session_types": [
+        "strength"
+      ],
+      "intent": "strength_general",
+      "priority": 10,
+      "title": "Barbell squat day",
+      "summary": "Squat emphasis",
+      "evidence_tags": [
+        "strength",
+        "periodization"
+      ],
+      "warmup_min": 10,
+      "cooldown_min": 8,
+      "warmup": {
+        "detail": "Easy aerobic start. Dynamic mobility. No hard efforts yet."
+      },
+      "cooldown": {
+        "detail": "Easy cool-down. Stretch primary movers. Breathe."
+      },
+      "main": {
+        "intensity": "RPE guided",
+        "detail": "Barbell squat day: 3\u20134 exercises, 3\u20134 sets, quality reps with full rest.",
+        "targets": {
+          "rpe": {
+            "low": 7,
+            "high": 8
+          }
+        }
+      },
+      "match_keywords": [
+        "barbell",
+        "squat"
+      ]
+    },
+    {
+      "id": "strength_deadlift_day",
+      "version": 1,
+      "sports": [
+        "strength"
+      ],
+      "session_types": [
+        "strength"
+      ],
+      "intent": "strength_general",
+      "priority": 10,
+      "title": "Deadlift day",
+      "summary": "Hinge emphasis",
+      "evidence_tags": [
+        "strength",
+        "periodization"
+      ],
+      "warmup_min": 10,
+      "cooldown_min": 8,
+      "warmup": {
+        "detail": "Easy aerobic start. Dynamic mobility. No hard efforts yet."
+      },
+      "cooldown": {
+        "detail": "Easy cool-down. Stretch primary movers. Breathe."
+      },
+      "main": {
+        "intensity": "RPE guided",
+        "detail": "Deadlift day: 3\u20134 exercises, 3\u20134 sets, quality reps with full rest.",
+        "targets": {
+          "rpe": {
+            "low": 7,
+            "high": 8
+          }
+        }
+      },
+      "match_keywords": [
+        "deadlift",
+        "day"
+      ]
+    },
+    {
+      "id": "strength_bench_press_day",
+      "version": 1,
+      "sports": [
+        "strength"
+      ],
+      "session_types": [
+        "strength"
+      ],
+      "intent": "strength_general",
+      "priority": 10,
+      "title": "Bench press day",
+      "summary": "Upper push emphasis",
+      "evidence_tags": [
+        "strength",
+        "periodization"
+      ],
+      "warmup_min": 10,
+      "cooldown_min": 8,
+      "warmup": {
+        "detail": "Easy aerobic start. Dynamic mobility. No hard efforts yet."
+      },
+      "cooldown": {
+        "detail": "Easy cool-down. Stretch primary movers. Breathe."
+      },
+      "main": {
+        "intensity": "RPE guided",
+        "detail": "Bench press day: 3\u20134 exercises, 3\u20134 sets, quality reps with full rest.",
+        "targets": {
+          "rpe": {
+            "low": 7,
+            "high": 8
+          }
+        }
+      },
+      "match_keywords": [
+        "bench",
+        "press"
+      ]
+    },
+    {
+      "id": "strength_olympic_clean_pull",
+      "version": 1,
+      "sports": [
+        "strength"
+      ],
+      "session_types": [
+        "strength"
+      ],
+      "intent": "strength_power",
+      "priority": 10,
+      "title": "Clean pull technique",
+      "summary": "Olympic pull pattern",
+      "evidence_tags": [
+        "strength",
+        "periodization"
+      ],
+      "warmup_min": 10,
+      "cooldown_min": 8,
+      "warmup": {
+        "detail": "Easy aerobic start. Dynamic mobility. No hard efforts yet."
+      },
+      "cooldown": {
+        "detail": "Easy cool-down. Stretch primary movers. Breathe."
+      },
+      "main": {
+        "intensity": "RPE guided",
+        "detail": "Clean pull technique: 3\u20134 exercises, 3\u20134 sets, quality reps with full rest.",
+        "targets": {
+          "rpe": {
+            "low": 6,
+            "high": 8
+          }
+        }
+      },
+      "match_keywords": [
+        "clean",
+        "pull"
+      ]
+    },
+    {
+      "id": "strength_snatch_technique",
+      "version": 1,
+      "sports": [
+        "strength"
+      ],
+      "session_types": [
+        "strength"
+      ],
+      "intent": "strength_power",
+      "priority": 10,
+      "title": "Snatch technique",
+      "summary": "Snatch positions",
+      "evidence_tags": [
+        "strength",
+        "periodization"
+      ],
+      "warmup_min": 10,
+      "cooldown_min": 8,
+      "warmup": {
+        "detail": "Easy aerobic start. Dynamic mobility. No hard efforts yet."
+      },
+      "cooldown": {
+        "detail": "Easy cool-down. Stretch primary movers. Breathe."
+      },
+      "main": {
+        "intensity": "RPE guided",
+        "detail": "Snatch technique: 3\u20134 exercises, 3\u20134 sets, quality reps with full rest.",
+        "targets": {
+          "rpe": {
+            "low": 6,
+            "high": 7
+          }
+        }
+      },
+      "match_keywords": [
+        "snatch",
+        "technique"
+      ]
+    },
+    {
+      "id": "strength_calisthenics",
+      "version": 1,
+      "sports": [
+        "strength"
+      ],
+      "session_types": [
+        "strength"
+      ],
+      "intent": "strength_general",
+      "priority": 10,
+      "title": "Calisthenics circuit",
+      "summary": "Bodyweight strength",
+      "evidence_tags": [
+        "strength",
+        "periodization"
+      ],
+      "warmup_min": 10,
+      "cooldown_min": 8,
+      "warmup": {
+        "detail": "Easy aerobic start. Dynamic mobility. No hard efforts yet."
+      },
+      "cooldown": {
+        "detail": "Easy cool-down. Stretch primary movers. Breathe."
+      },
+      "main": {
+        "intensity": "RPE guided",
+        "detail": "Calisthenics circuit: 3\u20134 exercises, 3\u20134 sets, quality reps with full rest.",
+        "targets": {
+          "rpe": {
+            "low": 6,
+            "high": 7
+          }
+        }
+      },
+      "match_keywords": [
+        "calisthenics",
+        "circuit"
+      ]
+    },
+    {
+      "id": "strength_runner_legs",
+      "version": 1,
+      "sports": [
+        "strength"
+      ],
+      "session_types": [
+        "strength"
+      ],
+      "intent": "strength_prehab",
+      "priority": 10,
+      "title": "Runner leg strength",
+      "summary": "Single-leg runner focus",
+      "evidence_tags": [
+        "strength",
+        "periodization"
+      ],
+      "warmup_min": 10,
+      "cooldown_min": 8,
+      "warmup": {
+        "detail": "Easy aerobic start. Dynamic mobility. No hard efforts yet."
+      },
+      "cooldown": {
+        "detail": "Easy cool-down. Stretch primary movers. Breathe."
+      },
+      "main": {
+        "intensity": "RPE guided",
+        "detail": "Runner leg strength: 3\u20134 exercises, 3\u20134 sets, quality reps with full rest.",
+        "targets": {
+          "rpe": {
+            "low": 6,
+            "high": 7
+          }
+        }
+      },
+      "match_keywords": [
+        "runner",
+        "leg"
+      ]
+    },
+    {
+      "id": "strength_cyclist_glutes",
+      "version": 1,
+      "sports": [
+        "strength"
+      ],
+      "session_types": [
+        "strength"
+      ],
+      "intent": "strength_prehab",
+      "priority": 10,
+      "title": "Cyclist glute strength",
+      "summary": "Hip extension for cycling",
+      "evidence_tags": [
+        "strength",
+        "periodization"
+      ],
+      "warmup_min": 10,
+      "cooldown_min": 8,
+      "warmup": {
+        "detail": "Easy aerobic start. Dynamic mobility. No hard efforts yet."
+      },
+      "cooldown": {
+        "detail": "Easy cool-down. Stretch primary movers. Breathe."
+      },
+      "main": {
+        "intensity": "RPE guided",
+        "detail": "Cyclist glute strength: 3\u20134 exercises, 3\u20134 sets, quality reps with full rest.",
+        "targets": {
+          "rpe": {
+            "low": 6,
+            "high": 7
+          }
+        }
+      },
+      "match_keywords": [
+        "cyclist",
+        "glute"
+      ]
+    },
+    {
+      "id": "strength_swimmer_band",
+      "version": 1,
+      "sports": [
+        "strength"
+      ],
+      "session_types": [
+        "strength"
+      ],
+      "intent": "strength_prehab",
+      "priority": 10,
+      "title": "Swimmer band work",
+      "summary": "Rotator cuff and scapular",
+      "evidence_tags": [
+        "strength",
+        "periodization"
+      ],
+      "warmup_min": 10,
+      "cooldown_min": 8,
+      "warmup": {
+        "detail": "Easy aerobic start. Dynamic mobility. No hard efforts yet."
+      },
+      "cooldown": {
+        "detail": "Easy cool-down. Stretch primary movers. Breathe."
+      },
+      "main": {
+        "intensity": "RPE guided",
+        "detail": "Swimmer band work: 3\u20134 exercises, 3\u20134 sets, quality reps with full rest.",
+        "targets": {
+          "rpe": {
+            "low": 5,
+            "high": 6
+          }
+        }
+      },
+      "match_keywords": [
+        "swimmer",
+        "band"
+      ]
+    },
+    {
+      "id": "strength_upper_hypertrophy",
+      "version": 1,
+      "sports": [
+        "strength"
+      ],
+      "session_types": [
+        "strength"
+      ],
+      "intent": "strength_hypertrophy",
+      "priority": 10,
+      "title": "Upper hypertrophy",
+      "summary": "Upper body muscle endurance",
+      "evidence_tags": [
+        "strength",
+        "periodization"
+      ],
+      "warmup_min": 10,
+      "cooldown_min": 8,
+      "warmup": {
+        "detail": "Easy aerobic start. Dynamic mobility. No hard efforts yet."
+      },
+      "cooldown": {
+        "detail": "Easy cool-down. Stretch primary movers. Breathe."
+      },
+      "main": {
+        "intensity": "RPE guided",
+        "detail": "Upper hypertrophy: 3\u20134 exercises, 3\u20134 sets, quality reps with full rest.",
+        "targets": {
+          "rpe": {
+            "low": 7,
+            "high": 8
+          }
+        }
+      },
+      "match_keywords": [
+        "upper",
+        "hypertrophy"
+      ]
+    },
+    {
+      "id": "strength_lower_hypertrophy",
+      "version": 1,
+      "sports": [
+        "strength"
+      ],
+      "session_types": [
+        "strength"
+      ],
+      "intent": "strength_hypertrophy",
+      "priority": 10,
+      "title": "Lower hypertrophy",
+      "summary": "Lower body hypertrophy",
+      "evidence_tags": [
+        "strength",
+        "periodization"
+      ],
+      "warmup_min": 10,
+      "cooldown_min": 8,
+      "warmup": {
+        "detail": "Easy aerobic start. Dynamic mobility. No hard efforts yet."
+      },
+      "cooldown": {
+        "detail": "Easy cool-down. Stretch primary movers. Breathe."
+      },
+      "main": {
+        "intensity": "RPE guided",
+        "detail": "Lower hypertrophy: 3\u20134 exercises, 3\u20134 sets, quality reps with full rest.",
+        "targets": {
+          "rpe": {
+            "low": 7,
+            "high": 8
+          }
+        }
+      },
+      "match_keywords": [
+        "lower",
+        "hypertrophy"
+      ]
+    },
+    {
+      "id": "strength_plyo_lower",
+      "version": 1,
+      "sports": [
+        "strength"
+      ],
+      "session_types": [
+        "strength"
+      ],
+      "intent": "strength_power",
+      "priority": 10,
+      "title": "Lower plyometrics",
+      "summary": "Explosive lower body",
+      "evidence_tags": [
+        "strength",
+        "periodization"
+      ],
+      "warmup_min": 10,
+      "cooldown_min": 8,
+      "warmup": {
+        "detail": "Easy aerobic start. Dynamic mobility. No hard efforts yet."
+      },
+      "cooldown": {
+        "detail": "Easy cool-down. Stretch primary movers. Breathe."
+      },
+      "main": {
+        "intensity": "RPE guided",
+        "detail": "Lower plyometrics: 3\u20134 exercises, 3\u20134 sets, quality reps with full rest.",
+        "targets": {
+          "rpe": {
+            "low": 7,
+            "high": 9
+          }
+        }
+      },
+      "match_keywords": [
+        "lower",
+        "plyometrics"
+      ]
+    },
+    {
+      "id": "strength_mobility_coupled",
+      "version": 1,
+      "sports": [
+        "strength"
+      ],
+      "session_types": [
+        "strength"
+      ],
+      "intent": "strength_general",
+      "priority": 10,
+      "title": "Strength + mobility",
+      "summary": "Strength with mobility finisher",
+      "evidence_tags": [
+        "strength",
+        "periodization"
+      ],
+      "warmup_min": 10,
+      "cooldown_min": 8,
+      "warmup": {
+        "detail": "Easy aerobic start. Dynamic mobility. No hard efforts yet."
+      },
+      "cooldown": {
+        "detail": "Easy cool-down. Stretch primary movers. Breathe."
+      },
+      "main": {
+        "intensity": "RPE guided",
+        "detail": "Strength + mobility: 3\u20134 exercises, 3\u20134 sets, quality reps with full rest.",
+        "targets": {
+          "rpe": {
+            "low": 6,
+            "high": 7
+          }
+        }
+      },
+      "match_keywords": [
+        "strength",
+        "+"
+      ]
+    },
+    {
+      "id": "strength_trx_full_body",
+      "version": 1,
+      "sports": [
+        "strength"
+      ],
+      "session_types": [
+        "strength"
+      ],
+      "intent": "strength_general",
+      "priority": 10,
+      "title": "TRX full body",
+      "summary": "Suspension training",
+      "evidence_tags": [
+        "strength",
+        "periodization"
+      ],
+      "warmup_min": 10,
+      "cooldown_min": 8,
+      "warmup": {
+        "detail": "Easy aerobic start. Dynamic mobility. No hard efforts yet."
+      },
+      "cooldown": {
+        "detail": "Easy cool-down. Stretch primary movers. Breathe."
+      },
+      "main": {
+        "intensity": "RPE guided",
+        "detail": "TRX full body: 3\u20134 exercises, 3\u20134 sets, quality reps with full rest.",
+        "targets": {
+          "rpe": {
+            "low": 6,
+            "high": 7
+          }
+        }
+      },
+      "match_keywords": [
+        "trx",
+        "full"
+      ]
+    },
+    {
+      "id": "strength_german_volume",
+      "version": 1,
+      "sports": [
+        "strength"
+      ],
+      "session_types": [
+        "strength"
+      ],
+      "intent": "strength_hypertrophy",
+      "priority": 10,
+      "title": "German volume 10\u00d710",
+      "summary": "Hypertrophy density",
+      "evidence_tags": [
+        "strength",
+        "periodization"
+      ],
+      "warmup_min": 10,
+      "cooldown_min": 8,
+      "warmup": {
+        "detail": "Easy aerobic start. Dynamic mobility. No hard efforts yet."
+      },
+      "cooldown": {
+        "detail": "Easy cool-down. Stretch primary movers. Breathe."
+      },
+      "main": {
+        "intensity": "RPE guided",
+        "detail": "German volume 10\u00d710: 3\u20134 exercises, 3\u20134 sets, quality reps with full rest.",
+        "targets": {
+          "rpe": {
+            "low": 7,
+            "high": 8
+          }
+        }
+      },
+      "match_keywords": [
+        "german",
+        "volume"
+      ]
+    },
+    {
+      "id": "strength_5x5_linear",
+      "version": 1,
+      "sports": [
+        "strength"
+      ],
+      "session_types": [
+        "strength"
+      ],
+      "intent": "strength_general",
+      "priority": 10,
+      "title": "5\u00d75 linear progression",
+      "summary": "Max strength progression",
+      "evidence_tags": [
+        "strength",
+        "periodization"
+      ],
+      "warmup_min": 10,
+      "cooldown_min": 8,
+      "warmup": {
+        "detail": "Easy aerobic start. Dynamic mobility. No hard efforts yet."
+      },
+      "cooldown": {
+        "detail": "Easy cool-down. Stretch primary movers. Breathe."
+      },
+      "main": {
+        "intensity": "RPE guided",
+        "detail": "5\u00d75 linear progression: 3\u20134 exercises, 3\u20134 sets, quality reps with full rest.",
+        "targets": {
+          "rpe": {
+            "low": 8,
+            "high": 9
+          }
+        }
+      },
+      "match_keywords": [
+        "5\u00d75",
+        "linear"
+      ]
+    },
+    {
+      "id": "strength_wendler_531",
+      "version": 1,
+      "sports": [
+        "strength"
+      ],
+      "session_types": [
+        "strength"
+      ],
+      "intent": "strength_general",
+      "priority": 10,
+      "title": "5/3/1 wave",
+      "summary": "Periodized strength wave",
+      "evidence_tags": [
+        "strength",
+        "periodization"
+      ],
+      "warmup_min": 10,
+      "cooldown_min": 8,
+      "warmup": {
+        "detail": "Easy aerobic start. Dynamic mobility. No hard efforts yet."
+      },
+      "cooldown": {
+        "detail": "Easy cool-down. Stretch primary movers. Breathe."
+      },
+      "main": {
+        "intensity": "RPE guided",
+        "detail": "5/3/1 wave: 3\u20134 exercises, 3\u20134 sets, quality reps with full rest.",
+        "targets": {
+          "rpe": {
+            "low": 7,
+            "high": 9
+          }
+        }
+      },
+      "match_keywords": [
+        "5/3/1",
+        "wave"
+      ]
+    }
+  ]
+}

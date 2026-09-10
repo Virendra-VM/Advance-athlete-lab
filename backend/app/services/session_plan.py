@@ -354,6 +354,9 @@ def match_week_plan_session(
         "duration_min": best.get("duration_min"),
         "intensity": best.get("intensity"),
         "description": (best.get("description") or "")[:280],
+        "library_template_id": best.get("library_template_id"),
+        "library_version": best.get("library_version"),
+        "compliance": best.get("compliance"),
         "sport_match": ranked[0][0] >= 2,
     }
 
@@ -384,12 +387,24 @@ def build_session_plan_overlay(
     week_plan: dict | None,
     session_date: str | None,
     family: str | None,
+    physiology: dict[str, Any] | None = None,
+    telemetry: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     text = collect_prescription_text(message, history)
     prescription = parse_prescribed_workout(text)
-    overlay: dict[str, Any] = {
-        "week_plan_session": match_week_plan_session(week_plan, session_date, family),
-    }
+    week_session = match_week_plan_session(week_plan, session_date, family)
+    overlay: dict[str, Any] = {"week_plan_session": week_session}
+    if prescription is None and week_session and week_session.get("library_template_id"):
+        overlay.update(
+            _library_plan_overlay(
+                week_session,
+                laps=laps,
+                physiology=physiology,
+                telemetry=telemetry,
+            )
+        )
+        if overlay.get("prescription"):
+            return overlay
     if prescription is None:
         return overlay
     alignment = align_laps_to_plan(laps, prescription, ftp=ftp)
@@ -404,6 +419,43 @@ def build_session_plan_overlay(
     overlay["prescribed_vs_executed"] = compact_execution_overlay(alignment) or alignment
     if alignment.get("aligned") and alignment.get("vo2_caps"):
         overlay["classification_note"] = "over-under with VO2-cap finishers — not generic overs"
+    return overlay
+
+
+def _library_plan_overlay(
+    week_session: dict[str, Any],
+    *,
+    laps: list[dict[str, Any]],
+    physiology: dict[str, Any] | None,
+    telemetry: dict[str, Any] | None,
+) -> dict[str, Any]:
+    from app.services.workout_compliance import build_template_prescription, score_planned_vs_executed
+    from app.services.workout_library import get_template_by_id
+
+    template_id = week_session.get("library_template_id")
+    template = get_template_by_id(str(template_id)) if template_id else None
+    if not template:
+        return {}
+    planned = dict(week_session)
+    prescription = build_template_prescription(template, planned, physiology)
+    overlay: dict[str, Any] = {
+        "prescription": {
+            "source": prescription.get("source"),
+            "template_id": prescription.get("template_id"),
+            "step_count": prescription.get("step_count"),
+            "evidence_tags": prescription.get("evidence_tags"),
+            "target_labels": prescription.get("target_labels"),
+        },
+        "classification_note": "library-template prescription — grade against resolved LTHR/FTP/pace bands",
+    }
+    if telemetry:
+        compliance = score_planned_vs_executed(planned, telemetry, physiology)
+        overlay["prescribed_vs_executed"] = compliance.get("prescribed_vs_executed")
+        overlay["library_compliance"] = {
+            "score": compliance.get("score"),
+            "grade": compliance.get("grade"),
+            "dimensions": compliance.get("dimensions"),
+        }
     return overlay
 
 

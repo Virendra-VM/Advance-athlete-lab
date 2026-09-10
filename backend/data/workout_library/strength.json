@@ -1,0 +1,247 @@
+{
+  "templates": [
+    {
+      "id": "strength_full_body",
+      "sports": ["strength"],
+      "session_types": ["strength"],
+      "intent": "strength_general",
+      "priority": 20,
+      "title": "Full-body strength",
+      "summary": "Compound lifts — general athletic strength",
+      "evidence_tags": ["strength", "fitt-vp", "injury-prevention"],
+      "warmup_min": 10,
+      "cooldown_min": 8,
+      "warmup": {"detail": "5 min easy bike/walk. World's greatest stretch, glute bridge, 2 × 8 bodyweight squats, band pull-aparts."},
+      "main": {
+        "intensity": "RPE 6–7",
+        "detail": "Goblet squat 3×8; RDL 3×8; push-up or DB press 3×8–10; DB row 3×10; farmer carry 3×40 m; side plank 3×30 s; calf raise 3×12. Rest ~90 s.",
+        "targets": {"rpe": {"low": 6, "high": 7}}
+      },
+      "cooldown": {"detail": "Easy walk 3 min. Stretch hip flexors, hamstrings. Foam roll glutes 2 min."},
+      "contraindications": ["spine_lock"]
+    },
+    {
+      "id": "strength_spine_lock",
+      "sports": ["strength"],
+      "session_types": ["strength"],
+      "intent": "strength_general",
+      "priority": 25,
+      "requires_spine_lock": true,
+      "title": "Spine-safe strength",
+      "summary": "Unilateral lower body — spine as pillar protocol",
+      "evidence_tags": ["injury-prevention", "strength", "safety"],
+      "warmup_min": 10,
+      "cooldown_min": 8,
+      "warmup": {"detail": "Easy walk 5 min. Cat-cow, bird dog 2 × 6, glute bridge 2 × 10."},
+      "main": {
+        "intensity": "RPE 6–7",
+        "detail": "Split squat 3×8/side; glute bridge 3×10; push-up 3×8–10; single-arm row 3×10; suitcase carry 3×30 m; dead bug 3×8; bird dog 3×6/side; side plank 3×25 s. DO NOT: back squat, deadlift, crunch, sit-up, good morning, loaded twist.",
+        "targets": {"rpe": {"low": 6, "high": 7}}
+      },
+      "cooldown": {"detail": "Walk 3 min. 90/90 hips. Easy nasal breathing 1 min."}
+    },
+    {
+      "id": "strength_max_lower",
+      "sports": ["strength"],
+      "session_types": ["strength"],
+      "intent": "strength_general",
+      "priority": 14,
+      "match_keywords": ["max", "heavy", "5x5"],
+      "title": "Max strength — lower body",
+      "summary": "Neural strength — low reps, high load",
+      "evidence_tags": ["strength", "periodization", "power"],
+      "warmup_min": 12,
+      "cooldown_min": 8,
+      "warmup": {"detail": "Easy bike 5 min. Hip openers. Ramp sets: empty bar → 50% → 70% working weight."},
+      "main": {
+        "intensity": "RPE 8–9",
+        "detail": "Back squat or goblet squat 5×3–5; RDL 3×5; split squat 3×6/side. Rest 2–3 min between sets. Last rep leaves 1–2 in reserve.",
+        "targets": {"rpe": {"low": 8, "high": 9}}
+      },
+      "cooldown": {"detail": "Walk 5 min. Hip flexor and hamstring stretch."},
+      "contraindications": ["spine_lock"]
+    },
+    {
+      "id": "strength_hypertrophy",
+      "sports": ["strength"],
+      "session_types": ["strength"],
+      "intent": "strength_hypertrophy",
+      "priority": 18,
+      "match_keywords": ["hypertrophy", "muscle", "8-12"],
+      "title": "Hypertrophy circuit",
+      "summary": "Muscle endurance — 8–12 rep range for tissue capacity",
+      "evidence_tags": ["strength", "hypertrophy", "injury-prevention"],
+      "warmup_min": 10,
+      "cooldown_min": 8,
+      "warmup": {"detail": "Easy walk 5 min. Dynamic warm-up. 2 × 15 bodyweight squats."},
+      "main": {
+        "intensity": "RPE 7–8",
+        "detail": "Goblet squat 3×10; RDL 3×10; DB bench or push-up 3×10–12; lat pulldown or row 3×12; walking lunge 3×10/side; plank 3×45 s. Rest 60–90 s.",
+        "targets": {"rpe": {"low": 7, "high": 8}}
+      },
+      "cooldown": {"detail": "Walk 3 min. Stretch quads, pecs, lats."},
+      "contraindications": ["spine_lock"]
+    },
+    {
+      "id": "strength_power",
+      "sports": ["strength"],
+      "session_types": ["strength"],
+      "intent": "strength_power",
+      "priority": 16,
+      "match_keywords": ["power", "plyo", "explosive"],
+      "title": "Power & plyometrics",
+      "summary": "Rate of force development — neuromuscular power",
+      "evidence_tags": ["power", "neuromuscular", "strength"],
+      "warmup_min": 12,
+      "cooldown_min": 8,
+      "warmup": {"detail": "Easy jog 5 min. A-skips, high knees, butt kicks. Activation: glute bridge, clamshell 2 × 12."},
+      "main": {
+        "intensity": "Explosive / RPE 7–8",
+        "detail": "Box jump or squat jump 4×5; med ball slam 4×6; kettlebell swing 3×8; push press 3×5; broad jump 4×3. Full rest between power sets (2 min). Quality over quantity.",
+        "targets": {"rpe": {"low": 7, "high": 8}}
+      },
+      "cooldown": {"detail": "Walk 5 min. Light stretch — no static hold on tired muscles before cooling."}
+    },
+    {
+      "id": "strength_endurance_circuit",
+      "sports": ["strength"],
+      "session_types": ["strength", "cross-training"],
+      "intent": "strength_general",
+      "priority": 12,
+      "match_keywords": ["circuit", "endurance"],
+      "title": "Strength endurance circuit",
+      "summary": "Muscular endurance — triathlon and OCR support",
+      "evidence_tags": ["strength", "endurance", "fitt-vp"],
+      "warmup_min": 10,
+      "cooldown_min": 8,
+      "warmup": {"detail": "Easy jog 5 min. Dynamic warm-up."},
+      "main": {
+        "intensity": "RPE 6–7 / circuit",
+        "detail": "3 rounds: 12 goblet squat, 10 push-up, 10 DB row, 10 step-up, 30 s plank, 10 KB swing. 90 s between rounds. Move continuously within round.",
+        "targets": {"rpe": {"low": 6, "high": 7}}
+      },
+      "cooldown": {"detail": "Walk 5 min. Stretch hips and shoulders."}
+    },
+    {
+      "id": "strength_single_leg_tri",
+      "sports": ["strength", "triathlon"],
+      "session_types": ["strength"],
+      "intent": "strength_general",
+      "priority": 16,
+      "match_keywords": ["single leg", "tri", "unilateral"],
+      "title": "Single-leg tri strength",
+      "summary": "Unilateral strength for triathletes — run off the bike durability",
+      "evidence_tags": ["strength", "triathlon", "injury-prevention"],
+      "warmup_min": 10,
+      "cooldown_min": 8,
+      "warmup": {"detail": "Easy bike 5 min. Hip openers, glute activation."},
+      "main": {
+        "intensity": "RPE 6–7",
+        "detail": "Bulgarian split squat 3×8/side; single-leg RDL 3×8/side; step-up 3×10/side; calf raise 3×15/side; side plank 3×30 s; dead bug 3×8. Rest 60 s.",
+        "targets": {"rpe": {"low": 6, "high": 7}}
+      },
+      "cooldown": {"detail": "Walk 3 min. Hip flexor stretch."}
+    },
+    {
+      "id": "strength_upper_push_pull",
+      "sports": ["strength"],
+      "session_types": ["strength"],
+      "intent": "strength_general",
+      "priority": 14,
+      "match_keywords": ["upper", "push", "pull"],
+      "title": "Upper push / pull",
+      "summary": "Upper-body balance — swim and posture support",
+      "evidence_tags": ["strength", "swim", "posture"],
+      "warmup_min": 10,
+      "cooldown_min": 8,
+      "warmup": {"detail": "Band pull-aparts 2 × 15. Arm circles. Scapular push-ups 2 × 10."},
+      "main": {
+        "intensity": "RPE 6–7",
+        "detail": "DB bench or push-up 3×8–10; DB row 3×10; overhead press 3×8; lat pulldown 3×10; face pull 3×15; tricep extension 2×12; bicep curl 2×12. Rest 60–90 s.",
+        "targets": {"rpe": {"low": 6, "high": 7}}
+      },
+      "cooldown": {"detail": "Doorway pec stretch, lat stretch. Band pull-aparts 2 × 15."}
+    },
+    {
+      "id": "strength_core_stability",
+      "sports": ["strength"],
+      "session_types": ["strength", "mobility"],
+      "intent": "strength_prehab",
+      "priority": 15,
+      "match_keywords": ["core", "stability"],
+      "title": "Core & stability",
+      "summary": "Anti-rotation and bracing — spine health for endurance athletes",
+      "evidence_tags": ["injury-prevention", "core", "strength"],
+      "warmup_min": 8,
+      "cooldown_min": 6,
+      "warmup": {"detail": "Cat-cow, dead bug 2 × 6, bird dog 2 × 6/side."},
+      "main": {
+        "intensity": "RPE 6–7",
+        "detail": "Pallof press 3×10/side; dead bug 3×8; side plank 3×30 s/side; farmer carry 3×40 m; glute bridge 3×12; bird dog 3×8/side. No crunches or sit-ups.",
+        "targets": {"rpe": {"low": 6, "high": 7}}
+      },
+      "cooldown": {"detail": "Supine twist, 90/90 hips. Easy breathing 1 min."}
+    },
+    {
+      "id": "strength_prehab_hips",
+      "sports": ["strength"],
+      "session_types": ["strength", "mobility"],
+      "intent": "strength_prehab",
+      "priority": 18,
+      "match_keywords": ["prehab", "hip", "injury"],
+      "title": "Hip prehab",
+      "summary": "Glute med and hip stability — runner's knee prevention",
+      "evidence_tags": ["injury-prevention", "prehab", "running"],
+      "warmup_min": 8,
+      "cooldown_min": 6,
+      "warmup": {"detail": "Easy walk 4 min. Clamshell 2 × 12, glute bridge 2 × 10."},
+      "main": {
+        "intensity": "RPE 5–6",
+        "detail": "Clamshell 3×15; banded lateral walk 3×12/side; single-leg glute bridge 3×10/side; monster walk 3×12; Copenhagen plank 3×20 s/side; step-down 3×8/side.",
+        "targets": {"rpe": {"low": 5, "high": 6}}
+      },
+      "cooldown": {"detail": "Pigeon stretch, 90/90 hips."}
+    },
+    {
+      "id": "strength_weightlifting_olympic",
+      "sports": ["strength"],
+      "session_types": ["strength"],
+      "intent": "strength_power",
+      "priority": 12,
+      "match_keywords": ["olympic", "weightlifting", "clean", "snatch"],
+      "title": "Olympic lift technique",
+      "summary": "Power development — technical weightlifting progressions",
+      "evidence_tags": ["power", "strength", "neuromuscular"],
+      "warmup_min": 15,
+      "cooldown_min": 8,
+      "warmup": {"detail": "Easy row 5 min. PVC pass-throughs, overhead squat with PVC, hip openers. Empty bar drills."},
+      "main": {
+        "intensity": "Technique / RPE 6–8",
+        "detail": "Hang clean 5×3; front squat 3×5; push press 3×5; high pull 3×5. Focus on positions, not max load. Rest 2 min.",
+        "targets": {"rpe": {"low": 6, "high": 8}}
+      },
+      "cooldown": {"detail": "Walk 5 min. Wrist and hip flexor stretch."},
+      "contraindications": ["spine_lock"]
+    },
+    {
+      "id": "strength_deload",
+      "sports": ["strength"],
+      "session_types": ["strength", "easy"],
+      "intent": "strength_general",
+      "priority": 8,
+      "match_keywords": ["deload", "recovery"],
+      "title": "Strength deload",
+      "summary": "Reduced volume and intensity — supercompensation week",
+      "evidence_tags": ["recovery", "periodization", "strength"],
+      "warmup_min": 8,
+      "cooldown_min": 6,
+      "warmup": {"detail": "Easy walk 4 min. Dynamic warm-up."},
+      "main": {
+        "intensity": "RPE 5–6",
+        "detail": "Same movement patterns at 50–60% usual load: squat 2×8, RDL 2×8, push 2×10, pull 2×10, carry 2×30 m. Stop well before fatigue.",
+        "targets": {"rpe": {"low": 5, "high": 6}}
+      },
+      "cooldown": {"detail": "Walk 3 min. Light stretch."}
+    }
+  ]
+}

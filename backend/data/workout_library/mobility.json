@@ -1,0 +1,203 @@
+{
+  "templates": [
+    {
+      "id": "mobility_general_flow",
+      "sports": ["mobility"],
+      "session_types": ["mobility"],
+      "intent": "mobility_general",
+      "priority": 10,
+      "title": "Mobility flow",
+      "summary": "Full-body mobility — vagal down-regulation and tissue health",
+      "evidence_tags": ["mobility", "recovery", "yoga"],
+      "warmup_min": 3,
+      "cooldown_min": 3,
+      "warmup": {"detail": "2 min easy breathing. Cat-cow × 6."},
+      "main": {
+        "intensity": "Easy / restore",
+        "detail": "Flow: cat-cow, downward dog, low lunge, warrior II, hip opener, supine twist. Hold 4–6 breaths. Skip loaded spinal flexion if back is irritable.",
+        "targets": {"rpe": {"low": 2, "high": 4}}
+      },
+      "cooldown": {"detail": "Legs up the wall 2 min. Savasana 2 min."}
+    },
+    {
+      "id": "mobility_pre_run",
+      "sports": ["mobility", "running"],
+      "session_types": ["mobility"],
+      "intent": "mobility_pre_run",
+      "priority": 20,
+      "match_keywords": ["pre-run", "pre run", "warm up"],
+      "title": "Pre-run mobility",
+      "summary": "Hip and ankle prep before running",
+      "evidence_tags": ["mobility", "running", "injury-prevention"],
+      "warmup_min": 2,
+      "cooldown_min": 2,
+      "warmup": {"detail": "Easy walk 2 min."},
+      "main": {
+        "intensity": "Activation",
+        "detail": "Leg swings front/back and side/side 10 each. World's greatest stretch 5/side. Ankle circles, calf raises 2 × 10. 2 × 20 m strides optional.",
+        "targets": {"rpe": {"low": 2, "high": 3}}
+      },
+      "cooldown": {"detail": "Shake out legs. Start your run within 5 min."}
+    },
+    {
+      "id": "mobility_post_ride",
+      "sports": ["mobility", "cycling"],
+      "session_types": ["mobility"],
+      "intent": "mobility_post_ride",
+      "priority": 20,
+      "match_keywords": ["post-ride", "cyclist", "hip flexor"],
+      "title": "Post-ride hip release",
+      "summary": "Hip flexor and thoracic mobility after cycling",
+      "evidence_tags": ["mobility", "cycling", "recovery"],
+      "warmup_min": 2,
+      "cooldown_min": 2,
+      "warmup": {"detail": "Easy walk 2 min off the bike."},
+      "main": {
+        "intensity": "Restore",
+        "detail": "Kneeling hip flexor stretch 45 s/side; pigeon 45 s/side; thoracic rotations 10/side; doorway pec stretch 45 s; hamstring stretch 45 s. Foam roll quads and glutes 2 min.",
+        "targets": {"rpe": {"low": 1, "high": 3}}
+      },
+      "cooldown": {"detail": "Child's pose 1 min. Easy breathing."}
+    },
+    {
+      "id": "mobility_swim_shoulder",
+      "sports": ["mobility", "swimming"],
+      "session_types": ["mobility"],
+      "intent": "mobility_swim_shoulder",
+      "priority": 20,
+      "match_keywords": ["shoulder", "swim"],
+      "title": "Swim shoulder mobility",
+      "summary": "Shoulder health for swimmers — rotator cuff and thoracic",
+      "evidence_tags": ["mobility", "swim", "injury-prevention"],
+      "warmup_min": 2,
+      "cooldown_min": 2,
+      "warmup": {"detail": "Arm circles 10 each direction."},
+      "main": {
+        "intensity": "Restore",
+        "detail": "Band pull-aparts 3 × 15; wall slides 3 × 10; sleeper stretch 45 s/side; lat stretch 45 s/side; thoracic extension over foam roller 10 reps; doorway stretch 45 s.",
+        "targets": {"rpe": {"low": 1, "high": 3}}
+      },
+      "cooldown": {"detail": "Easy arm swings. No heavy loading after."}
+    },
+    {
+      "id": "yoga_restore",
+      "sports": ["mobility"],
+      "session_types": ["mobility", "easy"],
+      "intent": "mobility_general",
+      "priority": 12,
+      "match_keywords": ["yoga", "restore", "restorative"],
+      "title": "Restorative yoga",
+      "summary": "Parasympathetic recovery — low nervous system load",
+      "evidence_tags": ["yoga", "recovery", "mobility"],
+      "warmup_min": 3,
+      "cooldown_min": 5,
+      "warmup": {"detail": "Supine breathing 2 min. 4-7-8 breath pattern."},
+      "main": {
+        "intensity": "Very easy",
+        "detail": "Supported child's pose 3 min; supine twist 2 min/side; legs up the wall 5 min; reclined butterfly 3 min. No binds or deep folds.",
+        "targets": {"rpe": {"low": 1, "high": 2}}
+      },
+      "cooldown": {"detail": "Savasana 5 min."}
+    },
+    {
+      "id": "stretch_lower_body",
+      "sports": ["mobility"],
+      "session_types": ["mobility"],
+      "intent": "mobility_general",
+      "priority": 14,
+      "match_keywords": ["stretch", "lower"],
+      "title": "Lower-body stretch",
+      "summary": "Static stretching — hip, hamstring, calf focus",
+      "evidence_tags": ["mobility", "stretching", "recovery"],
+      "warmup_min": 3,
+      "cooldown_min": 2,
+      "warmup": {"detail": "Easy walk 3 min."},
+      "main": {
+        "intensity": "Easy stretch",
+        "detail": "Hold 45–60 s each: calf (straight and bent knee), hamstring, hip flexor, pigeon, figure-4, 90/90 hips. Breathe into the stretch — no bouncing.",
+        "targets": {"rpe": {"low": 1, "high": 3}}
+      },
+      "cooldown": {"detail": "Easy walk 2 min."}
+    },
+    {
+      "id": "stretch_upper_body",
+      "sports": ["mobility"],
+      "session_types": ["mobility"],
+      "intent": "mobility_general",
+      "priority": 12,
+      "match_keywords": ["stretch", "upper"],
+      "title": "Upper-body stretch",
+      "summary": "Desk and swim posture reset",
+      "evidence_tags": ["mobility", "posture", "stretching"],
+      "warmup_min": 2,
+      "cooldown_min": 2,
+      "warmup": {"detail": "Shoulder rolls 10 each direction."},
+      "main": {
+        "intensity": "Easy stretch",
+        "detail": "Doorway pec stretch 45 s; lat stretch 45 s/side; neck gentle rotations; thoracic rotations 10/side; wrist flexor/extensor stretch 30 s each.",
+        "targets": {"rpe": {"low": 1, "high": 2}}
+      },
+      "cooldown": {"detail": "Shake out arms."}
+    },
+    {
+      "id": "mobility_ankle_dorsiflexion",
+      "sports": ["mobility", "running"],
+      "session_types": ["mobility"],
+      "intent": "mobility_general",
+      "priority": 14,
+      "match_keywords": ["ankle", "dorsiflexion"],
+      "title": "Ankle mobility",
+      "summary": "Dorsiflexion for runners — stride efficiency and injury prevention",
+      "evidence_tags": ["mobility", "running", "injury-prevention"],
+      "warmup_min": 2,
+      "cooldown_min": 2,
+      "warmup": {"detail": "Ankle circles 10 each direction."},
+      "main": {
+        "intensity": "Mobility",
+        "detail": "Knee-to-wall test and drill 3 × 10/side; calf stretch on step 45 s/side; banded ankle mobilization 2 × 15; toe yoga 2 × 10. Test dorsiflexion before and after.",
+        "targets": {"rpe": {"low": 2, "high": 4}}
+      },
+      "cooldown": {"detail": "Easy walk 2 min."}
+    },
+    {
+      "id": "mobility_thoracic_spine",
+      "sports": ["mobility"],
+      "session_types": ["mobility"],
+      "intent": "mobility_general",
+      "priority": 12,
+      "match_keywords": ["thoracic", "t-spine"],
+      "title": "Thoracic spine mobility",
+      "summary": "T-spine rotation — swimming, cycling, and desk posture",
+      "evidence_tags": ["mobility", "posture", "swim"],
+      "warmup_min": 2,
+      "cooldown_min": 2,
+      "warmup": {"detail": "Cat-cow × 8."},
+      "main": {
+        "intensity": "Mobility",
+        "detail": "Quadruped thoracic rotations 10/side; open book 10/side; foam roller thoracic extension 10 reps; thread-the-needle 8/side; wall angels 3 × 10.",
+        "targets": {"rpe": {"low": 2, "high": 4}}
+      },
+      "cooldown": {"detail": "Child's pose 1 min."}
+    },
+    {
+      "id": "mobility_recovery_day",
+      "sports": ["mobility"],
+      "session_types": ["mobility", "rest", "easy"],
+      "intent": "mobility_general",
+      "priority": 8,
+      "match_keywords": ["recovery day", "rest day"],
+      "title": "Recovery day mobility",
+      "summary": "Full rest optional mobility — no training load",
+      "evidence_tags": ["recovery", "mobility", "polarized"],
+      "warmup_min": 2,
+      "cooldown_min": 2,
+      "warmup": {"detail": "Easy breathing 2 min."},
+      "main": {
+        "intensity": "Very easy",
+        "detail": "5 min easy walk. 10 min gentle mobility: hip circles, ankle circles, cat-cow, supine twist. Foam roll 5 min if desired. No training load.",
+        "targets": {"rpe": {"low": 1, "high": 2}}
+      },
+      "cooldown": {"detail": "Legs up the wall 3 min."}
+    }
+  ]
+}

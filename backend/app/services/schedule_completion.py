@@ -246,6 +246,25 @@ def match_schedule_completions(
 REST_SESSION_TYPES = {"rest", "mobility", "off"}
 
 
+def _store_workout_compliance(db: Session, workout: PlannedWorkout, activity: Activity) -> None:
+    from app.services.coach_ai import _compliance_payload, _row_as_workout
+    from app.services.session_blueprints import physiology_from_profile
+    from app.services.workout_compliance import compliance_for_planned_workout
+
+    profile = workout.athlete_profile if hasattr(workout, "athlete_profile") else None
+    if profile is None:
+        from app.models import AthleteProfile
+
+        profile = (
+            db.query(AthleteProfile)
+            .filter(AthleteProfile.id == workout.athlete_profile_id)
+            .first()
+        )
+    physiology = physiology_from_profile(profile) if profile else {}
+    report = compliance_for_planned_workout(_row_as_workout(workout), activity, physiology)
+    workout.compliance_json = _compliance_payload(report)
+
+
 def match_planned_workout_completions(
     db: Session,
     athlete_profile_id: int,
@@ -332,6 +351,7 @@ def match_planned_workout_completions(
         if workout.id in claimed_workouts or activity.id in taken:
             continue
         workout.completed_activity_id = activity.id
+        _store_workout_compliance(db, workout, activity)
         claimed_workouts.add(workout.id)
         taken.add(activity.id)
         linked += 1

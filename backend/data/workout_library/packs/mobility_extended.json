@@ -1,0 +1,436 @@
+{
+  "templates": [
+    {
+      "id": "mobility_dynamic_warmup",
+      "version": 1,
+      "sports": [
+        "mobility"
+      ],
+      "session_types": [
+        "mobility"
+      ],
+      "intent": "mobility_general",
+      "priority": 10,
+      "title": "Dynamic warm-up",
+      "summary": "Full dynamic warm-up flow",
+      "evidence_tags": [
+        "mobility",
+        "recovery"
+      ],
+      "warmup_min": 10,
+      "cooldown_min": 8,
+      "warmup": {
+        "detail": "Easy aerobic start. Dynamic mobility. No hard efforts yet."
+      },
+      "cooldown": {
+        "detail": "Easy cool-down. Stretch primary movers. Breathe."
+      },
+      "main": {
+        "intensity": "Easy restore",
+        "detail": "Dynamic warm-up for {main_min} min.",
+        "targets": {
+          "rpe": {
+            "low": 2,
+            "high": 4
+          }
+        }
+      }
+    },
+    {
+      "id": "mobility_pnf_hamstring",
+      "version": 1,
+      "sports": [
+        "mobility"
+      ],
+      "session_types": [
+        "mobility"
+      ],
+      "intent": "mobility_general",
+      "priority": 10,
+      "title": "PNF hamstring stretch",
+      "summary": "PNF flexibility \u2014 hamstrings",
+      "evidence_tags": [
+        "mobility",
+        "recovery"
+      ],
+      "warmup_min": 10,
+      "cooldown_min": 8,
+      "warmup": {
+        "detail": "Easy aerobic start. Dynamic mobility. No hard efforts yet."
+      },
+      "cooldown": {
+        "detail": "Easy cool-down. Stretch primary movers. Breathe."
+      },
+      "main": {
+        "intensity": "Easy restore",
+        "detail": "PNF hamstring stretch for {main_min} min.",
+        "targets": {
+          "rpe": {
+            "low": 2,
+            "high": 4
+          }
+        }
+      }
+    },
+    {
+      "id": "mobility_hip_flexor_deep",
+      "version": 1,
+      "sports": [
+        "mobility"
+      ],
+      "session_types": [
+        "mobility"
+      ],
+      "intent": "mobility_general",
+      "priority": 10,
+      "title": "Deep hip flexor release",
+      "summary": "Hip flexor mobility for desk athletes",
+      "evidence_tags": [
+        "mobility",
+        "recovery"
+      ],
+      "warmup_min": 10,
+      "cooldown_min": 8,
+      "warmup": {
+        "detail": "Easy aerobic start. Dynamic mobility. No hard efforts yet."
+      },
+      "cooldown": {
+        "detail": "Easy cool-down. Stretch primary movers. Breathe."
+      },
+      "main": {
+        "intensity": "Easy restore",
+        "detail": "Deep hip flexor release for {main_min} min.",
+        "targets": {
+          "rpe": {
+            "low": 2,
+            "high": 4
+          }
+        }
+      }
+    },
+    {
+      "id": "mobility_runner_post_run",
+      "version": 1,
+      "sports": [
+        "mobility"
+      ],
+      "session_types": [
+        "mobility"
+      ],
+      "intent": "mobility_general",
+      "priority": 10,
+      "title": "Post-run stretch routine",
+      "summary": "Post-run static stretch",
+      "evidence_tags": [
+        "mobility",
+        "recovery"
+      ],
+      "warmup_min": 10,
+      "cooldown_min": 8,
+      "warmup": {
+        "detail": "Easy aerobic start. Dynamic mobility. No hard efforts yet."
+      },
+      "cooldown": {
+        "detail": "Easy cool-down. Stretch primary movers. Breathe."
+      },
+      "main": {
+        "intensity": "Easy restore",
+        "detail": "Post-run stretch routine for {main_min} min.",
+        "targets": {
+          "rpe": {
+            "low": 2,
+            "high": 4
+          }
+        }
+      }
+    },
+    {
+      "id": "mobility_cyclist_hips",
+      "version": 1,
+      "sports": [
+        "mobility"
+      ],
+      "session_types": [
+        "mobility"
+      ],
+      "intent": "mobility_post_ride",
+      "priority": 10,
+      "title": "Cyclist hip release",
+      "summary": "Post-ride hip and T-spine",
+      "evidence_tags": [
+        "mobility",
+        "recovery"
+      ],
+      "warmup_min": 10,
+      "cooldown_min": 8,
+      "warmup": {
+        "detail": "Easy aerobic start. Dynamic mobility. No hard efforts yet."
+      },
+      "cooldown": {
+        "detail": "Easy cool-down. Stretch primary movers. Breathe."
+      },
+      "main": {
+        "intensity": "Easy restore",
+        "detail": "Cyclist hip release for {main_min} min.",
+        "targets": {
+          "rpe": {
+            "low": 2,
+            "high": 4
+          }
+        }
+      }
+    },
+    {
+      "id": "mobility_swim_cord",
+      "version": 1,
+      "sports": [
+        "mobility"
+      ],
+      "session_types": [
+        "mobility"
+      ],
+      "intent": "mobility_swim_shoulder",
+      "priority": 10,
+      "title": "Swimmer cord routine",
+      "summary": "Band work for swim shoulders",
+      "evidence_tags": [
+        "mobility",
+        "recovery"
+      ],
+      "warmup_min": 10,
+      "cooldown_min": 8,
+      "warmup": {
+        "detail": "Easy aerobic start. Dynamic mobility. No hard efforts yet."
+      },
+      "cooldown": {
+        "detail": "Easy cool-down. Stretch primary movers. Breathe."
+      },
+      "main": {
+        "intensity": "Easy restore",
+        "detail": "Swimmer cord routine for {main_min} min.",
+        "targets": {
+          "rpe": {
+            "low": 2,
+            "high": 4
+          }
+        }
+      }
+    },
+    {
+      "id": "mobility_yin_yoga",
+      "version": 1,
+      "sports": [
+        "mobility"
+      ],
+      "session_types": [
+        "mobility"
+      ],
+      "intent": "mobility_general",
+      "priority": 10,
+      "title": "Yin yoga holds",
+      "summary": "Long-hold yin practice",
+      "evidence_tags": [
+        "mobility",
+        "recovery"
+      ],
+      "warmup_min": 10,
+      "cooldown_min": 8,
+      "warmup": {
+        "detail": "Easy aerobic start. Dynamic mobility. No hard efforts yet."
+      },
+      "cooldown": {
+        "detail": "Easy cool-down. Stretch primary movers. Breathe."
+      },
+      "main": {
+        "intensity": "Easy restore",
+        "detail": "Yin yoga holds for {main_min} min.",
+        "targets": {
+          "rpe": {
+            "low": 2,
+            "high": 4
+          }
+        }
+      }
+    },
+    {
+      "id": "mobility_pilates_core",
+      "version": 1,
+      "sports": [
+        "mobility"
+      ],
+      "session_types": [
+        "mobility"
+      ],
+      "intent": "mobility_general",
+      "priority": 10,
+      "title": "Pilates core flow",
+      "summary": "Core stability and control",
+      "evidence_tags": [
+        "mobility",
+        "recovery"
+      ],
+      "warmup_min": 10,
+      "cooldown_min": 8,
+      "warmup": {
+        "detail": "Easy aerobic start. Dynamic mobility. No hard efforts yet."
+      },
+      "cooldown": {
+        "detail": "Easy cool-down. Stretch primary movers. Breathe."
+      },
+      "main": {
+        "intensity": "Easy restore",
+        "detail": "Pilates core flow for {main_min} min.",
+        "targets": {
+          "rpe": {
+            "low": 2,
+            "high": 4
+          }
+        }
+      }
+    },
+    {
+      "id": "mobility_foam_roll_full",
+      "version": 1,
+      "sports": [
+        "mobility"
+      ],
+      "session_types": [
+        "mobility"
+      ],
+      "intent": "mobility_general",
+      "priority": 10,
+      "title": "Full foam roll",
+      "summary": "Self-myofascial release",
+      "evidence_tags": [
+        "mobility",
+        "recovery"
+      ],
+      "warmup_min": 10,
+      "cooldown_min": 8,
+      "warmup": {
+        "detail": "Easy aerobic start. Dynamic mobility. No hard efforts yet."
+      },
+      "cooldown": {
+        "detail": "Easy cool-down. Stretch primary movers. Breathe."
+      },
+      "main": {
+        "intensity": "Easy restore",
+        "detail": "Full foam roll for {main_min} min.",
+        "targets": {
+          "rpe": {
+            "low": 2,
+            "high": 4
+          }
+        }
+      }
+    },
+    {
+      "id": "mobility_breathwork",
+      "version": 1,
+      "sports": [
+        "mobility"
+      ],
+      "session_types": [
+        "mobility"
+      ],
+      "intent": "mobility_general",
+      "priority": 10,
+      "title": "Breathwork recovery",
+      "summary": "Parasympathetic breathing",
+      "evidence_tags": [
+        "mobility",
+        "recovery"
+      ],
+      "warmup_min": 10,
+      "cooldown_min": 8,
+      "warmup": {
+        "detail": "Easy aerobic start. Dynamic mobility. No hard efforts yet."
+      },
+      "cooldown": {
+        "detail": "Easy cool-down. Stretch primary movers. Breathe."
+      },
+      "main": {
+        "intensity": "Easy restore",
+        "detail": "Breathwork recovery for {main_min} min.",
+        "targets": {
+          "rpe": {
+            "low": 2,
+            "high": 4
+          }
+        }
+      }
+    },
+    {
+      "id": "mobility_ankle_knee",
+      "version": 1,
+      "sports": [
+        "mobility"
+      ],
+      "session_types": [
+        "mobility"
+      ],
+      "intent": "mobility_general",
+      "priority": 10,
+      "title": "Ankle-knee chain",
+      "summary": "Lower leg mobility chain",
+      "evidence_tags": [
+        "mobility",
+        "recovery"
+      ],
+      "warmup_min": 10,
+      "cooldown_min": 8,
+      "warmup": {
+        "detail": "Easy aerobic start. Dynamic mobility. No hard efforts yet."
+      },
+      "cooldown": {
+        "detail": "Easy cool-down. Stretch primary movers. Breathe."
+      },
+      "main": {
+        "intensity": "Easy restore",
+        "detail": "Ankle-knee chain for {main_min} min.",
+        "targets": {
+          "rpe": {
+            "low": 2,
+            "high": 4
+          }
+        }
+      }
+    },
+    {
+      "id": "mobility_golf_rotation",
+      "version": 1,
+      "sports": [
+        "mobility"
+      ],
+      "session_types": [
+        "mobility"
+      ],
+      "intent": "mobility_general",
+      "priority": 10,
+      "title": "Rotational mobility",
+      "summary": "Thoracic and hip rotation",
+      "evidence_tags": [
+        "mobility",
+        "recovery"
+      ],
+      "warmup_min": 10,
+      "cooldown_min": 8,
+      "warmup": {
+        "detail": "Easy aerobic start. Dynamic mobility. No hard efforts yet."
+      },
+      "cooldown": {
+        "detail": "Easy cool-down. Stretch primary movers. Breathe."
+      },
+      "main": {
+        "intensity": "Easy restore",
+        "detail": "Rotational mobility for {main_min} min.",
+        "targets": {
+          "rpe": {
+            "low": 2,
+            "high": 4
+          }
+        }
+      }
+    }
+  ]
+}

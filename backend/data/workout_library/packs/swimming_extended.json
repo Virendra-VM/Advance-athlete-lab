@@ -1,0 +1,554 @@
+{
+  "templates": [
+    {
+      "id": "swim_im_set_10x100",
+      "version": 1,
+      "sports": [
+        "swimming"
+      ],
+      "session_types": [
+        "threshold"
+      ],
+      "intent": "threshold",
+      "priority": 10,
+      "title": "IM 10\u00d7100",
+      "summary": "Individual medley aerobic",
+      "evidence_tags": [
+        "swim",
+        "css",
+        "threshold"
+      ],
+      "warmup_min": 10,
+      "cooldown_min": 8,
+      "warmup": {
+        "detail": "Easy aerobic start. Dynamic mobility. No hard efforts yet."
+      },
+      "cooldown": {
+        "detail": "Easy cool-down. Stretch primary movers. Breathe."
+      },
+      "main": {
+        "intensity": "Moderate",
+        "detail": "IM 10\u00d7100.",
+        "targets": {
+          "css_pct": {
+            "low": 0.98,
+            "high": 1.02
+          }
+        }
+      }
+    },
+    {
+      "id": "swim_freestyle_pyramid",
+      "version": 1,
+      "sports": [
+        "swimming"
+      ],
+      "session_types": [
+        "tempo"
+      ],
+      "intent": "tempo",
+      "priority": 10,
+      "title": "Freestyle pyramid",
+      "summary": "Pacing discipline",
+      "evidence_tags": [
+        "swim",
+        "css",
+        "tempo"
+      ],
+      "warmup_min": 10,
+      "cooldown_min": 8,
+      "warmup": {
+        "detail": "Easy aerobic start. Dynamic mobility. No hard efforts yet."
+      },
+      "cooldown": {
+        "detail": "Easy cool-down. Stretch primary movers. Breathe."
+      },
+      "main": {
+        "intensity": "Moderate",
+        "detail": "Freestyle pyramid.",
+        "targets": {
+          "css_pct": {
+            "low": 0.98,
+            "high": 1.02
+          }
+        }
+      }
+    },
+    {
+      "id": "swim_broken_1500",
+      "version": 1,
+      "sports": [
+        "swimming"
+      ],
+      "session_types": [
+        "long"
+      ],
+      "intent": "long",
+      "priority": 10,
+      "title": "Broken 1500",
+      "summary": "Aerobic swim volume",
+      "evidence_tags": [
+        "swim",
+        "css",
+        "long"
+      ],
+      "warmup_min": 10,
+      "cooldown_min": 8,
+      "warmup": {
+        "detail": "Easy aerobic start. Dynamic mobility. No hard efforts yet."
+      },
+      "cooldown": {
+        "detail": "Easy cool-down. Stretch primary movers. Breathe."
+      },
+      "main": {
+        "intensity": "Moderate",
+        "detail": "Broken 1500.",
+        "targets": {
+          "css_pct": {
+            "low": 1.05,
+            "high": 1.15
+          }
+        }
+      }
+    },
+    {
+      "id": "swim_paddle_pull_5x200",
+      "version": 1,
+      "sports": [
+        "swimming"
+      ],
+      "session_types": [
+        "tempo"
+      ],
+      "intent": "tempo",
+      "priority": 10,
+      "title": "Paddle pull 5\u00d7200",
+      "summary": "Upper-body strength endurance",
+      "evidence_tags": [
+        "swim",
+        "css",
+        "tempo"
+      ],
+      "warmup_min": 10,
+      "cooldown_min": 8,
+      "warmup": {
+        "detail": "Easy aerobic start. Dynamic mobility. No hard efforts yet."
+      },
+      "cooldown": {
+        "detail": "Easy cool-down. Stretch primary movers. Breathe."
+      },
+      "main": {
+        "intensity": "Moderate",
+        "detail": "Paddle pull 5\u00d7200.",
+        "targets": {
+          "css_pct": {
+            "low": 1.0,
+            "high": 1.08
+          }
+        }
+      }
+    },
+    {
+      "id": "swim_band_only_20",
+      "version": 1,
+      "sports": [
+        "swimming"
+      ],
+      "session_types": [
+        "easy"
+      ],
+      "intent": "easy",
+      "priority": 10,
+      "title": "Band-only recovery",
+      "summary": "Shoulder prehab swim",
+      "evidence_tags": [
+        "swim",
+        "css",
+        "easy"
+      ],
+      "warmup_min": 10,
+      "cooldown_min": 8,
+      "warmup": {
+        "detail": "Easy aerobic start. Dynamic mobility. No hard efforts yet."
+      },
+      "cooldown": {
+        "detail": "Easy cool-down. Stretch primary movers. Breathe."
+      },
+      "main": {
+        "intensity": "Moderate",
+        "detail": "Band-only recovery.",
+        "targets": {
+          "rpe": {
+            "low": 3,
+            "high": 5
+          }
+        }
+      }
+    },
+    {
+      "id": "swim_snorkel_technique",
+      "version": 1,
+      "sports": [
+        "swimming"
+      ],
+      "session_types": [
+        "easy"
+      ],
+      "intent": "easy",
+      "priority": 10,
+      "title": "Snorkel technique",
+      "summary": "Body position focus",
+      "evidence_tags": [
+        "swim",
+        "css",
+        "easy"
+      ],
+      "warmup_min": 10,
+      "cooldown_min": 8,
+      "warmup": {
+        "detail": "Easy aerobic start. Dynamic mobility. No hard efforts yet."
+      },
+      "cooldown": {
+        "detail": "Easy cool-down. Stretch primary movers. Breathe."
+      },
+      "main": {
+        "intensity": "Moderate",
+        "detail": "Snorkel technique.",
+        "targets": {
+          "rpe": {
+            "low": 4,
+            "high": 5
+          }
+        }
+      }
+    },
+    {
+      "id": "swim_open_water_continuous",
+      "version": 1,
+      "sports": [
+        "swimming"
+      ],
+      "session_types": [
+        "long"
+      ],
+      "intent": "long",
+      "priority": 10,
+      "title": "Open-water continuous",
+      "summary": "OW endurance",
+      "evidence_tags": [
+        "swim",
+        "css",
+        "long"
+      ],
+      "warmup_min": 10,
+      "cooldown_min": 8,
+      "warmup": {
+        "detail": "Easy aerobic start. Dynamic mobility. No hard efforts yet."
+      },
+      "cooldown": {
+        "detail": "Easy cool-down. Stretch primary movers. Breathe."
+      },
+      "main": {
+        "intensity": "Moderate",
+        "detail": "Open-water continuous.",
+        "targets": {
+          "css_pct": {
+            "low": 1.08,
+            "high": 1.18
+          }
+        }
+      }
+    },
+    {
+      "id": "swim_race_start_8x50",
+      "version": 1,
+      "sports": [
+        "swimming"
+      ],
+      "session_types": [
+        "intervals"
+      ],
+      "intent": "vo2",
+      "priority": 10,
+      "title": "Race-start 8\u00d750",
+      "summary": "Start speed",
+      "evidence_tags": [
+        "swim",
+        "css",
+        "vo2"
+      ],
+      "warmup_min": 10,
+      "cooldown_min": 8,
+      "warmup": {
+        "detail": "Easy aerobic start. Dynamic mobility. No hard efforts yet."
+      },
+      "cooldown": {
+        "detail": "Easy cool-down. Stretch primary movers. Breathe."
+      },
+      "main": {
+        "type": "repeat",
+        "intensity": "Hard",
+        "reps": 8,
+        "on": {
+          "duration_min": 0.75,
+          "label": "50 m hard",
+          "targets": {
+            "css_pct": {
+              "low": 0.88,
+              "high": 0.94
+            }
+          }
+        },
+        "off": {
+          "duration_min": 0.5,
+          "label": "recovery",
+          "targets": {
+            "rpe": {
+              "low": 3,
+              "high": 4
+            }
+          }
+        },
+        "detail_intro": ""
+      }
+    },
+    {
+      "id": "swim_backstroke_recovery",
+      "version": 1,
+      "sports": [
+        "swimming"
+      ],
+      "session_types": [
+        "easy"
+      ],
+      "intent": "easy",
+      "priority": 10,
+      "title": "Backstroke recovery",
+      "summary": "Active recovery mix",
+      "evidence_tags": [
+        "swim",
+        "css",
+        "easy"
+      ],
+      "warmup_min": 10,
+      "cooldown_min": 8,
+      "warmup": {
+        "detail": "Easy aerobic start. Dynamic mobility. No hard efforts yet."
+      },
+      "cooldown": {
+        "detail": "Easy cool-down. Stretch primary movers. Breathe."
+      },
+      "main": {
+        "intensity": "Moderate",
+        "detail": "Backstroke recovery.",
+        "targets": {
+          "css_pct": {
+            "low": 1.12,
+            "high": 1.25
+          }
+        }
+      }
+    },
+    {
+      "id": "swim_kick_only_16x50",
+      "version": 1,
+      "sports": [
+        "swimming"
+      ],
+      "session_types": [
+        "tempo"
+      ],
+      "intent": "tempo",
+      "priority": 10,
+      "title": "Kick-only 16\u00d750",
+      "summary": "Kick development",
+      "evidence_tags": [
+        "swim",
+        "css",
+        "tempo"
+      ],
+      "warmup_min": 10,
+      "cooldown_min": 8,
+      "warmup": {
+        "detail": "Easy aerobic start. Dynamic mobility. No hard efforts yet."
+      },
+      "cooldown": {
+        "detail": "Easy cool-down. Stretch primary movers. Breathe."
+      },
+      "main": {
+        "intensity": "Moderate",
+        "detail": "Kick-only 16\u00d750.",
+        "targets": {
+          "rpe": {
+            "low": 6,
+            "high": 7
+          }
+        }
+      }
+    },
+    {
+      "id": "swim_swolf_test",
+      "version": 1,
+      "sports": [
+        "swimming"
+      ],
+      "session_types": [
+        "easy"
+      ],
+      "intent": "easy",
+      "priority": 10,
+      "title": "SWOLF efficiency test",
+      "summary": "Efficiency benchmarking",
+      "evidence_tags": [
+        "swim",
+        "css",
+        "easy"
+      ],
+      "warmup_min": 10,
+      "cooldown_min": 8,
+      "warmup": {
+        "detail": "Easy aerobic start. Dynamic mobility. No hard efforts yet."
+      },
+      "cooldown": {
+        "detail": "Easy cool-down. Stretch primary movers. Breathe."
+      },
+      "main": {
+        "intensity": "Moderate",
+        "detail": "SWOLF efficiency test.",
+        "targets": {
+          "rpe": {
+            "low": 5,
+            "high": 6
+          }
+        }
+      }
+    },
+    {
+      "id": "swim_css_neg_split_5x200",
+      "version": 1,
+      "sports": [
+        "swimming"
+      ],
+      "session_types": [
+        "threshold"
+      ],
+      "intent": "threshold",
+      "priority": 10,
+      "title": "CSS negative split 5\u00d7200",
+      "summary": "Pacing control at CSS",
+      "evidence_tags": [
+        "swim",
+        "css",
+        "threshold"
+      ],
+      "warmup_min": 10,
+      "cooldown_min": 8,
+      "warmup": {
+        "detail": "Easy aerobic start. Dynamic mobility. No hard efforts yet."
+      },
+      "cooldown": {
+        "detail": "Easy cool-down. Stretch primary movers. Breathe."
+      },
+      "main": {
+        "intensity": "Moderate",
+        "detail": "CSS negative split 5\u00d7200.",
+        "targets": {
+          "css_pct": {
+            "low": 0.98,
+            "high": 1.02
+          }
+        }
+      }
+    },
+    {
+      "id": "swim_sprint_25s_20",
+      "version": 1,
+      "sports": [
+        "swimming"
+      ],
+      "session_types": [
+        "intervals"
+      ],
+      "intent": "vo2",
+      "priority": 10,
+      "title": "Sprint 25s \u00d720",
+      "summary": "Anaerobic capacity",
+      "evidence_tags": [
+        "swim",
+        "css",
+        "vo2"
+      ],
+      "warmup_min": 10,
+      "cooldown_min": 8,
+      "warmup": {
+        "detail": "Easy aerobic start. Dynamic mobility. No hard efforts yet."
+      },
+      "cooldown": {
+        "detail": "Easy cool-down. Stretch primary movers. Breathe."
+      },
+      "main": {
+        "type": "repeat",
+        "intensity": "Hard",
+        "reps": 8,
+        "on": {
+          "duration_min": 0.75,
+          "label": "50 m hard",
+          "targets": {
+            "css_pct": {
+              "low": 0.88,
+              "high": 0.94
+            }
+          }
+        },
+        "off": {
+          "duration_min": 0.5,
+          "label": "recovery",
+          "targets": {
+            "rpe": {
+              "low": 3,
+              "high": 4
+            }
+          }
+        },
+        "detail_intro": ""
+      }
+    },
+    {
+      "id": "swim_endurance_paddle",
+      "version": 1,
+      "sports": [
+        "swimming"
+      ],
+      "session_types": [
+        "long"
+      ],
+      "intent": "long",
+      "priority": 10,
+      "title": "Endurance paddle set",
+      "summary": "Long pull endurance",
+      "evidence_tags": [
+        "swim",
+        "css",
+        "long"
+      ],
+      "warmup_min": 10,
+      "cooldown_min": 8,
+      "warmup": {
+        "detail": "Easy aerobic start. Dynamic mobility. No hard efforts yet."
+      },
+      "cooldown": {
+        "detail": "Easy cool-down. Stretch primary movers. Breathe."
+      },
+      "main": {
+        "intensity": "Moderate",
+        "detail": "Endurance paddle set.",
+        "targets": {
+          "css_pct": {
+            "low": 1.02,
+            "high": 1.1
+          }
+        }
+      }
+    }
+  ]
+}

@@ -1,0 +1,364 @@
+{
+  "templates": [
+    {
+      "id": "trail_technical_downhill",
+      "version": 1,
+      "sports": [
+        "trail_running"
+      ],
+      "session_types": [
+        "hills"
+      ],
+      "intent": "hills",
+      "priority": 10,
+      "title": "Technical downhill",
+      "summary": "Downhill skill and eccentric prep",
+      "evidence_tags": [
+        "trail",
+        "hills"
+      ],
+      "warmup_min": 10,
+      "cooldown_min": 8,
+      "warmup": {
+        "detail": "Easy aerobic start. Dynamic mobility. No hard efforts yet."
+      },
+      "cooldown": {
+        "detail": "Easy cool-down. Stretch primary movers. Breathe."
+      },
+      "main": {
+        "intensity": "Moderate",
+        "detail": "Technical downhill on trail terrain.",
+        "targets": {
+          "hr_pct_lthr": {
+            "low": 0.95,
+            "high": 1.02
+          }
+        }
+      }
+    },
+    {
+      "id": "trail_vert_intervals",
+      "version": 1,
+      "sports": [
+        "trail_running"
+      ],
+      "session_types": [
+        "hills"
+      ],
+      "intent": "hills",
+      "priority": 10,
+      "title": "Vert intervals",
+      "summary": "Vertical gain intervals",
+      "evidence_tags": [
+        "trail",
+        "hills"
+      ],
+      "warmup_min": 10,
+      "cooldown_min": 8,
+      "warmup": {
+        "detail": "Easy aerobic start. Dynamic mobility. No hard efforts yet."
+      },
+      "cooldown": {
+        "detail": "Easy cool-down. Stretch primary movers. Breathe."
+      },
+      "main": {
+        "intensity": "Moderate",
+        "detail": "Vert intervals on trail terrain.",
+        "targets": {
+          "hr_pct_lthr": {
+            "low": 0.95,
+            "high": 1.02
+          }
+        }
+      }
+    },
+    {
+      "id": "trail_ridge_run",
+      "version": 1,
+      "sports": [
+        "trail_running"
+      ],
+      "session_types": [
+        "long"
+      ],
+      "intent": "long",
+      "priority": 10,
+      "title": "Ridge run long",
+      "summary": "Rolling trail long run",
+      "evidence_tags": [
+        "trail",
+        "long"
+      ],
+      "warmup_min": 10,
+      "cooldown_min": 8,
+      "warmup": {
+        "detail": "Easy aerobic start. Dynamic mobility. No hard efforts yet."
+      },
+      "cooldown": {
+        "detail": "Easy cool-down. Stretch primary movers. Breathe."
+      },
+      "main": {
+        "intensity": "Moderate",
+        "detail": "Ridge run long on trail terrain.",
+        "targets": {
+          "hr_pct_lthr": {
+            "low": 0.95,
+            "high": 1.02
+          }
+        }
+      }
+    },
+    {
+      "id": "trail_night_easy",
+      "version": 1,
+      "sports": [
+        "trail_running"
+      ],
+      "session_types": [
+        "easy"
+      ],
+      "intent": "easy",
+      "priority": 10,
+      "title": "Night trail easy",
+      "summary": "Easy trail in low light",
+      "evidence_tags": [
+        "trail",
+        "easy"
+      ],
+      "warmup_min": 10,
+      "cooldown_min": 8,
+      "warmup": {
+        "detail": "Easy aerobic start. Dynamic mobility. No hard efforts yet."
+      },
+      "cooldown": {
+        "detail": "Easy cool-down. Stretch primary movers. Breathe."
+      },
+      "main": {
+        "intensity": "Moderate",
+        "detail": "Night trail easy on trail terrain.",
+        "targets": {
+          "hr_pct_lthr": {
+            "low": 0.69,
+            "high": 0.83
+          }
+        }
+      }
+    },
+    {
+      "id": "trail_snow_easy",
+      "version": 1,
+      "sports": [
+        "trail_running"
+      ],
+      "session_types": [
+        "easy"
+      ],
+      "intent": "easy",
+      "priority": 10,
+      "title": "Snow trail easy",
+      "summary": "Easy snow/ice trail",
+      "evidence_tags": [
+        "trail",
+        "easy"
+      ],
+      "warmup_min": 10,
+      "cooldown_min": 8,
+      "warmup": {
+        "detail": "Easy aerobic start. Dynamic mobility. No hard efforts yet."
+      },
+      "cooldown": {
+        "detail": "Easy cool-down. Stretch primary movers. Breathe."
+      },
+      "main": {
+        "intensity": "Moderate",
+        "detail": "Snow trail easy on trail terrain.",
+        "targets": {
+          "hr_pct_lthr": {
+            "low": 0.69,
+            "high": 0.83
+          }
+        }
+      }
+    },
+    {
+      "id": "trail_skyrace_sim",
+      "version": 1,
+      "sports": [
+        "trail_running"
+      ],
+      "session_types": [
+        "race"
+      ],
+      "intent": "race_pace",
+      "priority": 10,
+      "title": "Skyrace simulation",
+      "summary": "Skyrace effort simulation",
+      "evidence_tags": [
+        "trail",
+        "race_pace"
+      ],
+      "warmup_min": 10,
+      "cooldown_min": 8,
+      "warmup": {
+        "detail": "Easy aerobic start. Dynamic mobility. No hard efforts yet."
+      },
+      "cooldown": {
+        "detail": "Easy cool-down. Stretch primary movers. Breathe."
+      },
+      "main": {
+        "intensity": "Moderate",
+        "detail": "Skyrace simulation on trail terrain.",
+        "targets": {
+          "hr_pct_lthr": {
+            "low": 0.95,
+            "high": 1.02
+          }
+        }
+      }
+    },
+    {
+      "id": "trail_ultra_back_to_back",
+      "version": 1,
+      "sports": [
+        "trail_running"
+      ],
+      "session_types": [
+        "long"
+      ],
+      "intent": "long",
+      "priority": 10,
+      "title": "Ultra back-to-back",
+      "summary": "Consecutive day trail volume",
+      "evidence_tags": [
+        "trail",
+        "long"
+      ],
+      "warmup_min": 10,
+      "cooldown_min": 8,
+      "warmup": {
+        "detail": "Easy aerobic start. Dynamic mobility. No hard efforts yet."
+      },
+      "cooldown": {
+        "detail": "Easy cool-down. Stretch primary movers. Breathe."
+      },
+      "main": {
+        "intensity": "Moderate",
+        "detail": "Ultra back-to-back on trail terrain.",
+        "targets": {
+          "hr_pct_lthr": {
+            "low": 0.95,
+            "high": 1.02
+          }
+        }
+      }
+    },
+    {
+      "id": "trail_power_hike",
+      "version": 1,
+      "sports": [
+        "trail_running"
+      ],
+      "session_types": [
+        "hills"
+      ],
+      "intent": "hills",
+      "priority": 10,
+      "title": "Power hiking",
+      "summary": "Hiking-specific vert training",
+      "evidence_tags": [
+        "trail",
+        "hills"
+      ],
+      "warmup_min": 10,
+      "cooldown_min": 8,
+      "warmup": {
+        "detail": "Easy aerobic start. Dynamic mobility. No hard efforts yet."
+      },
+      "cooldown": {
+        "detail": "Easy cool-down. Stretch primary movers. Breathe."
+      },
+      "main": {
+        "intensity": "Moderate",
+        "detail": "Power hiking on trail terrain.",
+        "targets": {
+          "hr_pct_lthr": {
+            "low": 0.95,
+            "high": 1.02
+          }
+        }
+      }
+    },
+    {
+      "id": "trail_muddy_technical",
+      "version": 1,
+      "sports": [
+        "trail_running"
+      ],
+      "session_types": [
+        "easy"
+      ],
+      "intent": "easy",
+      "priority": 10,
+      "title": "Muddy technical easy",
+      "summary": "Technical terrain at easy effort",
+      "evidence_tags": [
+        "trail",
+        "easy"
+      ],
+      "warmup_min": 10,
+      "cooldown_min": 8,
+      "warmup": {
+        "detail": "Easy aerobic start. Dynamic mobility. No hard efforts yet."
+      },
+      "cooldown": {
+        "detail": "Easy cool-down. Stretch primary movers. Breathe."
+      },
+      "main": {
+        "intensity": "Moderate",
+        "detail": "Muddy technical easy on trail terrain.",
+        "targets": {
+          "hr_pct_lthr": {
+            "low": 0.69,
+            "high": 0.83
+          }
+        }
+      }
+    },
+    {
+      "id": "trail_stage_race_day",
+      "version": 1,
+      "sports": [
+        "trail_running"
+      ],
+      "session_types": [
+        "race"
+      ],
+      "intent": "race_pace",
+      "priority": 10,
+      "title": "Stage race day",
+      "summary": "Multi-day stage simulation",
+      "evidence_tags": [
+        "trail",
+        "race_pace"
+      ],
+      "warmup_min": 10,
+      "cooldown_min": 8,
+      "warmup": {
+        "detail": "Easy aerobic start. Dynamic mobility. No hard efforts yet."
+      },
+      "cooldown": {
+        "detail": "Easy cool-down. Stretch primary movers. Breathe."
+      },
+      "main": {
+        "intensity": "Moderate",
+        "detail": "Stage race day on trail terrain.",
+        "targets": {
+          "hr_pct_lthr": {
+            "low": 0.95,
+            "high": 1.02
+          }
+        }
+      }
+    }
+  ]
+}
