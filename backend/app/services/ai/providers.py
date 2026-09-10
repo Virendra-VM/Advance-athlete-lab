@@ -39,9 +39,23 @@ class AnthropicProvider:
     def is_configured(self) -> bool:
         return bool(self.api_key)
 
-    def generate_json(self, system: str, user: str) -> ProviderResponse:
+    def generate_json(
+        self,
+        system: str,
+        user: str,
+        *,
+        temperature: float = 0.4,
+        presence_penalty: float | None = None,
+    ) -> ProviderResponse:
         if not self.is_configured():
             raise ProviderError("ANTHROPIC_API_KEY is not set.")
+        payload: dict = {
+            "model": self.model,
+            "max_tokens": 4096,
+            "temperature": temperature,
+            "system": system,
+            "messages": [{"role": "user", "content": user}],
+        }
         try:
             response = httpx.post(
                 "https://api.anthropic.com/v1/messages",
@@ -50,13 +64,7 @@ class AnthropicProvider:
                     "anthropic-version": "2023-06-01",
                     "content-type": "application/json",
                 },
-                json={
-                    "model": self.model,
-                    "max_tokens": 4096,
-                    "temperature": 0.4,
-                    "system": system,
-                    "messages": [{"role": "user", "content": user}],
-                },
+                json=payload,
                 timeout=AI_REQUEST_TIMEOUT_S,
             )
             response.raise_for_status()
@@ -86,9 +94,27 @@ class OpenAIProvider:
     def is_configured(self) -> bool:
         return bool(self.api_key)
 
-    def generate_json(self, system: str, user: str) -> ProviderResponse:
+    def generate_json(
+        self,
+        system: str,
+        user: str,
+        *,
+        temperature: float = 0.4,
+        presence_penalty: float | None = None,
+    ) -> ProviderResponse:
         if not self.is_configured():
             raise ProviderError("OPENAI_API_KEY is not set.")
+        payload: dict = {
+            "model": self.model,
+            "temperature": temperature,
+            "response_format": {"type": "json_object"},
+            "messages": [
+                {"role": "system", "content": system},
+                {"role": "user", "content": user},
+            ],
+        }
+        if presence_penalty is not None:
+            payload["presence_penalty"] = presence_penalty
         try:
             response = httpx.post(
                 "https://api.openai.com/v1/chat/completions",
@@ -96,15 +122,7 @@ class OpenAIProvider:
                     "Authorization": f"Bearer {self.api_key}",
                     "Content-Type": "application/json",
                 },
-                json={
-                    "model": self.model,
-                    "temperature": 0.4,
-                    "response_format": {"type": "json_object"},
-                    "messages": [
-                        {"role": "system", "content": system},
-                        {"role": "user", "content": user},
-                    ],
-                },
+                json=payload,
                 timeout=AI_REQUEST_TIMEOUT_S,
             )
             response.raise_for_status()
@@ -134,13 +152,27 @@ class GeminiProvider:
     def is_configured(self) -> bool:
         return bool(self.api_key)
 
-    def generate_json(self, system: str, user: str) -> ProviderResponse:
+    def generate_json(
+        self,
+        system: str,
+        user: str,
+        *,
+        temperature: float = 0.4,
+        presence_penalty: float | None = None,
+    ) -> ProviderResponse:
         if not self.is_configured():
             raise ProviderError("GEMINI_API_KEY is not set.")
         url = (
             "https://generativelanguage.googleapis.com/v1beta/models/"
             f"{self.model}:generateContent"
         )
+        generation_config: dict = {
+            "temperature": temperature,
+            "responseMimeType": "application/json",
+            "maxOutputTokens": 8192,
+        }
+        if presence_penalty is not None:
+            generation_config["presencePenalty"] = presence_penalty
         try:
             response = httpx.post(
                 url,
@@ -151,11 +183,7 @@ class GeminiProvider:
                 json={
                     "systemInstruction": {"parts": [{"text": system}]},
                     "contents": [{"role": "user", "parts": [{"text": user}]}],
-                    "generationConfig": {
-                        "temperature": 0.4,
-                        "responseMimeType": "application/json",
-                        "maxOutputTokens": 8192,
-                    },
+                    "generationConfig": generation_config,
                 },
                 timeout=AI_REQUEST_TIMEOUT_S,
             )
@@ -196,7 +224,14 @@ class CursorProvider:
     def is_configured(self) -> bool:
         return bool(self.api_key)
 
-    def generate_json(self, system: str, user: str) -> ProviderResponse:
+    def generate_json(
+        self,
+        system: str,
+        user: str,
+        *,
+        temperature: float = 0.4,
+        presence_penalty: float | None = None,
+    ) -> ProviderResponse:
         if not self.is_configured():
             raise ProviderError("CURSOR_API_KEY is not set.")
 

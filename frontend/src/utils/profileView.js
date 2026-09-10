@@ -1,13 +1,74 @@
 import { VOLUME_UNIT_BY_SPORT } from './onboardingSteps'
 
+export const PROFILE_PAGES = [
+  { path: '/profile', label: 'Overview', end: true },
+  { path: '/profile/training', label: 'Training' },
+  { path: '/profile/zones', label: 'Training zones' },
+]
+
+export const PROFILE_HUB_CARDS = [
+  {
+    id: 'training',
+    path: '/profile/training',
+    title: 'Training',
+    description: 'Goals, fitness, weekly schedule, and season races.',
+    hint: 'What you are working toward and how much time you have.',
+    completenessKeys: [
+      'primary_goal',
+      'fitness_level',
+      'days_per_week',
+      'workout_duration_minutes',
+      'preferred_workout_time',
+      'training_history_months',
+    ],
+  },
+  {
+    id: 'zones',
+    path: '/profile/zones',
+    title: 'Training zones',
+    description: 'FTP, heart rate, pace anchors, and live zone tables.',
+    hint: 'Power and heart-rate ranges for structured sessions.',
+    completenessKeys: [],
+  },
+]
+
+export const PROFILE_DETAILS_SECTIONS = [
+  { id: 'body', label: 'Body', hash: '#profile-body' },
+  { id: 'health', label: 'Health', hash: '#profile-health' },
+  { id: 'preferences', label: 'Preferences', hash: '#profile-preferences' },
+  { id: 'planning', label: 'Coach notes', hash: '#profile-planning' },
+]
+
+/** @deprecated use PROFILE_PAGES — kept for subsection anchors on details page */
 export const PROFILE_SECTIONS = [
   { id: 'identity', label: 'Identity' },
   { id: 'training', label: 'Training' },
+  { id: 'zones', label: 'Training zones' },
   { id: 'body', label: 'Body' },
   { id: 'health', label: 'Health' },
   { id: 'preferences', label: 'Preferences' },
   { id: 'planning', label: 'More info' },
 ]
+
+const SECTION_TO_PATH = {
+  identity: '/profile',
+  training: '/profile/training',
+  zones: '/profile/zones',
+  body: '/profile#profile-body',
+  health: '/profile#profile-health',
+  preferences: '/profile#profile-preferences',
+  planning: '/profile#profile-planning',
+}
+
+export function profilePathForSection(sectionId) {
+  return SECTION_TO_PATH[sectionId] || '/profile'
+}
+
+export function legacyProfilePathFromHash(hash) {
+  const section = sectionFromHash(hash)
+  if (!section) return null
+  return profilePathForSection(section)
+}
 
 export const COMPLETENESS_ITEMS = [
   { key: 'name', label: 'Name', section: 'identity' },
@@ -244,6 +305,46 @@ export function missingCompletenessItems(form) {
   })
 }
 
+export function profileCompletenessPercent(form) {
+  if (!form) return 0
+  const total = COMPLETENESS_ITEMS.length
+  const missing = missingCompletenessItems(form).length
+  return Math.round(((total - missing) / total) * 100)
+}
+
+function itemIsComplete(form, item) {
+  if (item.kind === 'sports') return Boolean((form.sports || []).length)
+  return !isEmptyValue(form[item.key])
+}
+
+export function hubCardCompleteness(form, card) {
+  const keys = card.completenessKeys || []
+  if (!keys.length) {
+    const hasZones =
+      !isEmptyValue(form.ftp_watts) ||
+      !isEmptyValue(form.lthr_bpm) ||
+      !isEmptyValue(form.threshold_pace) ||
+      !isEmptyValue(form.max_hr_bpm)
+    return { filled: hasZones ? 1 : 0, total: 1, optional: true }
+  }
+  const filled = keys.filter((key) => !isEmptyValue(form[key])).length
+  return { filled, total: keys.length, optional: false }
+}
+
+export function hubCardStatusLabel(form, card) {
+  const { filled, total, optional } = hubCardCompleteness(form, card)
+  if (optional) return filled ? 'Anchors set' : 'Add anchors'
+  if (filled === total) return 'Complete'
+  if (filled === 0) return 'Not started'
+  return `${filled}/${total} filled`
+}
+
+export function identityCompleteness(form) {
+  const identityItems = COMPLETENESS_ITEMS.filter((item) => item.section === 'identity')
+  const filled = identityItems.filter((item) => itemIsComplete(form, item)).length
+  return { filled, total: identityItems.length }
+}
+
 export function scrollToProfileSection(sectionId) {
   const node = document.getElementById(`profile-${sectionId}`)
   node?.scrollIntoView({ behavior: 'smooth', block: 'start' })
@@ -293,7 +394,15 @@ export function normalizeProfileForm(form) {
     weekly_minutes_budget: toNumberOrNull(form.weekly_minutes_budget),
     ftp_watts: toNumberOrNull(form.ftp_watts),
     lthr_bpm: toNumberOrNull(form.lthr_bpm),
+    bike_lthr_bpm: toNumberOrNull(form.bike_lthr_bpm),
     max_hr_bpm: toNumberOrNull(form.max_hr_bpm),
+    resting_hr_bpm: toNumberOrNull(form.resting_hr_bpm),
+    threshold_pace: toTextOrNull(form.threshold_pace),
+    lt1_pace: toTextOrNull(form.lt1_pace),
+    marathon_pace: toTextOrNull(form.marathon_pace),
+    css_pace: toTextOrNull(form.css_pace),
+    vo2max: toNumberOrNull(form.vo2max),
+    zone_run_hr_method: toTextOrNull(form.zone_run_hr_method),
     preferred_workout_time: toTextOrNull(form.preferred_workout_time),
     injuries: (form.injuries || []).map((entry) => ({
       body_region: entry.body_region,
@@ -305,6 +414,9 @@ export function normalizeProfileForm(form) {
     equipment: toTextOrNull(form.equipment),
     exercises_love: toTextOrNull(form.exercises_love),
     exercises_hate: toTextOrNull(form.exercises_hate),
+    planning_notes: toTextOrNull(form.planning_notes),
+    cycle_tracking_enabled: Boolean(form.cycle_tracking_enabled),
+    cycle_length_manual: toNumberOrNull(form.cycle_length_manual),
   }
 }
 

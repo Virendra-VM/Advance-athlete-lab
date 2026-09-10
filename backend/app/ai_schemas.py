@@ -33,6 +33,7 @@ class PlanSegment(BaseModel):
     segment: str
     duration_min: float | None = None
     intensity: str | None = None
+    detail: str | None = None
 
 
 class PlannedWorkoutJSON(BaseModel):
@@ -45,6 +46,7 @@ class PlannedWorkoutJSON(BaseModel):
     intensity: str | None = Field(default=None, max_length=200)
     description: str | None = None
     structure: list[PlanSegment] = []
+    library_template_id: str | None = Field(default=None, max_length=128)
 
     @field_validator("session_type")
     @classmethod

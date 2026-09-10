@@ -1,0 +1,255 @@
+{
+  "templates": [
+    {
+      "id": "swim_easy_aerobic",
+      "sports": ["swimming"],
+      "session_types": ["easy"],
+      "intent": "easy",
+      "priority": 10,
+      "title": "Easy aerobic swim",
+      "summary": "Technique-focused aerobic volume",
+      "evidence_tags": ["aerobic_base", "technique", "swim"],
+      "warmup_min": 10,
+      "cooldown_min": 8,
+      "warmup": {"detail": "200–400 easy mixed stroke. 4 × 50 drill/swim by 25. Shoulder circles on deck."},
+      "main": {
+        "intensity": "Easy / smooth",
+        "detail": "Broken aerobic: 4–6 × 200 easy with 20 s rest. Count strokes — stay long, not thrashy.",
+        "targets": {"css_pct": {"low": 1.08, "high": 1.20}, "rpe": {"low": 4, "high": 5}}
+      },
+      "cooldown": {"detail": "100–200 easy. Shoulder stretch on deck."}
+    },
+    {
+      "id": "swim_technique_drills",
+      "sports": ["swimming"],
+      "session_types": ["easy", "mobility"],
+      "intent": "easy",
+      "priority": 12,
+      "match_keywords": ["technique", "drill"],
+      "title": "Technique & drill session",
+      "summary": "SWOLF and stroke efficiency — technique-limited sport",
+      "evidence_tags": ["technique", "swolf", "swim"],
+      "warmup_min": 10,
+      "cooldown_min": 8,
+      "warmup": {"detail": "200 easy. 4 × 50 kick/swim by 25."},
+      "main": {
+        "intensity": "Technique focus",
+        "detail": "8 × 50 drill/swim (catch-up, fingertip drag, single-arm). 4 × 100 easy focusing on DPS. Rest 15 s.",
+        "targets": {"rpe": {"low": 4, "high": 6}}
+      },
+      "cooldown": {"detail": "100 easy backstroke. Band pull-aparts on deck."}
+    },
+    {
+      "id": "swim_css_threshold_8x100",
+      "sports": ["swimming"],
+      "session_types": ["threshold", "intervals"],
+      "intent": "threshold",
+      "priority": 20,
+      "title": "CSS threshold (8×100)",
+      "summary": "Critical swim speed intervals — swim threshold work",
+      "evidence_tags": ["css", "threshold", "swim"],
+      "warmup_min": 12,
+      "cooldown_min": 8,
+      "warmup": {"detail": "300 easy. 4 × 50 build by 25. 2 × 50 at CSS feel."},
+      "main": {
+        "type": "repeat",
+        "intensity": "CSS / threshold",
+        "reps": 8,
+        "on": {"duration_min": 2, "label": "100 m at CSS", "targets": {"css_pct": {"low": 0.98, "high": 1.02}}},
+        "off": {"duration_min": 0.5, "label": "rest", "targets": {"rpe": {"low": 2, "high": 3}}},
+        "detail_intro": "Hold pace across all 8. Count strokes — don't thrash the last 25."
+      },
+      "cooldown": {"detail": "200 easy. Lat stretch."}
+    },
+    {
+      "id": "swim_css_4x200",
+      "sports": ["swimming"],
+      "session_types": ["threshold", "tempo"],
+      "intent": "threshold",
+      "priority": 18,
+      "match_keywords": ["4 x 200", "4×200"],
+      "title": "CSS blocks (4×200)",
+      "summary": "Longer CSS intervals — muscular endurance in the water",
+      "evidence_tags": ["css", "threshold", "swim"],
+      "warmup_min": 12,
+      "cooldown_min": 8,
+      "warmup": {"detail": "400 easy. 4 × 50 drill/swim."},
+      "main": {
+        "type": "repeat",
+        "intensity": "CSS / threshold",
+        "reps": 4,
+        "on": {"duration_min": 4, "label": "200 m at CSS+2s", "targets": {"css_pct": {"low": 1.00, "high": 1.04}}},
+        "off": {"duration_min": 0.5, "label": "rest", "targets": {"rpe": {"low": 2, "high": 3}}},
+        "detail_intro": "Even splits. Stop if stroke count rises >10%."
+      },
+      "cooldown": {"detail": "200 easy."}
+    },
+    {
+      "id": "swim_vo2_16x50",
+      "sports": ["swimming"],
+      "session_types": ["intervals"],
+      "intent": "vo2",
+      "priority": 20,
+      "title": "VO₂ swim (16×50)",
+      "summary": "Short hard repeats — aerobic power in the pool",
+      "evidence_tags": ["vo2", "intervals", "swim"],
+      "warmup_min": 12,
+      "cooldown_min": 8,
+      "warmup": {"detail": "300 easy. 4 × 50 build. 2 × 25 fast with full rest."},
+      "main": {
+        "type": "repeat",
+        "intensity": "VO₂ / hard",
+        "reps": 16,
+        "on": {"duration_min": 1, "label": "50 m hard", "targets": {"css_pct": {"low": 0.88, "high": 0.94}}},
+        "off": {"duration_min": 0.33, "label": "rest", "targets": {"rpe": {"low": 2, "high": 3}}},
+        "detail_intro": "Hold form. Shoulder fatigue may limit you before cardio — stop if pain, not burn."
+      },
+      "cooldown": {"detail": "200 easy. Shoulder doorway stretch."}
+    },
+    {
+      "id": "swim_vo2_8x100",
+      "sports": ["swimming"],
+      "session_types": ["intervals"],
+      "intent": "vo2",
+      "priority": 18,
+      "match_keywords": ["8 x 100 hard"],
+      "title": "VO₂ swim (8×100)",
+      "summary": "Longer VO₂ swim intervals",
+      "evidence_tags": ["vo2", "intervals", "swim"],
+      "warmup_min": 12,
+      "cooldown_min": 8,
+      "warmup": {"detail": "400 easy. 4 × 50 build."},
+      "main": {
+        "type": "repeat",
+        "intensity": "VO₂ / hard",
+        "reps": 8,
+        "on": {"duration_min": 2, "label": "100 m hard", "targets": {"css_pct": {"low": 0.90, "high": 0.96}}},
+        "off": {"duration_min": 0.5, "label": "rest", "targets": {"rpe": {"low": 2, "high": 3}}},
+        "detail_intro": "Drop to 6 if pace fades >3 s/100 on rep 5."
+      },
+      "cooldown": {"detail": "200 easy."}
+    },
+    {
+      "id": "swim_pull_paddles",
+      "sports": ["swimming"],
+      "session_types": ["tempo", "threshold"],
+      "intent": "tempo",
+      "priority": 14,
+      "match_keywords": ["pull", "paddle"],
+      "title": "Pull / paddle strength",
+      "summary": "Upper-body strength endurance — lat and shoulder loading",
+      "evidence_tags": ["strength", "swim", "technique"],
+      "warmup_min": 10,
+      "cooldown_min": 8,
+      "warmup": {"detail": "300 easy. 4 × 50 kick/swim."},
+      "main": {
+        "intensity": "Moderate-hard / pull",
+        "detail": "4 × 200 pull with paddles + buoy at CSS+4s, 30 s rest. Focus on catch and long pull.",
+        "targets": {"css_pct": {"low": 1.02, "high": 1.08}, "rpe": {"low": 7, "high": 8}}
+      },
+      "cooldown": {"detail": "200 easy no paddles. Shoulder stretch."}
+    },
+    {
+      "id": "swim_kick_set",
+      "sports": ["swimming"],
+      "session_types": ["easy", "intervals"],
+      "intent": "easy",
+      "priority": 10,
+      "match_keywords": ["kick"],
+      "title": "Kick-focused session",
+      "summary": "Kick development — propulsion from legs",
+      "evidence_tags": ["technique", "swim", "strength"],
+      "warmup_min": 10,
+      "cooldown_min": 8,
+      "warmup": {"detail": "200 easy. 4 × 50 swim/kick by 25."},
+      "main": {
+        "intensity": "Moderate / kick",
+        "detail": "8 × 50 kick on board with 15 s rest. 4 × 100 swim focusing on kick connection.",
+        "targets": {"rpe": {"low": 6, "high": 7}}
+      },
+      "cooldown": {"detail": "100 easy. Ankle stretch."}
+    },
+    {
+      "id": "swim_long_continuous",
+      "sports": ["swimming"],
+      "session_types": ["long"],
+      "intent": "long",
+      "priority": 10,
+      "title": "Long continuous swim",
+      "summary": "Aerobic durability — open-water prep base",
+      "evidence_tags": ["aerobic_base", "swim", "open-water"],
+      "warmup_min": 10,
+      "cooldown_min": 8,
+      "warmup": {"detail": "400 easy mixed stroke."},
+      "main": {
+        "intensity": "Easy / steady",
+        "detail": "Continuous or broken long swim {main_min} min equivalent. 500–1000 m blocks with 10 s rest if needed.",
+        "targets": {"css_pct": {"low": 1.10, "high": 1.25}, "rpe": {"low": 4, "high": 6}}
+      },
+      "cooldown": {"detail": "200 easy. Shoulder stretch."}
+    },
+    {
+      "id": "swim_open_water_sighting",
+      "sports": ["swimming"],
+      "session_types": ["easy", "race"],
+      "intent": "race_pace",
+      "priority": 14,
+      "match_keywords": ["open water", "sighting"],
+      "title": "Open-water prep (sighting)",
+      "summary": "Race-specific open-water skills",
+      "evidence_tags": ["open-water", "race-specific", "swim"],
+      "warmup_min": 10,
+      "cooldown_min": 8,
+      "warmup": {"detail": "300 easy. Practice bilateral breathing."},
+      "main": {
+        "intensity": "Moderate / race prep",
+        "detail": "6 × 200 with sighting every 6 strokes. Practice drafting and turning at moderate effort.",
+        "targets": {"css_pct": {"low": 1.00, "high": 1.08}, "rpe": {"low": 6, "high": 7}}
+      },
+      "cooldown": {"detail": "200 easy."}
+    },
+    {
+      "id": "swim_recovery",
+      "sports": ["swimming"],
+      "session_types": ["easy", "mobility"],
+      "intent": "easy",
+      "priority": 5,
+      "match_keywords": ["recovery"],
+      "title": "Recovery swim",
+      "summary": "Very easy swimming — active recovery",
+      "evidence_tags": ["recovery", "swim", "lactate-clearance"],
+      "warmup_min": 5,
+      "cooldown_min": 5,
+      "warmup": {"detail": "100 easy."},
+      "main": {
+        "intensity": "Very easy",
+        "detail": "Easy continuous swimming {main_min} min. Mix strokes. No hard efforts.",
+        "targets": {"css_pct": {"low": 1.15, "high": 1.30}, "rpe": {"low": 3, "high": 4}}
+      },
+      "cooldown": {"detail": "100 easy backstroke."}
+    },
+    {
+      "id": "swim_descending_5x200",
+      "sports": ["swimming"],
+      "session_types": ["intervals", "tempo"],
+      "intent": "tempo",
+      "priority": 12,
+      "match_keywords": ["descending", "descend"],
+      "title": "Descending 200s (5×)",
+      "summary": "Pacing discipline — negative split practice",
+      "evidence_tags": ["pacing", "tempo", "swim"],
+      "warmup_min": 12,
+      "cooldown_min": 8,
+      "warmup": {"detail": "400 easy. 4 × 50 build."},
+      "main": {
+        "type": "repeat",
+        "intensity": "Moderate → hard",
+        "reps": 5,
+        "on": {"duration_min": 4, "label": "200 m descending", "targets": {"css_pct": {"low": 1.02, "high": 0.96}}},
+        "off": {"duration_min": 0.5, "label": "rest", "targets": {"rpe": {"low": 2, "high": 3}}},
+        "detail_intro": "Each 200 slightly faster than the last. Start conservative."
+      },
+      "cooldown": {"detail": "200 easy."}
+    }
+  ]
+}

@@ -237,17 +237,21 @@ def _workout(
     intensity: str,
     notes: str,
 ) -> dict[str, Any]:
-    return {
-        "date": workout_date.isoformat(),
-        "sport": (sport or "Training")[:64],
-        "title": (title or "Session")[:200],
-        "session_type": _infer_session_type(title, sport, intensity),
-        "duration_min": duration,
-        "distance_m": None,
-        "intensity": (intensity or None),
-        "description": notes or None,
-        "structure": [],
-    }
+    from app.services.session_blueprints import enrich_workout
+
+    return enrich_workout(
+        {
+            "date": workout_date.isoformat(),
+            "sport": (sport or "Training")[:64],
+            "title": (title or "Session")[:200],
+            "session_type": _infer_session_type(title, sport, intensity),
+            "duration_min": duration,
+            "distance_m": None,
+            "intensity": (intensity or None),
+            "description": notes or None,
+            "structure": [],
+        }
+    )
 
 
 def _infer_session_type(title: str, sport: str, intensity: str) -> str:

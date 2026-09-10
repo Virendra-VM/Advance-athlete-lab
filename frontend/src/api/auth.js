@@ -83,6 +83,39 @@ export async function updateProfile(data, token = getStoredToken()) {
   return handleResponse(response)
 }
 
+export async function getTrainingZones(token = getStoredToken()) {
+  const response = await fetch(`${API_BASE_URL}/api/profile/me/zones`, {
+    headers: authHeaders(token),
+  })
+  return handleResponse(response)
+}
+
+export async function previewPhysiologyEstimate(token = getStoredToken()) {
+  const response = await fetch(`${API_BASE_URL}/api/profile/me/zones/estimate`, {
+    headers: authHeaders(token),
+  })
+  return handleResponse(response)
+}
+
+export async function applyPhysiologyEstimate(token = getStoredToken()) {
+  const response = await fetch(`${API_BASE_URL}/api/profile/me/zones/estimate`, {
+    method: 'POST',
+    headers: authHeaders(token),
+  })
+  return handleResponse(response)
+}
+
+export async function applyTestSuggestion(suggestionId, token = getStoredToken()) {
+  const response = await fetch(
+    `${API_BASE_URL}/api/profile/me/zones/suggestions/${encodeURIComponent(suggestionId)}/apply`,
+    {
+      method: 'POST',
+      headers: authHeaders(token),
+    },
+  )
+  return handleResponse(response)
+}
+
 export async function submitOnboarding(data, token = getStoredToken()) {
   const response = await fetch(`${API_BASE_URL}/api/profile/onboarding`, {
     method: 'POST',

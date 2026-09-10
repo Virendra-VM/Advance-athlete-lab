@@ -80,6 +80,16 @@ def run_migrations() -> None:
                 ("ftp_watts", "DOUBLE PRECISION"),
                 ("lthr_bpm", "DOUBLE PRECISION"),
                 ("max_hr_bpm", "DOUBLE PRECISION"),
+                ("bike_lthr_bpm", "DOUBLE PRECISION"),
+                ("resting_hr_bpm", "DOUBLE PRECISION"),
+                ("threshold_pace_sec_per_km", "DOUBLE PRECISION"),
+                ("lt1_pace_sec_per_km", "DOUBLE PRECISION"),
+                ("marathon_pace_sec_per_km", "DOUBLE PRECISION"),
+                ("css_sec_per_100m", "DOUBLE PRECISION"),
+                ("vo2max", "DOUBLE PRECISION"),
+                ("zone_run_hr_method", "VARCHAR(16) NOT NULL DEFAULT 'lthr'"),
+                ("zone_bike_power_method", "VARCHAR(16) NOT NULL DEFAULT 'coggan'"),
+                ("zone_run_pace_method", "VARCHAR(16) NOT NULL DEFAULT 'threshold'"),
                 ("ftp_source", "VARCHAR(32)"),
                 ("ftp_estimated_watts", "DOUBLE PRECISION"),
                 ("ftp_estimated_at", "TIMESTAMP"),
@@ -708,3 +718,119 @@ def run_migrations() -> None:
                 conn.execute(
                     text("ALTER TABLE season_plans ADD COLUMN last_replan_triggers_json TEXT")
                 )
+
+        inspector = inspect(conn)
+        tables = set(inspector.get_table_names())
+        if "planned_workouts" in tables:
+            pw_cols = {col["name"] for col in inspector.get_columns("planned_workouts")}
+            pw_additions = [
+                ("library_template_id", "VARCHAR(128)"),
+                ("library_version", "VARCHAR(32)"),
+                ("compliance_json", "TEXT"),
+            ]
+            for column_name, column_type in pw_additions:
+                if column_name not in pw_cols:
+                    conn.execute(
+                        text(f"ALTER TABLE planned_workouts ADD COLUMN {column_name} {column_type}")
+                    )
+            conn.execute(
+                text(
+                    "CREATE INDEX IF NOT EXISTS ix_planned_workouts_library_template_id "
+                    "ON planned_workouts (library_template_id)"
+                )
+            )
+
+        inspector = inspect(conn)
+        tables = set(inspector.get_table_names())
+        if "favorite_workout_templates" not in tables:
+            conn.execute(
+                text(
+                    """
+                    CREATE TABLE favorite_workout_templates (
+                        id SERIAL PRIMARY KEY,
+                        athlete_profile_id INTEGER NOT NULL REFERENCES athlete_profiles(id),
+                        template_id VARCHAR(128) NOT NULL,
+                        created_at TIMESTAMP NOT NULL DEFAULT NOW(),
+                        CONSTRAINT uq_favorite_workout_template UNIQUE (athlete_profile_id, template_id)
+                    )
+                    """
+                )
+            )
+            conn.execute(
+                text(
+                    "CREATE INDEX IF NOT EXISTS ix_favorite_workout_templates_profile "
+                    "ON favorite_workout_templates (athlete_profile_id)"
+                )
+            )
+
+        inspector = inspect(conn)
+        tables = set(inspector.get_table_names())
+        if "coach_memories" not in tables:
+            conn.execute(
+                text(
+                    """
+                    CREATE TABLE coach_memories (
+                        id SERIAL PRIMARY KEY,
+                        athlete_profile_id INTEGER NOT NULL REFERENCES athlete_profiles(id),
+                        memory_type VARCHAR(16) NOT NULL,
+                        category VARCHAR(32) NOT NULL,
+                        summary VARCHAR(160) NOT NULL,
+                        content TEXT NOT NULL,
+                        source VARCHAR(32) NOT NULL,
+                        dedupe_key VARCHAR(128) NOT NULL,
+                        activity_id INTEGER REFERENCES activities(id),
+                        status VARCHAR(16) NOT NULL DEFAULT 'active',
+                        expires_at TIMESTAMP,
+                        created_at TIMESTAMP NOT NULL DEFAULT NOW(),
+                        updated_at TIMESTAMP NOT NULL DEFAULT NOW(),
+                        CONSTRAINT uq_coach_memory_dedupe UNIQUE (athlete_profile_id, dedupe_key)
+                    )
+                    """
+                )
+            )
+            conn.execute(
+                text(
+                    "CREATE INDEX IF NOT EXISTS ix_coach_memories_profile "
+                    "ON coach_memories (athlete_profile_id)"
+                )
+            )
+            conn.execute(
+                text(
+                    "CREATE INDEX IF NOT EXISTS ix_coach_memories_activity "
+                    "ON coach_memories (activity_id)"
+                )
+            )
+
+        inspector = inspect(conn)
+        tables = set(inspector.get_table_names())
+        if "coach_review_flags" not in tables:
+            conn.execute(
+                text(
+                    """
+                    CREATE TABLE coach_review_flags (
+                        id SERIAL PRIMARY KEY,
+                        athlete_profile_id INTEGER NOT NULL REFERENCES athlete_profiles(id),
+                        message_id INTEGER NOT NULL REFERENCES coach_messages(id),
+                        reason VARCHAR(64) NOT NULL,
+                        category VARCHAR(32),
+                        notes TEXT,
+                        quality_score DOUBLE PRECISION,
+                        status VARCHAR(16) NOT NULL DEFAULT 'open',
+                        created_at TIMESTAMP NOT NULL DEFAULT NOW(),
+                        resolved_at TIMESTAMP
+                    )
+                    """
+                )
+            )
+            conn.execute(
+                text(
+                    "CREATE INDEX IF NOT EXISTS ix_coach_review_flags_profile "
+                    "ON coach_review_flags (athlete_profile_id)"
+                )
+            )
+            conn.execute(
+                text(
+                    "CREATE INDEX IF NOT EXISTS ix_coach_review_flags_message "
+                    "ON coach_review_flags (message_id)"
+                )
+            )

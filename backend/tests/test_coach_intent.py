@@ -11,6 +11,7 @@ if str(BACKEND_ROOT) not in sys.path:
 
 from app.services.coach_intent import (  # noqa: E402
     CLINICAL_VETO,
+    DAY_ADJUST,
     GENERAL_CHAT,
     OFF_TOPIC,
     SCHEDULE_UPDATE,
@@ -53,6 +54,24 @@ Sunday rest
 """
     assert classify_chat_intent(proposed, use_llm=False) == SCHEDULE_UPDATE
     assert classify_chat_intent("update my schedule for this week", use_llm=False) == SCHEDULE_UPDATE
+
+
+def test_day_adjust_health_does_not_rewrite_the_week():
+    assert (
+        classify_chat_intent("HRV is low, should I still do intervals today?", use_llm=False)
+        == DAY_ADJUST
+    )
+    assert (
+        classify_chat_intent("Readiness is bad, how should I adjust this week?", use_llm=False)
+        == DAY_ADJUST
+    )
+    assert classify_chat_intent("ACWR is high, skip today's quality", use_llm=False) == DAY_ADJUST
+    assert classify_chat_intent("Stress is high this morning", use_llm=False) == DAY_ADJUST
+    assert (
+        classify_chat_intent("How should I adjust this week?", use_llm=False) == SCHEDULE_UPDATE
+    )
+    assert classify_chat_intent("How was today's session?", use_llm=False) == WORKOUT_AUDIT
+    assert classify_chat_intent("What is HRV?", use_llm=False) == SCIENCE_LOOKUP
 
 
 def test_general_chat_examples():
@@ -296,8 +315,8 @@ def test_template_schedule_is_not_an_autopsy():
     assert "Coach's Secret Rule" in text
     assert "SPINE LOCK" in text
     assert "DO NOT" in text
-    assert "THE SCIENCE" in text
-    assert "LOCKER ROOM LINGO" in text
+    assert "THE SCIENCE" not in text
+    assert "WEEKLY TRANSLATIONS" not in text
     assert "lower-back" in text.lower() or "spine" in text.lower()
     assert "NP" not in text and "TSS" not in text
     assert reply["intent"] == SCHEDULE_UPDATE
@@ -307,6 +326,7 @@ def run() -> None:
     tests = [
         test_workout_audit_examples,
         test_schedule_update_examples,
+        test_day_adjust_health_does_not_rewrite_the_week,
         test_general_chat_examples,
         test_week_review_examples,
         test_week_review_does_not_steal_session_plan_or_science,

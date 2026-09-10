@@ -1,0 +1,882 @@
+{
+  "templates": [
+    {
+      "id": "run_treadmill_z2",
+      "version": 1,
+      "sports": [
+        "running"
+      ],
+      "session_types": [
+        "easy"
+      ],
+      "intent": "easy",
+      "priority": 10,
+      "title": "Treadmill Z2",
+      "summary": "Indoor aerobic base",
+      "evidence_tags": [
+        "polarized",
+        "sessions",
+        "easy"
+      ],
+      "warmup_min": 10,
+      "cooldown_min": 8,
+      "warmup": {
+        "detail": "Easy aerobic start. Dynamic mobility. No hard efforts yet."
+      },
+      "cooldown": {
+        "detail": "Easy cool-down. Stretch primary movers. Breathe."
+      },
+      "main": {
+        "intensity": "Easy",
+        "detail": "Treadmill Z2 for {main_min} min.",
+        "targets": {
+          "hr_pct_lthr": {
+            "low": 0.69,
+            "high": 0.83
+          }
+        }
+      }
+    },
+    {
+      "id": "run_treadmill_tempo",
+      "version": 1,
+      "sports": [
+        "running"
+      ],
+      "session_types": [
+        "tempo"
+      ],
+      "intent": "tempo",
+      "priority": 10,
+      "title": "Treadmill tempo",
+      "summary": "Indoor sub-threshold",
+      "evidence_tags": [
+        "polarized",
+        "sessions",
+        "tempo"
+      ],
+      "warmup_min": 10,
+      "cooldown_min": 8,
+      "warmup": {
+        "detail": "Easy aerobic start. Dynamic mobility. No hard efforts yet."
+      },
+      "cooldown": {
+        "detail": "Easy cool-down. Stretch primary movers. Breathe."
+      },
+      "main": {
+        "intensity": "Moderate-hard",
+        "detail": "Treadmill tempo session.",
+        "targets": {
+          "hr_pct_lthr": {
+            "low": 0.88,
+            "high": 0.94
+          }
+        }
+      }
+    },
+    {
+      "id": "run_track_200s",
+      "version": 1,
+      "sports": [
+        "running"
+      ],
+      "session_types": [
+        "intervals"
+      ],
+      "intent": "vo2",
+      "priority": 10,
+      "title": "Track 200 m reps",
+      "summary": "Neuromuscular speed",
+      "evidence_tags": [
+        "polarized",
+        "sessions",
+        "vo2"
+      ],
+      "warmup_min": 10,
+      "cooldown_min": 8,
+      "warmup": {
+        "detail": "Easy aerobic start. Dynamic mobility. No hard efforts yet."
+      },
+      "cooldown": {
+        "detail": "Easy cool-down. Stretch primary movers. Breathe."
+      },
+      "main": {
+        "type": "repeat",
+        "intensity": "VO\u2082 max",
+        "reps": 8,
+        "on": {
+          "duration_min": 0.75,
+          "label": "work",
+          "targets": {
+            "hr_pct_lthr": {
+              "low": 1.05,
+              "high": 1.12
+            }
+          }
+        },
+        "off": {
+          "duration_min": 1.5,
+          "label": "recovery",
+          "targets": {
+            "rpe": {
+              "low": 3,
+              "high": 4
+            }
+          }
+        },
+        "detail_intro": "Track 200 m reps \u2014 full recovery."
+      }
+    },
+    {
+      "id": "run_track_1k_repeats",
+      "version": 1,
+      "sports": [
+        "running"
+      ],
+      "session_types": [
+        "intervals"
+      ],
+      "intent": "vo2",
+      "priority": 10,
+      "title": "Track 1K repeats",
+      "summary": "VO2 speed endurance",
+      "evidence_tags": [
+        "polarized",
+        "sessions",
+        "vo2"
+      ],
+      "warmup_min": 10,
+      "cooldown_min": 8,
+      "warmup": {
+        "detail": "Easy aerobic start. Dynamic mobility. No hard efforts yet."
+      },
+      "cooldown": {
+        "detail": "Easy cool-down. Stretch primary movers. Breathe."
+      },
+      "main": {
+        "type": "repeat",
+        "intensity": "VO\u2082 max",
+        "reps": 8,
+        "on": {
+          "duration_min": 0.75,
+          "label": "work",
+          "targets": {
+            "hr_pct_lthr": {
+              "low": 1.05,
+              "high": 1.12
+            }
+          }
+        },
+        "off": {
+          "duration_min": 1.5,
+          "label": "recovery",
+          "targets": {
+            "rpe": {
+              "low": 3,
+              "high": 4
+            }
+          }
+        },
+        "detail_intro": "Track 200 m reps \u2014 full recovery."
+      }
+    },
+    {
+      "id": "run_pyramid_1_2_3_2_1",
+      "version": 1,
+      "sports": [
+        "running"
+      ],
+      "session_types": [
+        "intervals"
+      ],
+      "intent": "vo2",
+      "priority": 10,
+      "title": "Pyramid intervals",
+      "summary": "Variable VO2 pyramid",
+      "evidence_tags": [
+        "polarized",
+        "sessions",
+        "vo2"
+      ],
+      "warmup_min": 10,
+      "cooldown_min": 8,
+      "warmup": {
+        "detail": "Easy aerobic start. Dynamic mobility. No hard efforts yet."
+      },
+      "cooldown": {
+        "detail": "Easy cool-down. Stretch primary movers. Breathe."
+      },
+      "main": {
+        "type": "repeat",
+        "intensity": "VO\u2082 max",
+        "reps": 5,
+        "on": {
+          "duration_min": 3,
+          "label": "work",
+          "targets": {
+            "hr_pct_lthr": {
+              "low": 1.05,
+              "high": 1.12
+            }
+          }
+        },
+        "off": {
+          "duration_min": 2,
+          "label": "recovery",
+          "targets": {
+            "rpe": {
+              "low": 3,
+              "high": 4
+            }
+          }
+        },
+        "detail_intro": ""
+      }
+    },
+    {
+      "id": "run_cutdown_5_4_3_2_1",
+      "version": 1,
+      "sports": [
+        "running"
+      ],
+      "session_types": [
+        "threshold"
+      ],
+      "intent": "threshold",
+      "priority": 10,
+      "title": "Cut-down threshold",
+      "summary": "Descending threshold blocks",
+      "evidence_tags": [
+        "polarized",
+        "sessions",
+        "threshold"
+      ],
+      "warmup_min": 10,
+      "cooldown_min": 8,
+      "warmup": {
+        "detail": "Easy aerobic start. Dynamic mobility. No hard efforts yet."
+      },
+      "cooldown": {
+        "detail": "Easy cool-down. Stretch primary movers. Breathe."
+      },
+      "main": {
+        "intensity": "Threshold cut-down",
+        "detail": "5-4-3-2-1 min threshold blocks descending with 2 min easy between.",
+        "targets": {
+          "hr_pct_lthr": {
+            "low": 0.95,
+            "high": 1.02
+          }
+        }
+      }
+    },
+    {
+      "id": "run_ladder_3_6_9_6_3",
+      "version": 1,
+      "sports": [
+        "running"
+      ],
+      "session_types": [
+        "tempo"
+      ],
+      "intent": "tempo",
+      "priority": 10,
+      "title": "Tempo ladder",
+      "summary": "Progressive tempo ladder",
+      "evidence_tags": [
+        "polarized",
+        "sessions",
+        "tempo"
+      ],
+      "warmup_min": 10,
+      "cooldown_min": 8,
+      "warmup": {
+        "detail": "Easy aerobic start. Dynamic mobility. No hard efforts yet."
+      },
+      "cooldown": {
+        "detail": "Easy cool-down. Stretch primary movers. Breathe."
+      },
+      "main": {
+        "intensity": "Moderate-hard",
+        "detail": "Tempo ladder session.",
+        "targets": {
+          "hr_pct_lthr": {
+            "low": 0.85,
+            "high": 0.96
+          }
+        }
+      }
+    },
+    {
+      "id": "run_doubles_am_easy",
+      "version": 1,
+      "sports": [
+        "running"
+      ],
+      "session_types": [
+        "easy"
+      ],
+      "intent": "easy",
+      "priority": 10,
+      "title": "Double day \u2014 easy AM",
+      "summary": "Second run easy aerobic",
+      "evidence_tags": [
+        "polarized",
+        "sessions",
+        "easy"
+      ],
+      "warmup_min": 10,
+      "cooldown_min": 8,
+      "warmup": {
+        "detail": "Easy aerobic start. Dynamic mobility. No hard efforts yet."
+      },
+      "cooldown": {
+        "detail": "Easy cool-down. Stretch primary movers. Breathe."
+      },
+      "main": {
+        "intensity": "Easy",
+        "detail": "Double day \u2014 easy AM for {main_min} min.",
+        "targets": {
+          "hr_pct_lthr": {
+            "low": 0.69,
+            "high": 0.83
+          }
+        }
+      }
+    },
+    {
+      "id": "run_doubles_pm_strides",
+      "version": 1,
+      "sports": [
+        "running"
+      ],
+      "session_types": [
+        "easy"
+      ],
+      "intent": "strides",
+      "priority": 10,
+      "title": "Double day \u2014 strides PM",
+      "summary": "Short PM neuromuscular",
+      "evidence_tags": [
+        "polarized",
+        "sessions",
+        "strides"
+      ],
+      "warmup_min": 10,
+      "cooldown_min": 8,
+      "warmup": {
+        "detail": "Easy aerobic start. Dynamic mobility. No hard efforts yet."
+      },
+      "cooldown": {
+        "detail": "Easy cool-down. Stretch primary movers. Breathe."
+      },
+      "main": {
+        "intensity": "Moderate",
+        "detail": "Double day \u2014 strides PM for {main_min} min.",
+        "targets": {
+          "hr_pct_lthr": {
+            "low": 0.7,
+            "high": 0.85
+          }
+        }
+      }
+    },
+    {
+      "id": "run_hill_sprints_10x10",
+      "version": 1,
+      "sports": [
+        "running"
+      ],
+      "session_types": [
+        "hills"
+      ],
+      "intent": "hills",
+      "priority": 10,
+      "title": "Hill sprints (10\u00d710 s)",
+      "summary": "Alactic hill sprints",
+      "evidence_tags": [
+        "polarized",
+        "sessions",
+        "hills"
+      ],
+      "warmup_min": 10,
+      "cooldown_min": 8,
+      "warmup": {
+        "detail": "Easy aerobic start. Dynamic mobility. No hard efforts yet."
+      },
+      "cooldown": {
+        "detail": "Easy cool-down. Stretch primary movers. Breathe."
+      },
+      "main": {
+        "type": "repeat",
+        "intensity": "Hill sprint",
+        "reps": 10,
+        "on": {
+          "duration_min": 0.17,
+          "label": "uphill sprint",
+          "targets": {
+            "rpe": {
+              "low": 9,
+              "high": 10
+            }
+          }
+        },
+        "off": {
+          "duration_min": 2,
+          "label": "recovery",
+          "targets": {
+            "rpe": {
+              "low": 3,
+              "high": 4
+            }
+          }
+        },
+        "detail_intro": ""
+      }
+    },
+    {
+      "id": "run_marathon_pace_3x3",
+      "version": 1,
+      "sports": [
+        "running"
+      ],
+      "session_types": [
+        "race_pace"
+      ],
+      "intent": "race_pace",
+      "priority": 10,
+      "title": "Marathon pace 3\u00d73 mi",
+      "summary": "Marathon specificity",
+      "evidence_tags": [
+        "polarized",
+        "sessions",
+        "race_pace"
+      ],
+      "warmup_min": 10,
+      "cooldown_min": 8,
+      "warmup": {
+        "detail": "Easy aerobic start. Dynamic mobility. No hard efforts yet."
+      },
+      "cooldown": {
+        "detail": "Easy cool-down. Stretch primary movers. Breathe."
+      },
+      "main": {
+        "intensity": "Moderate-hard",
+        "detail": "Marathon pace 3\u00d73 mi session.",
+        "targets": {
+          "hr_pct_lthr": {
+            "low": 0.85,
+            "high": 0.92
+          }
+        }
+      }
+    },
+    {
+      "id": "run_half_marathon_pace_4x2",
+      "version": 1,
+      "sports": [
+        "running"
+      ],
+      "session_types": [
+        "race_pace"
+      ],
+      "intent": "race_pace",
+      "priority": 10,
+      "title": "HM pace 4\u00d72 mi",
+      "summary": "Half-marathon specificity",
+      "evidence_tags": [
+        "polarized",
+        "sessions",
+        "race_pace"
+      ],
+      "warmup_min": 10,
+      "cooldown_min": 8,
+      "warmup": {
+        "detail": "Easy aerobic start. Dynamic mobility. No hard efforts yet."
+      },
+      "cooldown": {
+        "detail": "Easy cool-down. Stretch primary movers. Breathe."
+      },
+      "main": {
+        "intensity": "Moderate-hard",
+        "detail": "HM pace 4\u00d72 mi session.",
+        "targets": {
+          "hr_pct_lthr": {
+            "low": 0.9,
+            "high": 0.96
+          }
+        }
+      }
+    },
+    {
+      "id": "run_5k_pace_8x400",
+      "version": 1,
+      "sports": [
+        "running"
+      ],
+      "session_types": [
+        "race_pace"
+      ],
+      "intent": "race_pace",
+      "priority": 10,
+      "title": "5K pace 8\u00d7400 m",
+      "summary": "5K race-pace reps",
+      "evidence_tags": [
+        "polarized",
+        "sessions",
+        "race_pace"
+      ],
+      "warmup_min": 10,
+      "cooldown_min": 8,
+      "warmup": {
+        "detail": "Easy aerobic start. Dynamic mobility. No hard efforts yet."
+      },
+      "cooldown": {
+        "detail": "Easy cool-down. Stretch primary movers. Breathe."
+      },
+      "main": {
+        "intensity": "Moderate-hard",
+        "detail": "5K pace 8\u00d7400 m session.",
+        "targets": {
+          "pace_pct_threshold": {
+            "low": 0.88,
+            "high": 0.94
+          }
+        }
+      }
+    },
+    {
+      "id": "run_aerobic_te",
+      "version": 1,
+      "sports": [
+        "running"
+      ],
+      "session_types": [
+        "easy"
+      ],
+      "intent": "easy",
+      "priority": 10,
+      "title": "Aerobic threshold (TE)",
+      "summary": "Upper Z2 aerobic development",
+      "evidence_tags": [
+        "polarized",
+        "sessions",
+        "easy"
+      ],
+      "warmup_min": 10,
+      "cooldown_min": 8,
+      "warmup": {
+        "detail": "Easy aerobic start. Dynamic mobility. No hard efforts yet."
+      },
+      "cooldown": {
+        "detail": "Easy cool-down. Stretch primary movers. Breathe."
+      },
+      "main": {
+        "intensity": "Easy",
+        "detail": "Aerobic threshold (TE) for {main_min} min.",
+        "targets": {
+          "hr_pct_lthr": {
+            "low": 0.8,
+            "high": 0.88
+          }
+        }
+      }
+    },
+    {
+      "id": "run_broken_long_3x20",
+      "version": 1,
+      "sports": [
+        "running"
+      ],
+      "session_types": [
+        "long"
+      ],
+      "intent": "long",
+      "priority": 10,
+      "title": "Broken long run",
+      "summary": "Long aerobic with short breaks",
+      "evidence_tags": [
+        "polarized",
+        "sessions",
+        "long"
+      ],
+      "warmup_min": 10,
+      "cooldown_min": 8,
+      "warmup": {
+        "detail": "Easy aerobic start. Dynamic mobility. No hard efforts yet."
+      },
+      "cooldown": {
+        "detail": "Easy cool-down. Stretch primary movers. Breathe."
+      },
+      "main": {
+        "intensity": "Moderate",
+        "detail": "Broken long run for {main_min} min.",
+        "targets": {
+          "hr_pct_lthr": {
+            "low": 0.69,
+            "high": 0.83
+          }
+        }
+      }
+    },
+    {
+      "id": "run_walk_ultra",
+      "version": 1,
+      "sports": [
+        "running"
+      ],
+      "session_types": [
+        "long"
+      ],
+      "intent": "long",
+      "priority": 10,
+      "title": "Ultra run-walk",
+      "summary": "Time-on-feet ultra prep",
+      "evidence_tags": [
+        "polarized",
+        "sessions",
+        "long"
+      ],
+      "warmup_min": 10,
+      "cooldown_min": 8,
+      "warmup": {
+        "detail": "Easy aerobic start. Dynamic mobility. No hard efforts yet."
+      },
+      "cooldown": {
+        "detail": "Easy cool-down. Stretch primary movers. Breathe."
+      },
+      "main": {
+        "intensity": "Moderate",
+        "detail": "Ultra run-walk for {main_min} min.",
+        "targets": {
+          "hr_pct_lthr": {
+            "low": 0.65,
+            "high": 0.78
+          }
+        }
+      }
+    },
+    {
+      "id": "run_heat_acclimation_easy",
+      "version": 1,
+      "sports": [
+        "running"
+      ],
+      "session_types": [
+        "easy"
+      ],
+      "intent": "easy",
+      "priority": 10,
+      "title": "Heat acclimation easy",
+      "summary": "Easy heat exposure",
+      "evidence_tags": [
+        "polarized",
+        "sessions",
+        "easy"
+      ],
+      "warmup_min": 10,
+      "cooldown_min": 8,
+      "warmup": {
+        "detail": "Easy aerobic start. Dynamic mobility. No hard efforts yet."
+      },
+      "cooldown": {
+        "detail": "Easy cool-down. Stretch primary movers. Breathe."
+      },
+      "main": {
+        "intensity": "Easy",
+        "detail": "Heat acclimation easy for {main_min} min.",
+        "targets": {
+          "hr_pct_lthr": {
+            "low": 0.69,
+            "high": 0.83
+          }
+        }
+      }
+    },
+    {
+      "id": "run_altitude_easy",
+      "version": 1,
+      "sports": [
+        "running"
+      ],
+      "session_types": [
+        "easy"
+      ],
+      "intent": "easy",
+      "priority": 10,
+      "title": "Altitude easy run",
+      "summary": "Easy aerobic at elevation",
+      "evidence_tags": [
+        "polarized",
+        "sessions",
+        "easy"
+      ],
+      "warmup_min": 10,
+      "cooldown_min": 8,
+      "warmup": {
+        "detail": "Easy aerobic start. Dynamic mobility. No hard efforts yet."
+      },
+      "cooldown": {
+        "detail": "Easy cool-down. Stretch primary movers. Breathe."
+      },
+      "main": {
+        "intensity": "Easy",
+        "detail": "Altitude easy run for {main_min} min.",
+        "targets": {
+          "hr_pct_lthr": {
+            "low": 0.69,
+            "high": 0.83
+          }
+        }
+      }
+    },
+    {
+      "id": "run_form_drills",
+      "version": 1,
+      "sports": [
+        "running"
+      ],
+      "session_types": [
+        "easy"
+      ],
+      "intent": "easy",
+      "priority": 10,
+      "title": "Easy run + drills",
+      "summary": "Economy drills post easy run",
+      "evidence_tags": [
+        "polarized",
+        "sessions",
+        "easy"
+      ],
+      "warmup_min": 10,
+      "cooldown_min": 8,
+      "warmup": {
+        "detail": "Easy aerobic start. Dynamic mobility. No hard efforts yet."
+      },
+      "cooldown": {
+        "detail": "Easy cool-down. Stretch primary movers. Breathe."
+      },
+      "main": {
+        "intensity": "Easy",
+        "detail": "Easy run + drills for {main_min} min.",
+        "targets": {
+          "hr_pct_lthr": {
+            "low": 0.69,
+            "high": 0.83
+          }
+        }
+      }
+    },
+    {
+      "id": "run_parkrun_sim",
+      "version": 1,
+      "sports": [
+        "running"
+      ],
+      "session_types": [
+        "race"
+      ],
+      "intent": "race",
+      "priority": 10,
+      "title": "Parkrun simulation",
+      "summary": "5K race rehearsal",
+      "evidence_tags": [
+        "polarized",
+        "sessions",
+        "race"
+      ],
+      "warmup_min": 10,
+      "cooldown_min": 8,
+      "warmup": {
+        "detail": "Easy aerobic start. Dynamic mobility. No hard efforts yet."
+      },
+      "cooldown": {
+        "detail": "Easy cool-down. Stretch primary movers. Breathe."
+      },
+      "main": {
+        "intensity": "Moderate",
+        "detail": "Parkrun simulation for {main_min} min.",
+        "targets": {
+          "hr_pct_lthr": {
+            "low": 1.05,
+            "high": 1.12
+          }
+        }
+      }
+    },
+    {
+      "id": "run_negative_split_long",
+      "version": 1,
+      "sports": [
+        "running"
+      ],
+      "session_types": [
+        "progression"
+      ],
+      "intent": "progression",
+      "priority": 10,
+      "title": "Negative-split long",
+      "summary": "Progressive long run",
+      "evidence_tags": [
+        "polarized",
+        "sessions",
+        "progression"
+      ],
+      "warmup_min": 10,
+      "cooldown_min": 8,
+      "warmup": {
+        "detail": "Easy aerobic start. Dynamic mobility. No hard efforts yet."
+      },
+      "cooldown": {
+        "detail": "Easy cool-down. Stretch primary movers. Breathe."
+      },
+      "main": {
+        "intensity": "Moderate",
+        "detail": "Negative-split long for {main_min} min.",
+        "targets": {
+          "hr_pct_lthr": {
+            "low": 0.69,
+            "high": 0.83
+          }
+        }
+      }
+    },
+    {
+      "id": "run_marathon_specific_20",
+      "version": 1,
+      "sports": [
+        "running"
+      ],
+      "session_types": [
+        "long"
+      ],
+      "intent": "long",
+      "priority": 10,
+      "title": "20 mi long run",
+      "summary": "Marathon long run",
+      "evidence_tags": [
+        "polarized",
+        "sessions",
+        "long"
+      ],
+      "warmup_min": 10,
+      "cooldown_min": 8,
+      "warmup": {
+        "detail": "Easy aerobic start. Dynamic mobility. No hard efforts yet."
+      },
+      "cooldown": {
+        "detail": "Easy cool-down. Stretch primary movers. Breathe."
+      },
+      "main": {
+        "intensity": "Moderate",
+        "detail": "20 mi long run for {main_min} min.",
+        "targets": {
+          "hr_pct_lthr": {
+            "low": 0.69,
+            "high": 0.83
+          }
+        }
+      }
+    }
+  ]
+}

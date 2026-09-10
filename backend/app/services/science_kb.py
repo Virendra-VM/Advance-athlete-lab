@@ -91,6 +91,14 @@ TOPIC_SYNONYMS = {
     "acclimation": ["heat", "environment"],
     "acclimatisation": ["heat", "environment"],
     "acclimatization": ["heat", "environment"],
+    "carbohydrate": ["carbohydrate", "fueling", "glycogen", "zone-2"],
+    "carbs": ["carbohydrate", "fueling", "glycogen"],
+    "glycogen": ["glycogen", "carbohydrate", "fueling"],
+    "fueling": ["fueling", "carbohydrate", "glycogen"],
+    "lactate": ["lactate", "threshold", "clearance", "sessions"],
+    "clearance": ["lactate", "clearance", "recovery"],
+    "polarized": ["polarized", "intensity", "zones", "periodization"],
+    "tapering": ["taper", "periodization", "race-prep"],
     "bfr": ["recovery", "strength", "safety"],
     "restriction": ["recovery", "strength", "safety"],
     "occlusion": ["recovery", "strength", "safety"],
@@ -239,6 +247,25 @@ def _expand_query_tags(tokens: list[str]) -> set[str]:
     return tags
 
 
+_CORPUS_CACHE: dict[int, tuple[list, dict]] = {}
+
+
+def _cached_corpus(db: Session) -> tuple[list, dict]:
+    """Load chunks + sources once per process — RAG was reloading the full corpus every chat turn."""
+    key = id(db.get_bind())
+    cached = _CORPUS_CACHE.get(key)
+    if cached is not None:
+        return cached
+    chunks = db.query(ScienceChunk).all()
+    sources = {source.id: source for source in db.query(ScienceSource).all()}
+    _CORPUS_CACHE[key] = (chunks, sources)
+    return chunks, sources
+
+
+def clear_corpus_cache() -> None:
+    _CORPUS_CACHE.clear()
+
+
 def retrieve_science(
     db: Session,
     query: str,
@@ -247,11 +274,9 @@ def retrieve_science(
     k: int = 6,
 ) -> list[dict]:
     """Return the top-k citable chunks for a query, best match first."""
-    chunks = db.query(ScienceChunk).all()
+    chunks, sources = _cached_corpus(db)
     if not chunks:
         return []
-
-    sources = {source.id: source for source in db.query(ScienceSource).all()}
 
     query_tokens = _tokenize(query)
     wanted_sports = {normalize_sport(sport) for sport in (sports or []) if sport}

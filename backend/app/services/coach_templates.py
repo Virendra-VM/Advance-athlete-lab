@@ -56,138 +56,14 @@ def _spread_days(day_count: int) -> list[int]:
 def build_template_week(
     context: dict, safety: dict, week_start: date, today: date | None = None
 ) -> dict:
-    sports = _primary_sports(context)
-    days = safety["max_days_per_week"]
-    offsets = _spread_days(days)
-    today = today or date.today()
-    remaining = [offset for offset in offsets if week_start + timedelta(days=offset) >= today]
-    if not remaining:
-        remaining = [max(0, (today - week_start).days)]
-    typical = safety.get("typical_session_minutes") or 45
-    max_session = safety["max_session_minutes"]
-    # Weekday sessions use typical length; the long day may run 90–240 min when allowed.
-    session_minutes = typical
-    long_minutes = min(
-        max_session,
-        max(round(typical * 2), typical + 60, 90),
-    )
-    readiness = safety["readiness"]
-    hard_budget = safety["max_hard_sessions"]
-    quality_slot = remaining[len(remaining) // 2] if len(remaining) > 1 else None
+    """Backward-compatible entry — delegates to the phase-aware library week builder."""
+    from app.services.session_blueprints import enrich_plan
+    from app.services.workout_library import physiology_from_context
+    from app.services.workout_selection import build_library_week
 
-    workouts = []
-    for index, offset in enumerate(remaining):
-        sport = sports[index % len(sports)]
-        sport_key = sport.lower()
-        is_last = index == len(remaining) - 1
-        session_date = week_start + timedelta(days=offset)
-
-        if index == 0 and readiness["action"] != "proceed":
-            workouts.append(
-                {
-                    "date": session_date.isoformat(),
-                    "sport": sport,
-                    "title": "Recovery session",
-                    "session_type": "easy" if readiness["action"] == "downgrade_to_easy" else "mobility",
-                    "duration_min": max(20, round(session_minutes * 0.6)),
-                    "intensity": "Recovery",
-                    "description": f"{readiness['reason']} Keep this genuinely easy and reassess tomorrow.",
-                    "structure": [],
-                }
-            )
-            continue
-
-        if hard_budget > 0 and offset == quality_slot:
-            session_type, detail = QUALITY_BY_SPORT.get(
-                sport_key, ("tempo", "Sustained moderate-hard effort with easy recovery")
-            )
-            hard_budget -= 1
-            workouts.append(
-                {
-                    "date": session_date.isoformat(),
-                    "sport": sport,
-                    "title": f"{sport} quality session",
-                    "session_type": session_type,
-                    "duration_min": session_minutes,
-                    "intensity": "Hard / controlled",
-                    "description": f"10 min easy warm-up, {detail}, 10 min easy cool-down.",
-                    "structure": [
-                        {"segment": "Warm-up", "duration_min": 10, "intensity": "Easy"},
-                        {
-                            "segment": "Main set",
-                            "duration_min": max(10, session_minutes - 20),
-                            "intensity": "Hard",
-                        },
-                        {"segment": "Cool-down", "duration_min": 10, "intensity": "Easy"},
-                    ],
-                }
-            )
-            continue
-
-        if is_last and sport_key in ENDURANCE_SPORTS and days > 2:
-            workouts.append(
-                {
-                    "date": session_date.isoformat(),
-                    "sport": sport,
-                    "title": f"Long {sport.lower()} session",
-                    "session_type": "long",
-                    "duration_min": long_minutes,
-                    "intensity": "Easy / conversational",
-                    "description": "Steady aerobic effort you could hold a conversation through. "
-                    "Fuel and hydrate if it runs past 75 minutes.",
-                    "structure": [],
-                }
-            )
-            continue
-
-        if sport_key == "strength training":
-            workouts.append(
-                {
-                    "date": session_date.isoformat(),
-                    "sport": sport,
-                    "title": "Full-body strength",
-                    "session_type": "strength",
-                    "duration_min": session_minutes,
-                    "intensity": "RPE 6-7",
-                    "description": "Squat pattern, hinge pattern, push, pull, carry — 3 sets of 8-12 "
-                    "reps at RPE 6-7 with 90 s rest.",
-                    "structure": [],
-                }
-            )
-            continue
-
-        workouts.append(
-            {
-                "date": session_date.isoformat(),
-                "sport": sport,
-                "title": f"Easy {sport.lower()}",
-                "session_type": "easy",
-                "duration_min": session_minutes,
-                "intensity": "Easy / conversational",
-                "description": "Conversational effort throughout. Finish feeling like you could "
-                "repeat it tomorrow.",
-                "structure": [],
-            }
-        )
-
-    goal = context.get("profile", {}).get("primary_goal") or "general fitness"
-    return {
-        "title": f"Week of {week_start.strftime('%b %d')}",
-        "summary": (
-            f"{len(workouts)} sessions across {', '.join(sports)} aimed at {goal}, sized to "
-            f"{safety['max_weekly_minutes']} minutes and your recent training load."
-        ),
-        "focus": "Consistency and aerobic base"
-        if safety["max_hard_sessions"] == 0
-        else "Aerobic base with one quality session",
-        "week_start": week_start.isoformat(),
-        "workouts": workouts,
-        "coach_notes": (
-            "Built from your profile and safety rules without an AI provider configured. "
-            "Set AI_PROVIDER and an API key for personalised generation."
-        ),
-        "citations": [],
-    }
+    physiology = physiology_from_context(context)
+    plan = build_library_week(context, safety, week_start, today=today)
+    return enrich_plan(plan, safety, physiology=physiology)
 
 
 def build_template_advice(context: dict, safety: dict) -> dict:

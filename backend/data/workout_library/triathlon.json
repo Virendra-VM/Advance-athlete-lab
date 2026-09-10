@@ -1,0 +1,124 @@
+{
+  "templates": [
+    {
+      "id": "tri_brick_bike_run",
+      "sports": ["triathlon"],
+      "session_types": ["threshold", "tempo", "cross-training"],
+      "intent": "threshold",
+      "priority": 20,
+      "title": "Brick — bike to run",
+      "summary": "Transition practice — run off the bike neuromuscular adaptation",
+      "evidence_tags": ["triathlon", "brick", "race-specific"],
+      "warmup_min": 12,
+      "cooldown_min": 10,
+      "warmup": {"detail": "Easy spin 10 min. 2 × 1 min at tempo."},
+      "main": {
+        "intensity": "Moderate-hard / brick",
+        "detail": "Bike 40 min at sweet spot (84–94% FTP), then transition quickly to 15 min run at marathon effort. Practice T2 routine.",
+        "targets": {"pct_ftp": {"low": 0.84, "high": 0.94}, "hr_pct_lthr": {"low": 0.85, "high": 0.92}}
+      },
+      "cooldown": {"detail": "Easy jog 8 min. Stretch hip flexors aggressively."}
+    },
+    {
+      "id": "tri_swim_bike",
+      "sports": ["triathlon"],
+      "session_types": ["cross-training", "easy"],
+      "intent": "cross_training",
+      "priority": 16,
+      "match_keywords": ["swim bike", "swim-bike"],
+      "title": "Swim-bike combo",
+      "summary": "T1 practice — wet exit to bike pacing",
+      "evidence_tags": ["triathlon", "race-specific", "transition"],
+      "warmup_min": 10,
+      "cooldown_min": 8,
+      "warmup": {"detail": "200 easy swim. 4 × 50 drill/swim."},
+      "main": {
+        "intensity": "Moderate / race prep",
+        "detail": "Swim 20 min at CSS+ effort, quick transition, bike 30 min at Z2–tempo. Practice nutrition on the bike.",
+        "targets": {"css_pct": {"low": 1.00, "high": 1.06}, "pct_ftp": {"low": 0.70, "high": 0.85}}
+      },
+      "cooldown": {"detail": "Easy spin 6 min."}
+    },
+    {
+      "id": "tri_bike_threshold_run_easy",
+      "sports": ["triathlon"],
+      "session_types": ["threshold"],
+      "intent": "threshold",
+      "priority": 18,
+      "title": "Tri quality — bike threshold + easy run",
+      "summary": "Classic tri quality day — bike hard, run easy off the bike",
+      "evidence_tags": ["triathlon", "threshold", "brick"],
+      "warmup_min": 12,
+      "cooldown_min": 10,
+      "warmup": {"detail": "Easy spin 10 min."},
+      "main": {
+        "type": "repeat",
+        "intensity": "Threshold bike + easy run",
+        "reps": 3,
+        "on": {"duration_min": 8, "label": "bike at threshold", "targets": {"pct_ftp": {"low": 0.91, "high": 1.02}}},
+        "off": {"duration_min": 3, "label": "easy spin", "targets": {"pct_ftp": {"low": 0.50, "high": 0.58}}},
+        "detail_intro": "Then 10 min easy run off the bike. Focus on quick cadence first 3 min."
+      },
+      "cooldown": {"detail": "Easy jog 6 min."}
+    },
+    {
+      "id": "tri_run_race_pace_off_bike",
+      "sports": ["triathlon"],
+      "session_types": ["race", "tempo"],
+      "intent": "race_pace",
+      "priority": 16,
+      "match_keywords": ["race pace", "70.3", "ironman"],
+      "title": "Race-pace run off bike",
+      "summary": "70.3 / Ironman run pacing off fatigued legs",
+      "evidence_tags": ["triathlon", "race-specific", "periodization"],
+      "warmup_min": 15,
+      "cooldown_min": 10,
+      "warmup": {"detail": "Easy spin 12 min. 2 × 1 min at race bike feel."},
+      "main": {
+        "intensity": "Race pace run",
+        "detail": "Bike 30 min easy Z2, then 3 × 10 min run at 70.3 race pace with 3 min easy between. First 2 min of each run: quick cadence.",
+        "targets": {"hr_pct_lthr": {"low": 0.85, "high": 0.92}, "pct_ftp": {"low": 0.60, "high": 0.72}}
+      },
+      "cooldown": {"detail": "Easy jog 8 min."}
+    },
+    {
+      "id": "tri_easy_multi",
+      "sports": ["triathlon"],
+      "session_types": ["easy"],
+      "intent": "easy",
+      "priority": 10,
+      "title": "Multi-sport easy day",
+      "summary": "Aerobic volume across disciplines — low intensity",
+      "evidence_tags": ["triathlon", "polarized", "aerobic_base"],
+      "warmup_min": 8,
+      "cooldown_min": 8,
+      "warmup": {"detail": "200 easy swim."},
+      "main": {
+        "intensity": "Easy / multi-sport",
+        "detail": "Swim 15 min easy, bike 20 min Z2, run 15 min conversational. Focus on smooth transitions and form.",
+        "targets": {"pct_ftp": {"low": 0.56, "high": 0.70}, "hr_pct_lthr": {"low": 0.65, "high": 0.78}}
+      },
+      "cooldown": {"detail": "Walk 5 min. Stretch hip flexors."}
+    },
+    {
+      "id": "tri_taper_brick",
+      "sports": ["triathlon"],
+      "session_types": ["easy", "race"],
+      "intent": "easy",
+      "priority": 12,
+      "match_keywords": ["taper", "opener"],
+      "title": "Taper brick opener",
+      "summary": "Pre-race neuromuscular priming across disciplines",
+      "evidence_tags": ["triathlon", "taper", "race-specific"],
+      "warmup_min": 10,
+      "cooldown_min": 8,
+      "warmup": {"detail": "200 easy swim. 5 min easy spin."},
+      "main": {
+        "intensity": "Easy + openers",
+        "detail": "Swim 10 min with 4 × 50 at race feel. Bike 15 min with 3 × 1 min at 90% FTP. Run 10 min with 3 × 1 min at race pace. Stay fresh.",
+        "targets": {"pct_ftp": {"low": 0.85, "high": 0.95}, "hr_pct_lthr": {"low": 0.80, "high": 0.90}}
+      },
+      "cooldown": {"detail": "Easy walk 5 min. Stay off feet after."}
+    }
+  ]
+}

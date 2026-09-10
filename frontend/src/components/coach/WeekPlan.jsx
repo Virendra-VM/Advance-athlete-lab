@@ -1,8 +1,14 @@
 import { useState } from 'react'
-import { CalendarPlus, ChevronDown, Pin, ShieldCheck } from 'lucide-react'
+import { CalendarPlus, ChevronDown, Download, Pin, Repeat2, ShieldCheck, Star } from 'lucide-react'
 import LoadingDots from '../ui/LoadingDots'
 import SectionCard from '../ui/SectionCard'
 import { addDaysISO, formatDistanceKm, toISODateLocal } from '../../utils/formatters'
+import {
+  addFavoriteTemplate,
+  exportWorkout,
+  removeFavoriteTemplate,
+  repeatWorkout,
+} from '../../api/coach'
 
 const REST_TYPES = new Set(['rest', 'mobility'])
 const HARD_TYPES = new Set(['intervals', 'threshold', 'tempo', 'hills', 'speed', 'race'])
@@ -22,10 +28,57 @@ function sessionTone(sessionType) {
   return 'text-sage'
 }
 
-function WorkoutRow({ workout }) {
+function WorkoutRow({ workout, onWorkoutUpdated }) {
   const [open, setOpen] = useState(false)
+  const [busy, setBusy] = useState(false)
+  const [favorite, setFavorite] = useState(Boolean(workout.is_favorite))
   const hasDetail = Boolean(workout.description || (workout.structure || []).length)
   const done = Boolean(workout.completed_activity_id)
+  const compliance = workout.compliance
+  const templateId = workout.library_template_id
+
+  async function handleRepeat() {
+    if (!workout.id || busy) return
+    setBusy(true)
+    try {
+      await repeatWorkout(workout.id)
+      onWorkoutUpdated?.()
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  async function handleFavorite() {
+    if (!templateId || busy) return
+    setBusy(true)
+    try {
+      if (favorite) {
+        await removeFavoriteTemplate(templateId)
+        setFavorite(false)
+      } else {
+        await addFavoriteTemplate(templateId)
+        setFavorite(true)
+      }
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  async function handleExport(format) {
+    if (!workout.id || busy) return
+    setBusy(true)
+    try {
+      const { blob, filename } = await exportWorkout(workout.id, format)
+      const url = URL.createObjectURL(blob)
+      const link = document.createElement('a')
+      link.href = url
+      link.download = filename
+      link.click()
+      URL.revokeObjectURL(url)
+    } finally {
+      setBusy(false)
+    }
+  }
 
   return (
     <div className="rounded-xl border border-[var(--aal-line)] bg-[var(--aal-bg)]">
@@ -42,6 +95,7 @@ function WorkoutRow({ workout }) {
           >
             {workout.session_type || 'session'}
             {done ? ' · completed' : ''}
+            {compliance?.grade ? ` · ${compliance.grade} (${Math.round(compliance.score || 0)}%)` : ''}
           </p>
           <p className="mt-0.5 truncate font-medium">{workout.title || 'Session'}</p>
           <p className="text-sm text-[var(--aal-muted)]">
@@ -54,35 +108,89 @@ function WorkoutRow({ workout }) {
               .filter(Boolean)
               .join(' · ')}
           </p>
+          {templateId ? (
+            <p className="mt-1 text-[10px] uppercase tracking-[0.14em] text-indigo-500 dark:text-indigo-300">
+              Library · {templateId}
+            </p>
+          ) : null}
         </div>
-        {hasDetail ? (
-          <ChevronDown
-            className={`mt-1 h-4 w-4 shrink-0 text-[var(--aal-muted)] transition ${
-              open ? 'rotate-180' : ''
-            }`}
-          />
-        ) : null}
+        <div className="flex shrink-0 items-center gap-1">
+          {templateId ? (
+            <button
+              type="button"
+              onClick={(event) => {
+                event.stopPropagation()
+                handleFavorite()
+              }}
+              disabled={busy}
+              className={`rounded-md p-1 ${favorite ? 'text-amber-500' : 'text-[var(--aal-muted)]'}`}
+              aria-label={favorite ? 'Remove favorite' : 'Favorite template'}
+            >
+              <Star className={`h-3.5 w-3.5 ${favorite ? 'fill-current' : ''}`} />
+            </button>
+          ) : null}
+          {workout.id && templateId ? (
+            <button
+              type="button"
+              onClick={(event) => {
+                event.stopPropagation()
+                handleExport(String(workout.sport || '').toLowerCase().includes('cycl') ? 'zwo' : 'fit')
+              }}
+              disabled={busy}
+              className="rounded-md p-1 text-[var(--aal-muted)] hover:text-indigo-500"
+              aria-label="Download workout file"
+            >
+              <Download className="h-3.5 w-3.5" />
+            </button>
+          ) : null}
+          {workout.id ? (
+            <button
+              type="button"
+              onClick={(event) => {
+                event.stopPropagation()
+                handleRepeat()
+              }}
+              disabled={busy}
+              className="rounded-md p-1 text-[var(--aal-muted)] hover:text-sage"
+              aria-label="Repeat workout"
+            >
+              <Repeat2 className="h-3.5 w-3.5" />
+            </button>
+          ) : null}
+          {hasDetail ? (
+            <ChevronDown
+              className={`mt-1 h-4 w-4 shrink-0 text-[var(--aal-muted)] transition ${
+                open ? 'rotate-180' : ''
+              }`}
+            />
+          ) : null}
+        </div>
       </button>
 
       {open ? (
         <div className="border-t border-[var(--aal-line)] px-3 py-3 text-sm">
           {workout.description ? <p>{workout.description}</p> : null}
           {(workout.structure || []).length ? (
-            <ul className="mt-3 space-y-1">
+            <ul className="mt-3 space-y-2">
               {workout.structure.map((segment, index) => (
                 <li
                   key={`${segment.segment}-${index}`}
-                  className="flex justify-between gap-3 text-[var(--aal-muted)]"
+                  className="rounded-lg bg-[var(--aal-card)]/60 px-2.5 py-2"
                 >
-                  <span>{segment.segment}</span>
-                  <span>
-                    {[
-                      segment.duration_min ? `${Math.round(segment.duration_min)} min` : null,
-                      segment.intensity,
-                    ]
-                      .filter(Boolean)
-                      .join(' · ')}
-                  </span>
+                  <p className="flex justify-between gap-3 text-[var(--aal-ink)]">
+                    <span className="font-medium">{segment.segment}</span>
+                    <span className="text-[var(--aal-muted)]">
+                      {[
+                        segment.duration_min ? `${Math.round(segment.duration_min)} min` : null,
+                        segment.intensity,
+                      ]
+                        .filter(Boolean)
+                        .join(' · ')}
+                    </span>
+                  </p>
+                  {segment.detail ? (
+                    <p className="mt-1 text-[var(--aal-muted)]">{segment.detail}</p>
+                  ) : null}
                 </li>
               ))}
             </ul>
@@ -93,7 +201,7 @@ function WorkoutRow({ workout }) {
   )
 }
 
-function PlanBody({ plan, weekStart, loading, compact }) {
+function PlanBody({ plan, weekStart, loading, compact, onWorkoutUpdated }) {
   const workouts = plan?.plan?.workouts || []
   const byDate = new Map()
   for (const workout of workouts) {
@@ -122,7 +230,7 @@ function PlanBody({ plan, weekStart, loading, compact }) {
   if (!workouts.length) {
     return (
       <p className="rounded-xl border border-dashed border-[var(--aal-line)] px-3 py-4 text-sm text-[var(--aal-muted)]">
-        No week built yet. Generate this week from the bar below — it stays a draft until you add
+        No week built yet. Ask Coach to plan this week in the chat — it stays a draft until you add
         it to Schedule.
       </p>
     )
@@ -166,7 +274,11 @@ function PlanBody({ plan, weekStart, loading, compact }) {
               {dayWorkouts.length ? (
                 <div className="space-y-2">
                   {dayWorkouts.map((workout, index) => (
-                    <WorkoutRow key={workout.id ?? `${iso}-${index}`} workout={workout} />
+                    <WorkoutRow
+                      key={workout.id ?? `${iso}-${index}`}
+                      workout={workout}
+                      onWorkoutUpdated={onWorkoutUpdated}
+                    />
                   ))}
                 </div>
               ) : (
@@ -251,7 +363,11 @@ function PlanActions({
         disabled={
           publishing || !plan?.plan_id || !workouts.length || Boolean(plan?.on_schedule)
         }
-        className="inline-flex items-center gap-2 rounded-xl border border-[var(--aal-line)] bg-[var(--aal-card)] px-3 py-2 text-sm font-semibold disabled:opacity-60"
+        className={`inline-flex items-center gap-2 rounded-xl px-3 py-2 text-sm font-semibold transition disabled:cursor-default ${
+          plan?.on_schedule
+            ? 'border border-indigo-300/40 bg-indigo-50/50 text-indigo-700 dark:border-indigo-500/30 dark:bg-indigo-950/25 dark:text-indigo-200'
+            : 'border border-indigo-300/40 bg-indigo-50/50 text-indigo-700 hover:bg-indigo-100/80 dark:border-indigo-500/30 dark:bg-indigo-950/25 dark:text-indigo-200 dark:hover:bg-indigo-950/40'
+        } disabled:opacity-100`}
       >
         <CalendarPlus className={`h-4 w-4 ${publishing ? 'sync-spin' : ''}`} />
         {publishing ? 'Adding…' : plan?.on_schedule ? 'On schedule' : 'Add to Schedule'}
@@ -266,6 +382,7 @@ export default function WeekPlan({
   loading,
   publishing,
   onAddToSchedule,
+  onWorkoutUpdated = null,
   embedded = false,
   pinned = false,
   onPin = null,
@@ -277,10 +394,10 @@ export default function WeekPlan({
 
   if (embedded) {
     return (
-      <div className="rounded-2xl border border-sage/25 bg-[var(--aal-card)] p-3 shadow-sm sm:p-4">
+      <div className="rounded-2xl border border-[var(--aal-line)] bg-[var(--aal-card)] p-3 shadow-sm sm:p-4">
         <div className="mb-3 flex items-start justify-between gap-3">
           <div className="min-w-0">
-            <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-sage">
+            <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-indigo-500 dark:text-indigo-300">
               This week
             </p>
             <h3 className="mt-1 text-base font-semibold text-[var(--aal-ink)]">{title}</h3>
@@ -292,7 +409,11 @@ export default function WeekPlan({
                 type="button"
                 onClick={onAddToSchedule}
                 disabled={publishing || !plan?.plan_id || Boolean(plan?.on_schedule)}
-                className="inline-flex items-center gap-2 rounded-xl bg-sage px-3 py-2 text-sm font-semibold text-white disabled:opacity-60"
+                className={`inline-flex items-center gap-2 rounded-xl px-3 py-2 text-sm font-semibold transition disabled:opacity-60 ${
+                  plan?.on_schedule
+                    ? 'border border-indigo-300/40 bg-indigo-50/50 text-indigo-700 dark:border-indigo-500/30 dark:bg-indigo-950/25 dark:text-indigo-200'
+                    : 'bg-indigo-600 text-white hover:bg-indigo-500'
+                }`}
               >
                 <CalendarPlus className={`h-4 w-4 ${publishing ? 'sync-spin' : ''}`} />
                 {publishing
@@ -308,7 +429,7 @@ export default function WeekPlan({
                 onClick={onPin}
                 className={`inline-flex shrink-0 items-center gap-1.5 rounded-lg border px-2.5 py-1.5 text-xs font-medium transition ${
                   pinned
-                    ? 'border-sage/40 bg-sage/10 text-sage'
+                    ? 'border-indigo-300/40 bg-indigo-50/80 text-indigo-600 dark:bg-indigo-950/30 dark:text-indigo-300'
                     : 'border-[var(--aal-line)] text-[var(--aal-muted)] hover:text-[var(--aal-ink)]'
                 }`}
                 aria-pressed={pinned}
@@ -323,7 +444,13 @@ export default function WeekPlan({
         {loading ? (
           <LoadingDots label="Loading this week…" />
         ) : (
-          <PlanBody plan={plan} weekStart={weekStart} loading={loading} compact />
+          <PlanBody
+            plan={plan}
+            weekStart={weekStart}
+            loading={loading}
+            compact
+            onWorkoutUpdated={onWorkoutUpdated}
+          />
         )}
       </div>
     )
@@ -341,7 +468,13 @@ export default function WeekPlan({
         />
       }
     >
-      <PlanBody plan={plan} weekStart={weekStart} loading={loading} compact={false} />
+      <PlanBody
+        plan={plan}
+        weekStart={weekStart}
+        loading={loading}
+        compact={false}
+        onWorkoutUpdated={onWorkoutUpdated}
+      />
     </SectionCard>
   )
 }

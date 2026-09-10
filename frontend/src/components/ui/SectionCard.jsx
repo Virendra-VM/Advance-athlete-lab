@@ -10,7 +10,7 @@ export default function SectionCard({
   return (
     <section
       id={id}
-      className={`scroll-mt-24 rounded-2xl border border-[var(--aal-line)] bg-[var(--aal-card)] shadow-sm ${
+      className={`scroll-mt-28 rounded-2xl border border-[var(--aal-line)] bg-[var(--aal-card)] shadow-sm ${
         dense ? 'p-4' : 'p-5 sm:p-6'
       } ${className}`}
     >

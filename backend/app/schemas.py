@@ -400,6 +400,12 @@ class SafetyIssue(BaseModel):
     message: str
 
 
+class WorkoutComplianceRead(BaseModel):
+    score: float | None = None
+    grade: str | None = None
+    dimensions: dict = {}
+
+
 class PlanWorkoutRead(BaseModel):
     id: int | None = None
     date: Date
@@ -412,6 +418,10 @@ class PlanWorkoutRead(BaseModel):
     description: str | None = None
     structure: list[dict] = []
     completed_activity_id: int | None = None
+    library_template_id: str | None = None
+    library_version: str | None = None
+    compliance: WorkoutComplianceRead | None = None
+    is_favorite: bool = False
 
 
 class WeekPlanRead(BaseModel):
@@ -517,6 +527,47 @@ class CoachMessageRead(BaseModel):
     plan_id: int | None = None
 
 
+class CoachProactivePromptRead(BaseModel):
+    id: int
+    category: str
+    summary: str
+    message: str
+    activity_id: int | None = None
+    created_at: datetime | None = None
+
+
+class CoachProactivePromptsResponse(BaseModel):
+    prompts: list[CoachProactivePromptRead] = []
+
+
+class CoachReviewFlagRequest(BaseModel):
+    notes: str | None = Field(default=None, max_length=2000)
+
+
+class CoachReviewFlagRead(BaseModel):
+    id: int
+    message_id: int
+    reason: str
+    category: str | None = None
+    notes: str | None = None
+    quality_score: float | None = None
+    status: str
+    created_at: datetime | None = None
+    message_preview: str | None = None
+
+
+class CoachReviewFlagsResponse(BaseModel):
+    flags: list[CoachReviewFlagRead] = []
+
+
+class CoachWarmResponse(BaseModel):
+    context: CoachContextResponse
+    context_cache_hit: bool = False
+    todays_call: TodaysCallResponse | None = None
+    proactive_prompts: list[CoachProactivePromptRead] = []
+    warmed_at: datetime
+
+
 class CoachChatResponse(BaseModel):
     provider: str
     model: str
@@ -525,6 +576,7 @@ class CoachChatResponse(BaseModel):
     history: list[CoachMessageRead] = []
     disclaimer: str | None = None
     plan: CoachPlanResponse | None = None
+    proactive_prompts: list[CoachProactivePromptRead] = []
 
 
 class ApplyChatWeekRequest(BaseModel):
@@ -564,6 +616,22 @@ class CoachPlannedWorkoutRead(BaseModel):
     session_type: str | None = None
     intensity: str | None = None
     description: str | None = None
+    structure: list[dict] = []
+    library_template_id: str | None = None
+    library_version: str | None = None
+    compliance: WorkoutComplianceRead | None = None
+
+
+class FavoriteTemplateRead(BaseModel):
+    template_id: str
+    title: str | None = None
+    sport: str | None = None
+    intent: str | None = None
+    created_at: datetime | None = None
+
+
+class RepeatWorkoutRequest(BaseModel):
+    target_date: Date | None = None
 
 
 class CoachStatusResponse(BaseModel):
@@ -835,6 +903,8 @@ class CycleContextResponse(BaseModel):
 class EventCompleteRequest(BaseModel):
     ftp_watts: float | None = Field(default=None, ge=50, le=500)
     lthr_bpm: float | None = Field(default=None, ge=90, le=230)
+    threshold_pace: str | None = Field(default=None, max_length=32)
+    threshold_pace_sec_per_km: float | None = Field(default=None, ge=120, le=900)
     result_metric: str | None = Field(default=None, max_length=255)
 
 

@@ -1,17 +1,34 @@
-import { useEffect, useRef, useState } from 'react'
+import { Fragment, useEffect, useMemo, useRef, useState } from 'react'
 import { AnimatePresence, motion } from 'framer-motion'
-import { Pin, Send, Sparkles, Square, X, CalendarPlus } from 'lucide-react'
+import {
+  Pin,
+  Send,
+  Sparkles,
+  Square,
+  X,
+  CalendarPlus,
+  ChevronDown,
+  ChevronUp,
+  Lightbulb,
+} from 'lucide-react'
 import { loadComposerDraft, saveComposerDraft } from '../../utils/coachComposerStorage'
+import {
+  extractDeepDiveBlocks,
+  foldCoachContent,
+  goDeeperPrompt,
+  hasGoDeeperContent,
+  isCoachSectionHeader,
+  isRevisedWeekHeader,
+  isTableDivider,
+  parseTableRow,
+  countWeekTableRows,
+} from '../../utils/coachChatLayout'
 import { parseUtcDate } from '../../utils/formatters'
 import WeekPlan from './WeekPlan'
-import {
-  loadPins,
-  pinFromMessage,
-  pinFromWeek,
-  removePin,
-  savePins,
-  upsertPin,
-} from './chatPins'
+import { loadPins, pinFromMessage, removePin, savePins, upsertPin } from './chatPins'
+
+/** Centered reading column — same pattern as ChatGPT / Claude / Gemini (~768px). */
+const CHAT_COLUMN = 'mx-auto w-full max-w-3xl'
 
 const PROMPTS = [
   "How was today's session?",
@@ -52,7 +69,7 @@ function ThinkingIndicator() {
 
   return (
     <div
-      className="mx-auto w-full max-w-3xl px-1"
+      className={`${CHAT_COLUMN} px-1`}
       role="status"
       aria-live="polite"
       aria-label="Coach is thinking"
@@ -104,126 +121,114 @@ function renderInline(text) {
   })
 }
 
-function parseTableRow(line) {
-  return line
-    .trim()
-    .replace(/^\|/, '')
-    .replace(/\|$/, '')
-    .split('|')
-    .map((cell) => cell.trim())
-}
-
-function isTableDivider(cells) {
-  return cells.length > 0 && cells.every((cell) => /^:?-{2,}:?$/.test(cell.replace(/\s/g, '')) || cell === '')
-}
-
-function isTableLine(line) {
-  const trimmed = line.trim()
-  return trimmed.startsWith('|') && trimmed.endsWith('|') && trimmed.length > 2
-}
-
-function isRevisedWeekHeader(trimmed) {
-  return /REVISED WEEK/i.test(trimmed) || /^🗓️\s/.test(trimmed)
-}
-
-function todayCallTone(text) {
-  if (/PRIMED\s*\/\s*ACCUMULATE/i.test(text)) return 'green'
-  if (/CAUTION\s*\/\s*ABSORB/i.test(text)) return 'amber'
-  if (/REST\s*\/\s*RESTORE/i.test(text)) return 'red'
-  return null
-}
-
-function isTodayCallHeader(trimmed) {
-  return /TODAY'S CALL/i.test(trimmed)
-}
-
-function isLockerHeader(trimmed) {
-  return /LOCKER ROOM DIRECTIVE/i.test(trimmed)
-}
-
-function isSpineHeader(trimmed) {
-  return /SPINE LOCK/i.test(trimmed)
-}
-
-function isCoachSectionHeader(trimmed) {
+function WhatChangedCard({ block, caret }) {
+  const [open, setOpen] = useState(false)
+  const bodyLines = block.lines.slice(1)
   return (
-    /^(⚡|🔬|🫀|🧠|🧭|📅|🗓️|⚠️|🟢|🟡|🔴|🗣️|💡|🛡️|💬|📌|⚕️)\s/.test(trimmed) ||
-    isTodayCallHeader(trimmed) ||
-    isLockerHeader(trimmed) ||
-    isSpineHeader(trimmed) ||
-    /WEEKLY TRANSLATIONS/i.test(trimmed) ||
-    /WHAT LANDED/i.test(trimmed) ||
-    isRevisedWeekHeader(trimmed)
+    <div className="coach-what-changed my-3 overflow-hidden rounded-xl border border-indigo-200/50 bg-indigo-50/40 dark:border-indigo-500/25 dark:bg-indigo-950/20">
+      <button
+        type="button"
+        onClick={() => setOpen((value) => !value)}
+        aria-expanded={open}
+        className="flex w-full items-center justify-between gap-3 px-3 py-2.5 text-left transition hover:bg-indigo-100/40 dark:hover:bg-indigo-900/20"
+      >
+        <span className="text-sm font-semibold text-[var(--aal-ink)]">
+          📊 {block.summary || 'What changed this week'}
+        </span>
+        {open ? (
+          <ChevronUp className="h-4 w-4 shrink-0 text-indigo-500" />
+        ) : (
+          <ChevronDown className="h-4 w-4 shrink-0 text-indigo-500" />
+        )}
+      </button>
+      {open ? (
+        <div className="border-t border-indigo-200/40 px-3 py-2 dark:border-indigo-500/20">
+          {renderLineStack(bodyLines, caret)}
+        </div>
+      ) : null}
+    </div>
   )
 }
 
-function foldCoachBlocks(blocks) {
-  const out = []
-  for (let index = 0; index < blocks.length; index += 1) {
-    const block = blocks[index]
-    if (block.type !== 'line') {
-      out.push(block)
-      continue
-    }
-    const trimmed = block.line.trim()
-    if (isTodayCallHeader(trimmed)) {
-      const lines = [block.line]
-      let cursor = index + 1
-      while (cursor < blocks.length && blocks[cursor].type === 'line') {
-        const next = blocks[cursor].line.trim()
-        if (
-          next &&
-          isCoachSectionHeader(next) &&
-          !isTodayCallHeader(next) &&
-          !todayCallTone(next)
-        ) {
-          break
-        }
-        lines.push(blocks[cursor].line)
-        cursor += 1
-      }
-      out.push({
-        type: 'todayCall',
-        lines,
-        tone: todayCallTone(lines.join('\n')) || 'amber',
-      })
-      index = cursor - 1
-      continue
-    }
-    if (isLockerHeader(trimmed)) {
-      const lines = [block.line]
-      let cursor = index + 1
-      while (cursor < blocks.length && blocks[cursor].type === 'line') {
-        const next = blocks[cursor].line.trim()
-        if (!next) {
-          cursor += 1
-          continue
-        }
-        if (isCoachSectionHeader(next) && !isLockerHeader(next)) break
-        lines.push(blocks[cursor].line)
-        cursor += 1
-        break
-      }
-      out.push({ type: 'locker', lines })
-      index = cursor - 1
-      continue
-    }
-    if (isSpineHeader(trimmed)) {
-      const lines = [block.line]
-      let cursor = index + 1
-      while (cursor < blocks.length && blocks[cursor].type === 'line') {
-        const next = blocks[cursor].line.trim()
-        if (next && isCoachSectionHeader(next) && !isSpineHeader(next)) break
-        lines.push(blocks[cursor].line)
-        cursor += 1
-      }
-      out.push({ type: 'spine', lines })
-      index = cursor - 1
-      continue
-    }
-    out.push(block)
-  }
-  return out
+function CollapsibleWeekTable({ tableEl, applyWeek, defaultOpen, rowCount }) {
+  const [open, setOpen] = useState(defaultOpen)
+  const label = open
+    ? 'Hide week plan'
+    : rowCount > 0
+      ? `Show week plan (${rowCount} days)`
+      : 'Show week plan'
+  return (
+    <div className="my-3 space-y-2">
+      <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+        {applyWeek}
+        <button
+          type="button"
+          onClick={() => setOpen((value) => !value)}
+          aria-expanded={open}
+          className="inline-flex items-center gap-1.5 rounded-lg border border-[var(--aal-line)] px-3 py-1.5 text-xs font-semibold text-[var(--aal-ink)] transition hover:bg-[var(--aal-card)]"
+        >
+          {open ? <ChevronUp className="h-3.5 w-3.5" /> : <ChevronDown className="h-3.5 w-3.5" />}
+          {label}
+        </button>
+      </div>
+      {open ? tableEl : null}
+    </div>
+  )
+}
+
+function GoDeeperSection({ deepDiveBlocks, onAskCoach, disabled }) {
+  const [open, setOpen] = useState(false)
+  const hasInline = deepDiveBlocks.length > 0
+  if (!hasInline && !onAskCoach) return null
+  return (
+    <div className="coach-go-deeper my-3">
+      {!open ? (
+        <button
+          type="button"
+          disabled={disabled}
+          onClick={() => {
+            if (hasInline) {
+              setOpen(true)
+              return
+            }
+            onAskCoach?.()
+          }}
+          className="inline-flex items-center gap-2 rounded-full border border-[var(--aal-line)] bg-[var(--aal-card)] px-3 py-1.5 text-xs font-semibold text-indigo-600 transition hover:border-indigo-300 hover:bg-indigo-50/50 disabled:opacity-50 dark:text-indigo-300 dark:hover:bg-indigo-950/30"
+        >
+          <Lightbulb className="h-3.5 w-3.5" />
+          Go deeper — why this week?
+        </button>
+      ) : (
+        <div className="rounded-xl border border-[var(--aal-line)] bg-[var(--aal-card)]/80 px-3 py-2">
+          <div className="mb-2 flex items-center justify-between gap-2">
+            <span className="text-xs font-semibold uppercase tracking-wide text-indigo-500 dark:text-indigo-300">
+              Why this works
+            </span>
+            <button
+              type="button"
+              onClick={() => setOpen(false)}
+              className="text-[10px] font-medium text-[var(--aal-muted)] hover:text-[var(--aal-ink)]"
+            >
+              Hide
+            </button>
+          </div>
+          {deepDiveBlocks.map((block, index) => (
+            <div key={index}>{renderLineStack(block.lines, false)}</div>
+          ))}
+          {onAskCoach ? (
+            <button
+              type="button"
+              disabled={disabled}
+              onClick={onAskCoach}
+              className="mt-2 text-xs font-medium text-indigo-600 hover:underline disabled:opacity-50 dark:text-indigo-300"
+            >
+              Ask the coach for more detail
+            </button>
+          ) : null}
+        </div>
+      )}
+    </div>
+  )
 }
 
 function renderLineStack(lines, caret) {
@@ -251,7 +256,7 @@ function ApplyWeekButton({ onApply, applying, weekOnSchedule }) {
       type="button"
       onClick={onApply}
       disabled={applying}
-      className="inline-flex shrink-0 items-center justify-center gap-2 rounded-xl bg-sage px-3.5 py-2 text-sm font-semibold text-white shadow-sm transition hover:brightness-105 disabled:opacity-60"
+      className="inline-flex shrink-0 items-center justify-center gap-2 rounded-xl bg-indigo-600 px-3.5 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-indigo-500 disabled:opacity-60"
     >
       <CalendarPlus className={`h-4 w-4 ${applying ? 'sync-spin' : ''}`} />
       {applying
@@ -268,36 +273,44 @@ function CoachReplyBody({
   mine,
   caret = false,
   applyWeek = null,
+  weekTableDefaultOpen = true,
+  onGoDeeper,
+  goDeeperDisabled = false,
 }) {
   if (mine) {
     return <p className="whitespace-pre-wrap leading-relaxed">{content}</p>
   }
-  const lines = String(content || '').split('\n')
-  const blocks = []
-  let table = []
-  lines.forEach((line) => {
-    if (isTableLine(line)) {
-      table.push(line)
-      return
-    }
-    if (table.length) {
-      blocks.push({ type: 'table', rows: table })
-      table = []
-    }
-    blocks.push({ type: 'line', line })
-  })
-  if (table.length) {
-    blocks.push({ type: 'table', rows: table })
-  }
 
-  const folded = foldCoachBlocks(blocks)
+  const folded = foldCoachContent(content)
+  const deepDiveBlocks = extractDeepDiveBlocks(folded)
+  const visibleBlocks = folded.filter((block) => block.type !== 'deepDive')
+  const showGoDeeper = hasGoDeeperContent(folded, content)
   let placedApply = false
-  const lastFolded = folded.length - 1
+  const lastVisible = visibleBlocks.length - 1
+
+  const handleAskCoach = onGoDeeper
+    ? () => onGoDeeper(goDeeperPrompt(content))
+    : undefined
 
   return (
     <div className="space-y-0.5 text-[15px] leading-7">
-      {folded.map((block, blockIndex) => {
-        const last = blockIndex === lastFolded
+      {visibleBlocks.map((block, blockIndex) => {
+        const last = blockIndex === lastVisible && !showGoDeeper
+        if (block.type === 'plainLead') {
+          return (
+            <div
+              key={blockIndex}
+              className={`coach-plain-lead coach-today-call-${block.tone} my-3 rounded-lg border border-white/10 bg-white/5 px-3 py-2`}
+            >
+              {renderLineStack(block.lines, last && caret)}
+            </div>
+          )
+        }
+        if (block.type === 'whatChanged') {
+          return (
+            <WhatChangedCard key={blockIndex} block={block} caret={last && caret} />
+          )
+        }
         if (block.type === 'todayCall') {
           return (
             <div
@@ -326,6 +339,7 @@ function CoachReplyBody({
           const parsed = block.rows.map(parseTableRow).filter((row) => row.length)
           const header = parsed[0] || []
           const body = parsed.slice(1).filter((row) => !isTableDivider(row))
+          const rowCount = countWeekTableRows(block.rows)
           const tableEl = (
             <div className="coach-md-table-wrap overflow-x-auto">
               <table className="coach-md-table">
@@ -351,18 +365,23 @@ function CoachReplyBody({
           if (applyWeek && !placedApply) {
             placedApply = true
             return (
-              <div key={blockIndex} className="my-3 space-y-2">
-                <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-                  {applyWeek}
-                </div>
-                {tableEl}
-              </div>
+              <CollapsibleWeekTable
+                key={blockIndex}
+                tableEl={tableEl}
+                applyWeek={applyWeek}
+                defaultOpen={weekTableDefaultOpen}
+                rowCount={rowCount}
+              />
             )
           }
           return (
-            <div key={blockIndex} className="my-3">
-              {tableEl}
-            </div>
+            <CollapsibleWeekTable
+              key={blockIndex}
+              tableEl={tableEl}
+              applyWeek={null}
+              defaultOpen={weekTableDefaultOpen}
+              rowCount={rowCount}
+            />
           )
         }
         const line = block.line
@@ -404,6 +423,13 @@ function CoachReplyBody({
           </p>
         )
       })}
+      {showGoDeeper && !caret ? (
+        <GoDeeperSection
+          deepDiveBlocks={deepDiveBlocks}
+          onAskCoach={handleAskCoach}
+          disabled={goDeeperDisabled}
+        />
+      ) : null}
     </div>
   )
 }
@@ -432,16 +458,16 @@ function pinSnippet(pin) {
 function PinnedBar({ pin, onJump, onUnpin }) {
   return (
     <div className="flex items-stretch border-b border-[var(--aal-line)] bg-[var(--aal-card)]/90">
-      <div className="w-[3px] shrink-0 bg-sage" />
+      <div className="w-[3px] shrink-0 bg-indigo-500" />
       <button
         type="button"
         onClick={onJump}
-        className="mx-auto flex min-w-0 w-full max-w-3xl items-center gap-3 px-4 py-2 text-left transition hover:bg-sage/5"
+        className={`${CHAT_COLUMN} flex min-w-0 items-center gap-3 px-4 py-2 text-left transition hover:bg-indigo-50/60 dark:hover:bg-indigo-950/20`}
       >
-        <Pin className="h-3.5 w-3.5 shrink-0 fill-current text-sage" />
+        <Pin className="h-3.5 w-3.5 shrink-0 fill-current text-indigo-500 dark:text-indigo-300" />
         <div className="min-w-0 flex-1">
-          <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-sage">
-            Pinned message
+          <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-indigo-500 dark:text-indigo-300">
+            {pin.type === 'week' ? 'Pinned week' : 'Pinned message'}
           </p>
           <p className="truncate text-[13px] leading-5 text-[var(--aal-ink)]">
             <span className="text-[var(--aal-muted)]">{pinWho(pin)} · </span>
@@ -473,6 +499,24 @@ function looksLikeWeekTable(content) {
   )
 }
 
+function findWeekAnchorMessageId(messages, plan) {
+  const workouts = plan?.plan?.workouts
+  if (!plan?.plan_id || !Array.isArray(workouts) || !workouts.length) return null
+
+  for (let i = messages.length - 1; i >= 0; i--) {
+    const message = messages[i]
+    if (message.role === 'user') continue
+    if (message.plan_id === plan.plan_id) return message.id
+  }
+
+  for (let i = messages.length - 1; i >= 0; i--) {
+    const message = messages[i]
+    if (message.role !== 'user' && looksLikeWeekTable(message.content)) return message.id
+  }
+
+  return null
+}
+
 function MessageRow({
   message,
   mine,
@@ -483,6 +527,9 @@ function MessageRow({
   onApplyWeek,
   applying,
   weekOnSchedule,
+  isLatestAssistant,
+  onGoDeeper,
+  goDeeperDisabled,
 }) {
   const canPin =
     !streaming &&
@@ -500,17 +547,19 @@ function MessageRow({
 
   if (mine) {
     return (
-      <div id={`coach-msg-${message.id}`} className="group mx-auto flex w-full max-w-3xl justify-end px-1">
-        <div className="max-w-[min(85%,36rem)] rounded-3xl rounded-br-lg bg-sage px-4 py-2.5 text-[15px] text-white shadow-sm">
+      <div id={`coach-msg-${message.id}`} className={`group ${CHAT_COLUMN} flex justify-end px-1`}>
+        <div className="max-w-[min(85%,36rem)] rounded-2xl rounded-br-md border border-indigo-300/40 bg-indigo-50/80 px-4 py-3 text-[15px] text-[var(--aal-ink)] shadow-sm dark:border-indigo-500/30 dark:bg-indigo-950/30">
           <CoachReplyBody content={body} mine />
-          <div className="mt-1 flex items-center justify-end gap-2 text-[10px] text-white/70">
+          <div className="mt-1 flex items-center justify-end gap-2 text-[10px] text-[var(--aal-muted)]">
             <span>{timeLabel(message.created_at)}</span>
             {canPin ? (
               <button
                 type="button"
                 onClick={onPin}
                 className={`inline-flex items-center gap-1 rounded-md px-1 py-0.5 ${
-                  pinned ? 'text-white' : 'opacity-80 hover:opacity-100 sm:opacity-0 sm:group-hover:opacity-100'
+                  pinned
+                    ? 'text-indigo-600 dark:text-indigo-300'
+                    : 'opacity-80 hover:opacity-100 sm:opacity-0 sm:group-hover:opacity-100'
                 }`}
                 aria-pressed={pinned}
                 aria-label={pinned ? 'Unpin message' : 'Pin message'}
@@ -526,17 +575,21 @@ function MessageRow({
   }
 
   return (
-    <div id={`coach-msg-${message.id}`} className="group mx-auto w-full max-w-3xl px-1">
+    <div id={`coach-msg-${message.id}`} className={`group ${CHAT_COLUMN} px-1`}>
       <motion.div
         initial={streaming ? { opacity: 0.55 } : false}
         animate={{ opacity: 1 }}
         transition={{ duration: 0.18 }}
+        className="rounded-2xl border border-[var(--aal-line)] bg-[var(--aal-card)] px-4 py-3 shadow-sm"
       >
         <CoachReplyBody
           content={body}
           mine={false}
           caret={Boolean(streaming)}
           applyWeek={applyWeek}
+          weekTableDefaultOpen={Boolean(isLatestAssistant)}
+          onGoDeeper={onGoDeeper}
+          goDeeperDisabled={goDeeperDisabled}
         />
       </motion.div>
       {streaming ? null : (
@@ -547,7 +600,9 @@ function MessageRow({
               type="button"
               onClick={onPin}
               className={`inline-flex items-center gap-1 rounded-md px-1 py-0.5 ${
-                pinned ? 'text-sage' : 'opacity-80 hover:opacity-100 sm:opacity-0 sm:group-hover:opacity-100'
+                pinned
+                  ? 'text-indigo-500 dark:text-indigo-300'
+                  : 'opacity-80 hover:opacity-100 sm:opacity-0 sm:group-hover:opacity-100'
               }`}
               aria-pressed={pinned}
               aria-label={pinned ? 'Unpin message' : 'Pin message'}
@@ -579,6 +634,9 @@ export default function CoachChat({
   initialDraft = '',
   draftSeed = null,
   composerHint = '',
+  proactivePrompts = [],
+  onDismissProactive,
+  externalStream = null,
 }) {
   const [draft, setDraft] = useState('')
   const [pins, setPins] = useState(() => loadPins(profileId))
@@ -589,7 +647,12 @@ export default function CoachChat({
   const stickToBottom = useRef(true)
   const seenIds = useRef(new Set())
   const primed = useRef(false)
-  const weekPinId = weekStart ? `week-${weekStart}` : null
+  const hadExternalStream = useRef(false)
+  const hasWeek = Boolean((plan?.plan?.workouts || []).length)
+  const weekAnchorMessageId = useMemo(
+    () => findWeekAnchorMessageId(messages, plan),
+    [messages, plan],
+  )
 
   useEffect(() => {
     setPins(loadPins(profileId))
@@ -632,27 +695,22 @@ export default function CoachChat({
   }, [profileId, pins])
 
   useEffect(() => {
-    if (!weekStart) return
-    setPins((current) => {
-      let changed = false
-      const nextWeek = pinFromWeek(plan, weekStart)
-      const mapped = current.map((pin) => {
-        if (pin.id !== weekPinId) return pin
-        if (
-          pin.title === nextWeek.title &&
-          pin.summary === nextWeek.summary &&
-          pin.planId === nextWeek.planId
-        ) {
-          return pin
-        }
-        changed = true
-        return { ...pin, ...nextWeek, id: weekPinId }
-      })
-      return changed ? mapped : current
-    })
-  }, [plan, weekStart, weekPinId])
+    if (externalStream) {
+      hadExternalStream.current = true
+      return undefined
+    }
+    if (hadExternalStream.current) {
+      hadExternalStream.current = false
+      const latest = [...messages]
+        .reverse()
+        .find((item) => item.role !== 'user' && !String(item.id).startsWith('pending-'))
+      if (latest) {
+        seenIds.current.add(latest.id)
+        setStream({ id: latest.id, shown: latest.content || '', done: true })
+      }
+      return undefined
+    }
 
-  useEffect(() => {
     if (!primed.current) {
       messages.forEach((item) => seenIds.current.add(item.id))
       primed.current = true
@@ -714,7 +772,9 @@ export default function CoachChat({
     const node = listRef.current
     if (!node || !stickToBottom.current) return
     node.scrollTop = node.scrollHeight
-  }, [messages.length, sending, stream?.shown])
+  }, [messages.length, sending, stream?.shown, weekAnchorMessageId, externalStream])
+
+  const activeStream = externalStream ?? stream
 
   function resizeInput() {
     const node = inputRef.current
@@ -731,13 +791,13 @@ export default function CoachChat({
   function jumpToPinned(pin) {
     stickToBottom.current = false
     const target =
-      pin.type === 'week'
-        ? document.getElementById('coach-week-artifact')
+      pin.type === 'week' && weekAnchorMessageId
+        ? document.getElementById(`coach-week-artifact-${weekAnchorMessageId}`)
         : document.getElementById(`coach-msg-${pin.messageId}`)
     target?.scrollIntoView({ behavior: 'smooth', block: 'center' })
   }
 
-  async function submit(text) {
+  async function submit(text, options = {}) {
     const message = (text ?? draft).trim()
     if (!message || sending || disabled) return
     stickToBottom.current = true
@@ -750,6 +810,7 @@ export default function CoachChat({
       }
     })
     await onSend(message, {
+      activityId: options.activityId,
       restoreOnCancel: (restoreText) => {
         skipDraftPersist.current = true
         setDraft(restoreText)
@@ -773,21 +834,25 @@ export default function CoachChat({
     .reverse()
     .find((item) => item.role !== 'user' && !String(item.id).startsWith('pending-'))
   const waitingForStream = Boolean(
-    primed.current &&
+    !externalStream &&
+      primed.current &&
       newestAssistant &&
-      stream?.id !== newestAssistant.id &&
+      activeStream?.id !== newestAssistant.id &&
       !seenIds.current.has(newestAssistant.id),
   )
   const emptyStream = Boolean(
-    newestAssistant && stream?.id === newestAssistant.id && !stream.done && !stream.shown,
+    newestAssistant &&
+      activeStream?.id === newestAssistant.id &&
+      !activeStream.done &&
+      !activeStream.shown,
   )
   const holdingReply = waitingForStream || emptyStream
-  const activelyStreaming = Boolean(stream && !stream.done && stream.shown)
+  const activelyStreaming = Boolean(activeStream && !activeStream.done && activeStream.shown)
   const showThinking = Boolean((sending || holdingReply) && !activelyStreaming)
 
   return (
     <section
-      className="coach-chat-canvas flex h-full min-h-0 flex-col overflow-hidden"
+      className="flex h-full min-h-0 flex-col overflow-hidden bg-[var(--aal-bg)]"
       aria-busy={sending || activelyStreaming || holdingReply}
     >
       {pins.length ? (
@@ -804,7 +869,7 @@ export default function CoachChat({
       ) : null}
 
       {focalLabel ? (
-        <div className="shrink-0 border-b border-[var(--aal-line)] bg-sage/5 px-4 py-2 text-center text-xs text-[var(--aal-muted)]">
+        <div className="shrink-0 border-b border-[var(--aal-line)] bg-indigo-50/50 px-4 py-2 text-center text-xs text-[var(--aal-muted)] dark:bg-indigo-950/20">
           Analysing <span className="font-medium text-[var(--aal-ink)]">{focalLabel}</span>
         </div>
       ) : null}
@@ -816,46 +881,77 @@ export default function CoachChat({
         }}
         className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 py-6 sm:px-6"
       >
-        <div className="mx-auto flex min-h-full w-full max-w-3xl flex-col gap-6">
-          {weekStart ? (
-            <div id="coach-week-artifact">
-              <WeekPlan
-                plan={plan}
-                weekStart={weekStart}
-                loading={false}
-                publishing={applyingWeek}
-                onAddToSchedule={onAddToSchedule}
-                embedded
-                pinned={pins.some((pin) => pin.id === weekPinId)}
-                onPin={() => togglePin(pinFromWeek(plan, weekStart))}
-              />
-            </div>
-          ) : null}
-
+        <div className={`${CHAT_COLUMN} flex min-h-full flex-col gap-6`}>
           {empty ? (
-            <div className="flex flex-1 flex-col items-center justify-center px-4 py-10 text-center">
-              <div className="mb-5 flex h-12 w-12 items-center justify-center rounded-2xl bg-sage/15 text-sage">
-                <Sparkles className="h-6 w-6" />
-              </div>
-              <h2 className="font-display text-3xl tracking-tight text-[var(--aal-ink)]">
-                What should we look at?
-              </h2>
-              <p className="mt-2 max-w-md text-sm text-[var(--aal-muted)]">
-                Ask about today, remaining days, or how you feel. Your week, wearables, and profile
-                are already in context.
-              </p>
-              <div className="mt-8 flex w-full max-w-xl flex-col gap-2 sm:grid sm:grid-cols-2">
-                {PROMPTS.map((prompt) => (
-                  <button
-                    key={prompt}
-                    type="button"
-                    disabled={disabled || sending}
-                    onClick={() => submit(prompt)}
-                    className="rounded-2xl border border-[var(--aal-line)] bg-[var(--aal-card)]/80 px-4 py-3 text-left text-sm text-[var(--aal-ink)]/90 shadow-sm transition hover:border-sage/40 hover:bg-[var(--aal-card)] disabled:opacity-60"
-                  >
-                    {prompt}
-                  </button>
-                ))}
+            <div className="relative overflow-hidden rounded-2xl border border-[var(--aal-line)] px-4 py-10 text-center sm:px-8">
+              <div
+                className="pointer-events-none absolute inset-0"
+                style={{
+                  background:
+                    'radial-gradient(120% 80% at 0% 0%, rgba(55,48,163,0.12), transparent 55%), radial-gradient(90% 70% at 100% 20%, rgba(56,189,248,0.08), transparent 50%), linear-gradient(165deg, var(--aal-card), color-mix(in srgb, #312e81 5%, var(--aal-card)))',
+                }}
+              />
+              <div className="relative flex flex-col items-center">
+                <div className="mb-5 flex h-12 w-12 items-center justify-center rounded-xl bg-indigo-600/15 text-indigo-600 dark:text-indigo-300">
+                  <Sparkles className="h-6 w-6" />
+                </div>
+                <h2 className="font-display text-3xl tracking-tight text-[var(--aal-ink)]">
+                  What should we look at?
+                </h2>
+                <p className="mt-2 max-w-md text-sm text-[var(--aal-muted)]">
+                  Ask about today, remaining days, or how you feel. Your week, wearables, and profile
+                  are already in context.
+                </p>
+                {proactivePrompts.length > 0 ? (
+                  <div className="mt-6 flex w-full max-w-xl flex-col gap-2">
+                    <p className="text-xs font-semibold uppercase tracking-wide text-indigo-500 dark:text-indigo-300">
+                      New activity synced
+                    </p>
+                    {proactivePrompts.map((prompt) => (
+                      <div
+                        key={prompt.id}
+                        className="flex items-stretch gap-2 rounded-xl border border-indigo-200/60 bg-indigo-50/40 dark:border-indigo-500/30 dark:bg-indigo-950/20"
+                      >
+                        <button
+                          type="button"
+                          disabled={disabled || sending}
+                          onClick={() =>
+                            submit(prompt.message, {
+                              activityId: prompt.activity_id,
+                            })
+                          }
+                          className="flex flex-1 items-center gap-2 px-4 py-3 text-left text-sm text-[var(--aal-ink)] transition hover:bg-indigo-100/50 disabled:opacity-60 dark:hover:bg-indigo-900/30"
+                        >
+                          <Sparkles className="h-4 w-4 shrink-0 text-indigo-500" />
+                          <span>{prompt.summary}</span>
+                        </button>
+                        {onDismissProactive ? (
+                          <button
+                            type="button"
+                            aria-label="Dismiss suggestion"
+                            onClick={() => onDismissProactive(prompt.id)}
+                            className="px-3 text-[var(--aal-muted)] transition hover:text-[var(--aal-ink)]"
+                          >
+                            <X className="h-4 w-4" />
+                          </button>
+                        ) : null}
+                      </div>
+                    ))}
+                  </div>
+                ) : null}
+                <div className="mt-8 flex w-full max-w-xl flex-col gap-2 sm:grid sm:grid-cols-2">
+                  {PROMPTS.map((prompt) => (
+                    <button
+                      key={prompt}
+                      type="button"
+                      disabled={disabled || sending}
+                      onClick={() => submit(prompt)}
+                      className="rounded-xl border border-[var(--aal-line)] bg-[var(--aal-card)]/90 px-4 py-3 text-left text-sm text-[var(--aal-ink)]/90 shadow-sm transition hover:border-indigo-300 hover:bg-[var(--aal-card)] disabled:opacity-60 dark:hover:border-indigo-500/40"
+                    >
+                      {prompt}
+                    </button>
+                  ))}
+                </div>
               </div>
             </div>
           ) : (
@@ -865,19 +961,41 @@ export default function CoachChat({
                 return null
               }
               const pinId = `msg-${message.id}`
+              const showWeekAfter =
+                weekAnchorMessageId === message.id && hasWeek && weekStart
               return (
-                <MessageRow
-                  key={message.id}
-                  message={message}
-                  mine={mine}
-                  pinned={pins.some((pin) => pin.id === pinId)}
-                  onPin={() => togglePin(pinFromMessage(message))}
-                  streamed={stream?.id === message.id ? stream.shown : null}
-                  streaming={stream?.id === message.id && !stream.done}
-                  onApplyWeek={mine ? undefined : onApplyWeek}
-                  applying={Boolean(applyingWeek)}
-                  weekOnSchedule={Boolean(plan?.on_schedule)}
-                />
+                <Fragment key={message.id}>
+                  <MessageRow
+                    message={message}
+                    mine={mine}
+                    pinned={pins.some((pin) => pin.id === pinId)}
+                    onPin={() => togglePin(pinFromMessage(message))}
+                    streamed={activeStream?.id === message.id ? activeStream.shown : null}
+                    streaming={activeStream?.id === message.id && !activeStream.done}
+                    onApplyWeek={mine ? undefined : onApplyWeek}
+                    applying={Boolean(applyingWeek)}
+                    weekOnSchedule={Boolean(plan?.on_schedule)}
+                    isLatestAssistant={
+                      !mine &&
+                      newestAssistant != null &&
+                      message.id === newestAssistant.id
+                    }
+                    onGoDeeper={mine ? undefined : submit}
+                    goDeeperDisabled={disabled || sending}
+                  />
+                  {showWeekAfter ? (
+                    <div id={`coach-week-artifact-${message.id}`}>
+                      <WeekPlan
+                        plan={plan}
+                        weekStart={weekStart}
+                        loading={false}
+                        publishing={applyingWeek}
+                        onAddToSchedule={onAddToSchedule}
+                        embedded
+                      />
+                    </div>
+                  ) : null}
+                </Fragment>
               )
             })
           )}
@@ -889,6 +1007,7 @@ export default function CoachChat({
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0, y: -4 }}
                 transition={{ duration: 0.2 }}
+                className="rounded-2xl border border-[var(--aal-line)] bg-[var(--aal-card)] px-4 py-3 shadow-sm"
               >
                 <ThinkingIndicator />
               </motion.div>
@@ -899,7 +1018,7 @@ export default function CoachChat({
 
       <div className="shrink-0 bg-gradient-to-t from-[var(--aal-bg)] via-[var(--aal-bg)] to-transparent px-3 pb-4 pt-2 sm:px-6">
         <form
-          className="mx-auto w-full max-w-3xl"
+          className={CHAT_COLUMN}
           onSubmit={(event) => {
             event.preventDefault()
             submit()
@@ -908,7 +1027,39 @@ export default function CoachChat({
           {composerHint ? (
             <p className="mb-2 text-center text-xs text-[var(--aal-muted)]">{composerHint}</p>
           ) : null}
-          <div className="flex items-end gap-2 rounded-[1.75rem] border border-[var(--aal-line)] bg-[var(--aal-card)] px-3 py-2 shadow-[0_10px_40px_-18px_rgba(15,23,42,0.45)] focus-within:border-sage/50">
+          {!empty && proactivePrompts.length > 0 ? (
+            <div className="mb-3 flex flex-col gap-2">
+              {proactivePrompts.map((prompt) => (
+                <div
+                  key={prompt.id}
+                  className="flex items-stretch gap-2 rounded-xl border border-indigo-200/50 bg-indigo-50/40 dark:border-indigo-500/25 dark:bg-indigo-950/20"
+                >
+                  <button
+                    type="button"
+                    disabled={disabled || sending}
+                    onClick={() =>
+                      submit(prompt.message, { activityId: prompt.activity_id })
+                    }
+                    className="flex flex-1 items-center gap-2 px-3 py-2 text-left text-sm text-[var(--aal-ink)] transition hover:bg-indigo-100/40 disabled:opacity-60 dark:hover:bg-indigo-900/25"
+                  >
+                    <Sparkles className="h-3.5 w-3.5 shrink-0 text-indigo-500" />
+                    <span>{prompt.summary}</span>
+                  </button>
+                  {onDismissProactive ? (
+                    <button
+                      type="button"
+                      aria-label="Dismiss suggestion"
+                      onClick={() => onDismissProactive(prompt.id)}
+                      className="px-2 text-[var(--aal-muted)] transition hover:text-[var(--aal-ink)]"
+                    >
+                      <X className="h-3.5 w-3.5" />
+                    </button>
+                  ) : null}
+                </div>
+              ))}
+            </div>
+          ) : null}
+          <div className="flex items-end gap-2 rounded-2xl border border-indigo-300/40 bg-indigo-50/50 px-3 py-2 shadow-sm transition focus-within:border-indigo-300/60 focus-within:bg-indigo-50/80 dark:border-indigo-500/30 dark:bg-indigo-950/25 dark:focus-within:border-indigo-500/50 dark:focus-within:bg-indigo-950/35">
             <textarea
               ref={inputRef}
               rows={1}
@@ -925,7 +1076,7 @@ export default function CoachChat({
                 }
               }}
               placeholder={disabled ? disabledReason : 'Message Coach'}
-              className="max-h-40 min-h-11 flex-1 resize-none bg-transparent px-2 py-2.5 text-[15px] leading-6 outline-none"
+              className="max-h-40 min-h-11 flex-1 resize-none bg-transparent px-2 py-2.5 text-[15px] leading-6 text-[var(--aal-ink)] outline-none placeholder:text-[var(--aal-muted)]"
             />
             {sending ? (
               <button
@@ -940,7 +1091,7 @@ export default function CoachChat({
               <button
                 type="submit"
                 disabled={disabled || !draft.trim()}
-                className="mb-0.5 inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-sage text-white transition hover:brightness-105 disabled:opacity-40"
+                className="mb-0.5 inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-indigo-600 text-white transition hover:bg-indigo-500 disabled:opacity-40"
                 aria-label="Send"
               >
                 <Send className="h-4 w-4" />

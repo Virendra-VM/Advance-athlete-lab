@@ -6,6 +6,9 @@ from pydantic import BaseModel, ConfigDict, EmailStr, Field, field_validator
 SEX_VALUES = {"female", "male", "other", "prefer_not"}
 INJURY_STATUSES = {"active", "past"}
 SPORT_PRIORITIES = {"primary", "secondary"}
+RUN_HR_METHODS = {"lthr", "max_hr", "hrr"}
+RUN_PACE_METHODS = {"threshold"}
+BIKE_POWER_METHODS = {"coggan"}
 
 
 def _parse_json_field(value):
@@ -136,6 +139,20 @@ class OnboardingSubmitRequest(BaseModel):
     ftp_watts: float | None = Field(default=None, ge=50, le=500)
     lthr_bpm: float | None = Field(default=None, ge=90, le=230)
     max_hr_bpm: float | None = Field(default=None, ge=120, le=230)
+    bike_lthr_bpm: float | None = Field(default=None, ge=90, le=230)
+    resting_hr_bpm: float | None = Field(default=None, ge=30, le=120)
+    threshold_pace: str | None = Field(default=None, max_length=32)
+    lt1_pace: str | None = Field(default=None, max_length=32)
+    marathon_pace: str | None = Field(default=None, max_length=32)
+    css_pace: str | None = Field(default=None, max_length=32)
+    threshold_pace_sec_per_km: float | None = Field(default=None, ge=120, le=900)
+    lt1_pace_sec_per_km: float | None = Field(default=None, ge=120, le=900)
+    marathon_pace_sec_per_km: float | None = Field(default=None, ge=120, le=900)
+    css_sec_per_100m: float | None = Field(default=None, ge=40, le=300)
+    vo2max: float | None = Field(default=None, ge=20, le=90)
+    zone_run_hr_method: str | None = None
+    zone_bike_power_method: str | None = None
+    zone_run_pace_method: str | None = None
 
     sports: list[SportPayload] | None = None
     injuries: list[InjuryPayload] | None = None
@@ -195,6 +212,20 @@ class ProfileUpdateRequest(BaseModel):
     ftp_watts: float | None = Field(default=None, ge=50, le=500)
     lthr_bpm: float | None = Field(default=None, ge=90, le=230)
     max_hr_bpm: float | None = Field(default=None, ge=120, le=230)
+    bike_lthr_bpm: float | None = Field(default=None, ge=90, le=230)
+    resting_hr_bpm: float | None = Field(default=None, ge=30, le=120)
+    threshold_pace: str | None = Field(default=None, max_length=32)
+    lt1_pace: str | None = Field(default=None, max_length=32)
+    marathon_pace: str | None = Field(default=None, max_length=32)
+    css_pace: str | None = Field(default=None, max_length=32)
+    threshold_pace_sec_per_km: float | None = Field(default=None, ge=120, le=900)
+    lt1_pace_sec_per_km: float | None = Field(default=None, ge=120, le=900)
+    marathon_pace_sec_per_km: float | None = Field(default=None, ge=120, le=900)
+    css_sec_per_100m: float | None = Field(default=None, ge=40, le=300)
+    vo2max: float | None = Field(default=None, ge=20, le=90)
+    zone_run_hr_method: str | None = None
+    zone_bike_power_method: str | None = None
+    zone_run_pace_method: str | None = None
     cycle_tracking_enabled: bool | None = None
     cycle_length_manual: int | None = Field(default=None, ge=18, le=45)
 
@@ -212,6 +243,96 @@ class ProfileUpdateRequest(BaseModel):
         if value is None:
             return None
         return "imperial" if value.strip().lower() == "imperial" else "metric"
+
+    @field_validator("zone_run_hr_method")
+    @classmethod
+    def check_run_hr_method(cls, value: str | None) -> str | None:
+        if value is None:
+            return None
+        normalized = value.strip().lower()
+        return normalized if normalized in RUN_HR_METHODS else "lthr"
+
+    @field_validator("zone_bike_power_method")
+    @classmethod
+    def check_bike_power_method(cls, value: str | None) -> str | None:
+        if value is None:
+            return None
+        normalized = value.strip().lower()
+        return normalized if normalized in BIKE_POWER_METHODS else "coggan"
+
+    @field_validator("zone_run_pace_method")
+    @classmethod
+    def check_run_pace_method(cls, value: str | None) -> str | None:
+        if value is None:
+            return None
+        normalized = value.strip().lower()
+        return normalized if normalized in RUN_PACE_METHODS else "threshold"
+
+
+class ZoneBandRead(BaseModel):
+    name: str
+    low_w: int | None = None
+    high_w: int | None = None
+    low_bpm: int | None = None
+    high_bpm: int | None = None
+    low_pace: str | None = None
+    high_pace: str | None = None
+    relative_to: str | None = None
+
+
+class TrainingZonesResponse(BaseModel):
+    anchors: dict
+    methods: dict
+    power_zones: list[ZoneBandRead] = []
+    hr_zones: list[ZoneBandRead] = []
+    run_pace_zones: list[ZoneBandRead] = []
+    swim_pace_zones: list[ZoneBandRead] = []
+
+
+class TestSuggestionRead(BaseModel):
+    id: str
+    kind: str
+    field: str
+    value: float
+    confidence: str
+    reason: str
+    activity_id: int
+    activity_name: str | None = None
+    activity_date: str | None = None
+
+
+class AnchorNudgeRead(BaseModel):
+    code: str
+    severity: str = "info"
+    message: str
+    action: str | None = None
+
+
+class PhysiologyEstimateResponse(BaseModel):
+    suggestions: dict = {}
+    sources: dict = {}
+    skipped: dict = {}
+    activity_count: int = 0
+    test_suggestions: list[TestSuggestionRead] = []
+    nudges: list[AnchorNudgeRead] = []
+    zones: TrainingZonesResponse | None = None
+
+
+class PhysiologyEstimateApplyResponse(BaseModel):
+    applied: dict = {}
+    sources: dict = {}
+    skipped: dict = {}
+    activity_count: int = 0
+    test_suggestions: list[TestSuggestionRead] = []
+    nudges: list[AnchorNudgeRead] = []
+    zones: TrainingZonesResponse
+
+
+class TestSuggestionApplyResponse(BaseModel):
+    applied: dict = {}
+    sources: dict = {}
+    suggestion: TestSuggestionRead
+    zones: TrainingZonesResponse
 
 
 class AthleteProfileResponse(BaseModel):
@@ -259,6 +380,20 @@ class AthleteProfileResponse(BaseModel):
     ftp_watts: float | None = None
     lthr_bpm: float | None = None
     max_hr_bpm: float | None = None
+    bike_lthr_bpm: float | None = None
+    resting_hr_bpm: float | None = None
+    threshold_pace_sec_per_km: float | None = None
+    threshold_pace_display: str | None = None
+    lt1_pace_sec_per_km: float | None = None
+    lt1_pace_display: str | None = None
+    marathon_pace_sec_per_km: float | None = None
+    marathon_pace_display: str | None = None
+    css_sec_per_100m: float | None = None
+    css_pace_display: str | None = None
+    vo2max: float | None = None
+    zone_run_hr_method: str = "lthr"
+    zone_bike_power_method: str = "coggan"
+    zone_run_pace_method: str = "threshold"
     ftp_source: str | None = None
     ftp_estimated_watts: float | None = None
     cycle_tracking_enabled: bool = False

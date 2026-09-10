@@ -1,0 +1,18 @@
+{
+  "library_version": "2.0.0",
+  "pack_count": 11,
+  "expansion_templates": 138,
+  "packs": {
+    "running_extended.json": 22,
+    "cycling_extended.json": 22,
+    "swimming_extended.json": 14,
+    "strength_extended.json": 18,
+    "mobility_extended.json": 12,
+    "trail_extended.json": 10,
+    "triathlon_extended.json": 8,
+    "rowing.json": 12,
+    "walking.json": 10,
+    "cross_training.json": 8,
+    "versioned_overrides.json": 2
+  }
+}

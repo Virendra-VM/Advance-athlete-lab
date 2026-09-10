@@ -1,6 +1,8 @@
-from datetime import date, timedelta
+from datetime import date, datetime, timedelta
+import json
 
 from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi.responses import JSONResponse, Response, StreamingResponse
 from sqlalchemy.orm import Session
 
 from app.auth_deps import get_current_user
@@ -12,30 +14,46 @@ from app.schemas import (
     CoachChatHistoryResponse,
     CoachChatRequest,
     CoachChatResponse,
+    CoachProactivePromptsResponse,
+    CoachReviewFlagRead,
+    CoachReviewFlagRequest,
+    CoachReviewFlagsResponse,
+    CoachWarmResponse,
     CoachContextResponse,
     CoachPlannedWorkoutRead,
     CoachPlanResponse,
     CoachStatusResponse,
+    FavoriteTemplateRead,
     PlanGenerateRequest,
+    RepeatWorkoutRequest,
     TodaysCallResponse,
     WeekPlanContextResponse,
+    WorkoutComplianceRead,
 )
 from app.services.autoregulation import compute_todays_call
 from app.services.ai import configured_providers, describe_ai_runtime
-from app.services.athlete_coach_context import build_athlete_coach_context
+from app.services.coach_context_cache import (
+    coach_context_for_response,
+    get_athlete_coach_context,
+)
 from app.services.athlete_profile import get_profile_consent
 from app.services.coach_ai import (
     PlanWeekNotCurrentError,
+    add_favorite_template,
     apply_week_from_chat,
     chat_history,
     coach_chat,
+    compute_workout_compliance,
     confirm_baseline,
     current_week_monday,
     generate_daily_advice,
     generate_week_brief,
     generate_week_plan,
     get_active_plan,
+    list_favorite_templates,
     publish_plan_to_schedule,
+    remove_favorite_template,
+    repeat_planned_workout,
     resolve_clock,
 )
 from app.services.coach_intent import (
@@ -43,8 +61,25 @@ from app.services.coach_intent import (
     WEEK_PLAN_REVIEW,
     classify_chat_intent,
 )
+from app.services.coach_memory import dismiss_proactive_prompt, list_proactive_prompts
+from app.services.coach_review import (
+    flag_message_for_review,
+    list_review_flags,
+    resolve_review_flag,
+)
+from app.services.coach_stream import (
+    STREAM_STATUSES,
+    delta_event,
+    done_event,
+    error_event,
+    status_event,
+    stream_reply_deltas,
+)
 from app.services.periodization import build_season_context
 from app.services.schedule_completion import match_planned_workout_completions
+from app.services.session_blueprints import enrich_workout
+from app.services.workout_device_export import build_device_export
+from app.services.workout_library import physiology_from_profile
 
 router = APIRouter(prefix="/coach", tags=["coach"])
 
@@ -77,8 +112,7 @@ def get_coach_context(
     db: Session = Depends(get_db),
 ):
     profile = _require_profile(current_user, db)
-    context = build_athlete_coach_context(db, profile.id)
-    return CoachContextResponse(**context)
+    return CoachContextResponse(**coach_context_for_response(db, profile.id))
 
 
 @router.get("/todays-call", response_model=TodaysCallResponse)
@@ -220,6 +254,100 @@ def read_chat_history(
     return CoachChatHistoryResponse(messages=chat_history(db, profile.id))
 
 
+@router.get("/proactive-prompts", response_model=CoachProactivePromptsResponse)
+def read_proactive_prompts(
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    profile = _require_profile(current_user, db)
+    return CoachProactivePromptsResponse(prompts=list_proactive_prompts(db, profile.id))
+
+
+@router.post("/proactive-prompts/{memory_id}/dismiss", response_model=dict)
+def dismiss_proactive(
+    memory_id: int,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    profile = _require_profile(current_user, db)
+    if not dismiss_proactive_prompt(db, profile.id, memory_id):
+        raise HTTPException(status_code=404, detail="Proactive prompt not found.")
+    return {"dismissed": True, "id": memory_id}
+
+
+@router.get("/reviews", response_model=CoachReviewFlagsResponse)
+def read_review_queue(
+    status: str = Query(default="open"),
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Human review queue — replies flagged by athletes or auto-quality checks."""
+    profile = _require_profile(current_user, db)
+    if status not in {"open", "resolved", "dismissed"}:
+        raise HTTPException(status_code=422, detail="status must be open, resolved, or dismissed")
+    return CoachReviewFlagsResponse(flags=list_review_flags(db, profile.id, status=status))
+
+
+@router.post("/reviews/{message_id}/flag", response_model=CoachReviewFlagRead)
+def flag_coach_reply(
+    message_id: int,
+    payload: CoachReviewFlagRequest | None = None,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    profile = _require_profile(current_user, db)
+    try:
+        row = flag_message_for_review(
+            db,
+            profile.id,
+            message_id,
+            reason="user_report",
+            notes=payload.notes if payload else None,
+        )
+    except LookupError:
+        raise HTTPException(status_code=404, detail="Coach message not found.")
+    preview_rows = list_review_flags(db, profile.id, status=row.status, limit=1)
+    preview = preview_rows[0] if preview_rows else {}
+    return CoachReviewFlagRead(
+        id=row.id,
+        message_id=row.message_id,
+        reason=row.reason,
+        category=row.category,
+        notes=row.notes,
+        quality_score=row.quality_score,
+        status=row.status,
+        created_at=row.created_at,
+        message_preview=preview.get("message_preview"),
+    )
+
+
+@router.post("/reviews/flags/{flag_id}/resolve", response_model=CoachReviewFlagRead)
+def resolve_coach_review_flag(
+    flag_id: int,
+    status: str = Query(default="resolved"),
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    profile = _require_profile(current_user, db)
+    try:
+        row = resolve_review_flag(db, profile.id, flag_id, status=status)
+    except LookupError:
+        raise HTTPException(status_code=404, detail="Review flag not found.")
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+    return CoachReviewFlagRead(
+        id=row.id,
+        message_id=row.message_id,
+        reason=row.reason,
+        category=row.category,
+        notes=row.notes,
+        quality_score=row.quality_score,
+        status=row.status,
+        created_at=row.created_at,
+        message_preview=None,
+    )
+
+
 @router.get("/week-plan/context", response_model=WeekPlanContextResponse)
 def read_week_plan_context(
     timezone: str | None = Query(default=None),
@@ -234,6 +362,25 @@ def read_week_plan_context(
         has_season=bool(season_ctx and season_ctx.get("has_plan")),
         planning_notes=profile.planning_notes,
         season=season_ctx,
+    )
+
+
+@router.get("/warm", response_model=CoachWarmResponse)
+def warm_coach(
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Preload coach context, today's call, and proactive prompts in one round trip."""
+    profile = _require_profile(current_user, db)
+    _require_ai_consent(db, profile)
+    context_raw = get_athlete_coach_context(db, profile.id)
+    cache_meta = context_raw.get("_cache") or {}
+    return CoachWarmResponse(
+        context=CoachContextResponse(**coach_context_for_response(db, profile.id)),
+        context_cache_hit=bool(cache_meta.get("hit")),
+        todays_call=compute_todays_call(db, profile.id, profile=profile),
+        proactive_prompts=list_proactive_prompts(db, profile.id),
+        warmed_at=datetime.utcnow(),
     )
 
 
@@ -274,6 +421,59 @@ def post_chat(
     )
 
 
+@router.post("/chat/stream")
+def post_chat_stream(
+    payload: CoachChatRequest,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """NDJSON stream: status updates, reply deltas, then full chat payload."""
+    profile = _require_profile(current_user, db)
+    _require_ai_consent(db, profile)
+    message = payload.message.strip()
+    if not message:
+        raise HTTPException(status_code=422, detail="Message cannot be empty.")
+
+    mode = (payload.chat_mode or "").strip().lower()
+    intent = None
+    persist_plan = None
+    if mode == "week_plan_commit":
+        intent = SCHEDULE_UPDATE
+        persist_plan = True
+    elif mode == "week_plan_review":
+        intent = WEEK_PLAN_REVIEW
+        persist_plan = False
+    else:
+        intent = classify_chat_intent(message, activity_id=payload.activity_id)
+
+    def event_generator():
+        for status in STREAM_STATUSES[:-1]:
+            yield status_event(status)
+        try:
+            result = coach_chat(
+                db,
+                profile,
+                message,
+                timezone_name=payload.timezone,
+                activity_id=payload.activity_id,
+                intent=intent,
+                persist_plan=persist_plan,
+            )
+            yield status_event(STREAM_STATUSES[-1])
+            reply_text = ""
+            reply_payload = result.get("reply")
+            if isinstance(reply_payload, dict):
+                reply_text = reply_payload.get("reply") or ""
+            for chunk in stream_reply_deltas(reply_text):
+                yield delta_event(chunk)
+            payload_json = CoachChatResponse(**result).model_dump(mode="json")
+            yield done_event(payload_json)
+        except Exception as exc:  # noqa: BLE001 — stream must emit error event
+            yield error_event(str(exc))
+
+    return StreamingResponse(event_generator(), media_type="application/x-ndjson")
+
+
 @router.post("/plan/from-chat", response_model=CoachPlanResponse)
 def apply_chat_week(
     payload: ApplyChatWeekRequest,
@@ -307,7 +507,7 @@ def confirm_wearable_baseline(
     """Athlete accepts the fitness estimates derived from their synced device data."""
     profile = _require_profile(current_user, db)
     confirm_baseline(db, profile)
-    return CoachContextResponse(**build_athlete_coach_context(db, profile.id))
+    return CoachContextResponse(**coach_context_for_response(db, profile.id, force_refresh=True))
 
 
 @router.get("/planned-workouts", response_model=list[CoachPlannedWorkoutRead])
@@ -353,6 +553,32 @@ def list_planned_workouts(
     rows = []
     for workout in workouts:
         activity = activities.get(workout.completed_activity_id)
+        try:
+            structure = json.loads(workout.structure_json) if workout.structure_json else []
+        except json.JSONDecodeError:
+            structure = []
+        filled = enrich_workout(
+            {
+                "sport": workout.sport,
+                "title": workout.title,
+                "session_type": workout.session_type,
+                "duration_min": workout.duration_min,
+                "description": workout.description,
+                "structure": structure,
+                "library_template_id": workout.library_template_id,
+            }
+        )
+        compliance = None
+        if workout.compliance_json:
+            try:
+                payload = json.loads(workout.compliance_json)
+                compliance = WorkoutComplianceRead(
+                    score=payload.get("score"),
+                    grade=payload.get("grade"),
+                    dimensions=payload.get("dimensions") or {},
+                )
+            except json.JSONDecodeError:
+                compliance = None
         rows.append(
             CoachPlannedWorkoutRead(
                 external_id=f"coach-{workout.id}",
@@ -371,7 +597,11 @@ def list_planned_workouts(
                 plan_id=workout.training_plan_id,
                 session_type=workout.session_type,
                 intensity=workout.intensity,
-                description=workout.description,
+                description=filled.get("description") or workout.description,
+                structure=filled.get("structure") or [],
+                library_template_id=workout.library_template_id,
+                library_version=workout.library_version,
+                compliance=compliance,
             )
         )
     return rows
@@ -396,5 +626,155 @@ def link_workout_completion(
     if workout is None:
         raise HTTPException(status_code=404, detail="Planned workout not found.")
     workout.completed_activity_id = activity_id
+    if activity_id:
+        from app.services.schedule_completion import _store_workout_compliance
+
+        activity = (
+            db.query(Activity)
+            .filter(
+                Activity.id == activity_id,
+                Activity.athlete_profile_id == profile.id,
+            )
+            .first()
+        )
+        if activity:
+            _store_workout_compliance(db, workout, activity)
+    else:
+        workout.compliance_json = None
     db.commit()
     return {"id": workout.id, "completed_activity_id": workout.completed_activity_id}
+
+
+@router.post("/workouts/{workout_id}/repeat", response_model=dict)
+def repeat_workout(
+    workout_id: int,
+    payload: RepeatWorkoutRequest | None = None,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    profile = _require_profile(current_user, db)
+    _require_ai_consent(db, profile)
+    try:
+        return repeat_planned_workout(
+            db,
+            profile,
+            workout_id,
+            target_date=payload.target_date if payload else None,
+        )
+    except LookupError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+
+
+@router.get("/workouts/{workout_id}/export")
+def export_planned_workout(
+    workout_id: int,
+    format: str = Query(default="fit", pattern="^(fit|zwo|json)$"),
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Download a structured workout for Garmin / COROS / Zwift."""
+    profile = _require_profile(current_user, db)
+    workout = (
+        db.query(PlannedWorkout)
+        .filter(
+            PlannedWorkout.id == workout_id,
+            PlannedWorkout.athlete_profile_id == profile.id,
+        )
+        .first()
+    )
+    if workout is None:
+        raise HTTPException(status_code=404, detail="Planned workout not found.")
+
+    try:
+        structure = json.loads(workout.structure_json) if workout.structure_json else []
+    except json.JSONDecodeError:
+        structure = []
+
+    physiology = physiology_from_profile(profile)
+    try:
+        package = build_device_export(
+            {
+                "sport": workout.sport,
+                "title": workout.title,
+                "session_type": workout.session_type,
+                "duration_min": workout.duration_min,
+                "description": workout.description,
+                "structure": structure,
+                "library_template_id": workout.library_template_id,
+            },
+            physiology=physiology,
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+    export = package["formats"].get(format)
+    if export is None:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Format '{format}' is not available for this workout.",
+        )
+
+    filename = export["filename"]
+    if format == "fit":
+        return Response(
+            content=export["bytes"],
+            media_type=export["content_type"],
+            headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+        )
+    if format == "zwo":
+        return Response(
+            content=export["text"],
+            media_type=export["content_type"],
+            headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+        )
+    return JSONResponse(
+        content=export["payload"],
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+    )
+
+
+@router.get("/workouts/{workout_id}/compliance", response_model=dict)
+def read_workout_compliance(
+    workout_id: int,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    profile = _require_profile(current_user, db)
+    try:
+        return compute_workout_compliance(db, profile, workout_id)
+    except LookupError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@router.get("/library/favorites", response_model=list[FavoriteTemplateRead])
+def read_favorite_templates(
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    profile = _require_profile(current_user, db)
+    return [FavoriteTemplateRead(**row) for row in list_favorite_templates(db, profile.id)]
+
+
+@router.post("/library/favorites/{template_id}", response_model=dict)
+def create_favorite_template(
+    template_id: str,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    profile = _require_profile(current_user, db)
+    try:
+        return add_favorite_template(db, profile.id, template_id)
+    except LookupError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+
+
+@router.delete("/library/favorites/{template_id}", response_model=dict)
+def delete_favorite_template(
+    template_id: str,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    profile = _require_profile(current_user, db)
+    return remove_favorite_template(db, profile.id, template_id)

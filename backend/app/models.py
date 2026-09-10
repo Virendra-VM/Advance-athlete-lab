@@ -88,6 +88,16 @@ class AthleteProfile(Base):
     ftp_watts = Column(Float, nullable=True)
     lthr_bpm = Column(Float, nullable=True)
     max_hr_bpm = Column(Float, nullable=True)
+    bike_lthr_bpm = Column(Float, nullable=True)
+    resting_hr_bpm = Column(Float, nullable=True)
+    threshold_pace_sec_per_km = Column(Float, nullable=True)
+    lt1_pace_sec_per_km = Column(Float, nullable=True)
+    marathon_pace_sec_per_km = Column(Float, nullable=True)
+    css_sec_per_100m = Column(Float, nullable=True)
+    vo2max = Column(Float, nullable=True)
+    zone_run_hr_method = Column(String(16), nullable=False, default="lthr")
+    zone_bike_power_method = Column(String(16), nullable=False, default="coggan")
+    zone_run_pace_method = Column(String(16), nullable=False, default="threshold")
     ftp_source = Column(String(32), nullable=True)  # manual | estimated
     ftp_estimated_watts = Column(Float, nullable=True)
     ftp_estimated_at = Column(DateTime, nullable=True)
@@ -517,11 +527,27 @@ class PlannedWorkout(Base):
     intensity = Column(String(255), nullable=True)
     description = Column(Text, nullable=True)
     structure_json = Column(Text, nullable=True)
+    library_template_id = Column(String(128), nullable=True, index=True)
+    library_version = Column(String(32), nullable=True)
+    compliance_json = Column(Text, nullable=True)
     completed_activity_id = Column(
         Integer, ForeignKey("activities.id"), nullable=True, index=True
     )
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+
+class FavoriteWorkoutTemplate(Base):
+    """Athlete bookmarked SWL templates for repeat scheduling."""
+
+    __tablename__ = "favorite_workout_templates"
+
+    id = Column(Integer, primary_key=True, index=True, autoincrement=True)
+    athlete_profile_id = Column(
+        Integer, ForeignKey("athlete_profiles.id"), nullable=False, index=True
+    )
+    template_id = Column(String(128), nullable=False)
+    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
 
 
 class CoachMessage(Base):
@@ -538,6 +564,56 @@ class CoachMessage(Base):
     citations = Column(Text, nullable=True)
     provider = Column(String(32), nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+
+
+class CoachReviewFlag(Base):
+    """Human review queue for coach replies flagged by athletes or auto-quality checks."""
+
+    __tablename__ = "coach_review_flags"
+
+    id = Column(Integer, primary_key=True, index=True, autoincrement=True)
+    athlete_profile_id = Column(
+        Integer, ForeignKey("athlete_profiles.id"), nullable=False, index=True
+    )
+    message_id = Column(
+        Integer, ForeignKey("coach_messages.id"), nullable=False, index=True
+    )
+    reason = Column(String(64), nullable=False)  # user_report | auto_quality | other
+    category = Column(String(32), nullable=True)
+    notes = Column(Text, nullable=True)
+    quality_score = Column(Float, nullable=True)
+    status = Column(String(16), nullable=False, default="open")  # open | resolved | dismissed
+    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+    resolved_at = Column(DateTime, nullable=True)
+
+
+class CoachMemory(Base):
+    """Cross-session coach memory — stable facts, episodic life events, proactive nudges."""
+
+    __tablename__ = "coach_memories"
+    __table_args__ = (
+        UniqueConstraint(
+            "athlete_profile_id",
+            "dedupe_key",
+            name="uq_coach_memory_dedupe",
+        ),
+    )
+
+    id = Column(Integer, primary_key=True, index=True, autoincrement=True)
+    athlete_profile_id = Column(
+        Integer, ForeignKey("athlete_profiles.id"), nullable=False, index=True
+    )
+    memory_type = Column(String(16), nullable=False)  # stable | episodic | proactive
+    category = Column(String(32), nullable=False)
+    summary = Column(String(160), nullable=False)
+    content = Column(Text, nullable=False)
+    source = Column(String(32), nullable=False)  # profile | chat | activity_sync
+    dedupe_key = Column(String(128), nullable=False)
+    activity_id = Column(Integer, ForeignKey("activities.id"), nullable=True, index=True)
+    status = Column(String(16), nullable=False, default="active")  # active | dismissed | consumed
+    expires_at = Column(DateTime, nullable=True)
+    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
 
 class DailyAdviceSnapshot(Base):

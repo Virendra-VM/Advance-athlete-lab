@@ -1,0 +1,866 @@
+{
+  "templates": [
+    {
+      "id": "bike_erg_z2",
+      "version": 1,
+      "sports": [
+        "cycling"
+      ],
+      "session_types": [
+        "easy"
+      ],
+      "intent": "easy",
+      "priority": 10,
+      "title": "ERG endurance",
+      "summary": "Indoor Z2 aerobic",
+      "evidence_tags": [
+        "ftp",
+        "zones",
+        "easy"
+      ],
+      "warmup_min": 10,
+      "cooldown_min": 8,
+      "warmup": {
+        "detail": "Easy aerobic start. Dynamic mobility. No hard efforts yet."
+      },
+      "cooldown": {
+        "detail": "Easy cool-down. Stretch primary movers. Breathe."
+      },
+      "main": {
+        "intensity": "Moderate",
+        "detail": "ERG endurance for {main_min} min.",
+        "targets": {
+          "pct_ftp": {
+            "low": 0.56,
+            "high": 0.72
+          }
+        }
+      }
+    },
+    {
+      "id": "bike_erg_sweet_spot_3x15",
+      "version": 1,
+      "sports": [
+        "cycling"
+      ],
+      "session_types": [
+        "intervals"
+      ],
+      "intent": "sweet_spot",
+      "priority": 10,
+      "title": "ERG sweet spot 3\u00d715",
+      "summary": "Sustained sweet spot",
+      "evidence_tags": [
+        "ftp",
+        "zones",
+        "sweet_spot"
+      ],
+      "warmup_min": 10,
+      "cooldown_min": 8,
+      "warmup": {
+        "detail": "Easy aerobic start. Dynamic mobility. No hard efforts yet."
+      },
+      "cooldown": {
+        "detail": "Easy cool-down. Stretch primary movers. Breathe."
+      },
+      "main": {
+        "type": "repeat",
+        "intensity": "Sweet spot",
+        "reps": 3,
+        "on": {
+          "duration_min": 15,
+          "label": "work",
+          "targets": {
+            "pct_ftp": {
+              "low": 0.84,
+              "high": 0.94
+            }
+          }
+        },
+        "off": {
+          "duration_min": 5,
+          "label": "recovery",
+          "targets": {
+            "rpe": {
+              "low": 3,
+              "high": 4
+            }
+          }
+        },
+        "detail_intro": ""
+      }
+    },
+    {
+      "id": "bike_erg_vo2_6x2",
+      "version": 1,
+      "sports": [
+        "cycling"
+      ],
+      "session_types": [
+        "intervals"
+      ],
+      "intent": "vo2",
+      "priority": 10,
+      "title": "ERG VO2 6\u00d72",
+      "summary": "Short VO2 on trainer",
+      "evidence_tags": [
+        "ftp",
+        "zones",
+        "vo2"
+      ],
+      "warmup_min": 10,
+      "cooldown_min": 8,
+      "warmup": {
+        "detail": "Easy aerobic start. Dynamic mobility. No hard efforts yet."
+      },
+      "cooldown": {
+        "detail": "Easy cool-down. Stretch primary movers. Breathe."
+      },
+      "main": {
+        "type": "repeat",
+        "intensity": "VO\u2082",
+        "reps": 6,
+        "on": {
+          "duration_min": 2,
+          "label": "work",
+          "targets": {
+            "pct_ftp": {
+              "low": 1.06,
+              "high": 1.2
+            }
+          }
+        },
+        "off": {
+          "duration_min": 3,
+          "label": "recovery",
+          "targets": {
+            "rpe": {
+              "low": 3,
+              "high": 4
+            }
+          }
+        },
+        "detail_intro": ""
+      }
+    },
+    {
+      "id": "bike_outdoor_endurance",
+      "version": 1,
+      "sports": [
+        "cycling"
+      ],
+      "session_types": [
+        "easy"
+      ],
+      "intent": "easy",
+      "priority": 10,
+      "title": "Outdoor endurance",
+      "summary": "Outdoor Z2 ride",
+      "evidence_tags": [
+        "ftp",
+        "zones",
+        "easy"
+      ],
+      "warmup_min": 10,
+      "cooldown_min": 8,
+      "warmup": {
+        "detail": "Easy aerobic start. Dynamic mobility. No hard efforts yet."
+      },
+      "cooldown": {
+        "detail": "Easy cool-down. Stretch primary movers. Breathe."
+      },
+      "main": {
+        "intensity": "Moderate",
+        "detail": "Outdoor endurance for {main_min} min.",
+        "targets": {
+          "pct_ftp": {
+            "low": 0.56,
+            "high": 0.7
+          }
+        }
+      }
+    },
+    {
+      "id": "bike_group_ride_recovery",
+      "version": 1,
+      "sports": [
+        "cycling"
+      ],
+      "session_types": [
+        "easy"
+      ],
+      "intent": "easy",
+      "priority": 10,
+      "title": "Group ride \u2014 recovery",
+      "summary": "Social easy spin",
+      "evidence_tags": [
+        "ftp",
+        "zones",
+        "easy"
+      ],
+      "warmup_min": 10,
+      "cooldown_min": 8,
+      "warmup": {
+        "detail": "Easy aerobic start. Dynamic mobility. No hard efforts yet."
+      },
+      "cooldown": {
+        "detail": "Easy cool-down. Stretch primary movers. Breathe."
+      },
+      "main": {
+        "intensity": "Moderate",
+        "detail": "Group ride \u2014 recovery for {main_min} min.",
+        "targets": {
+          "pct_ftp": {
+            "low": 0.5,
+            "high": 0.65
+          }
+        }
+      }
+    },
+    {
+      "id": "bike_coffee_ride",
+      "version": 1,
+      "sports": [
+        "cycling"
+      ],
+      "session_types": [
+        "easy"
+      ],
+      "intent": "easy",
+      "priority": 10,
+      "title": "Coffee ride",
+      "summary": "Very easy social ride",
+      "evidence_tags": [
+        "ftp",
+        "zones",
+        "easy"
+      ],
+      "warmup_min": 10,
+      "cooldown_min": 8,
+      "warmup": {
+        "detail": "Easy aerobic start. Dynamic mobility. No hard efforts yet."
+      },
+      "cooldown": {
+        "detail": "Easy cool-down. Stretch primary movers. Breathe."
+      },
+      "main": {
+        "intensity": "Moderate",
+        "detail": "Coffee ride for {main_min} min.",
+        "targets": {
+          "pct_ftp": {
+            "low": 0.45,
+            "high": 0.6
+          }
+        }
+      }
+    },
+    {
+      "id": "bike_ramp_test_prep",
+      "version": 1,
+      "sports": [
+        "cycling"
+      ],
+      "session_types": [
+        "intervals"
+      ],
+      "intent": "threshold",
+      "priority": 10,
+      "title": "Ramp test prep",
+      "summary": "Opener before FTP test",
+      "evidence_tags": [
+        "ftp",
+        "zones",
+        "threshold"
+      ],
+      "warmup_min": 10,
+      "cooldown_min": 8,
+      "warmup": {
+        "detail": "Easy aerobic start. Dynamic mobility. No hard efforts yet."
+      },
+      "cooldown": {
+        "detail": "Easy cool-down. Stretch primary movers. Breathe."
+      },
+      "main": {
+        "intensity": "Moderate",
+        "detail": "Ramp test prep for {main_min} min.",
+        "targets": {
+          "pct_ftp": {
+            "low": 0.85,
+            "high": 1.05
+          }
+        }
+      }
+    },
+    {
+      "id": "bike_polarized_easy",
+      "version": 1,
+      "sports": [
+        "cycling"
+      ],
+      "session_types": [
+        "easy"
+      ],
+      "intent": "easy",
+      "priority": 10,
+      "title": "Polarized easy day",
+      "summary": "Strict Z2 polarized day",
+      "evidence_tags": [
+        "ftp",
+        "zones",
+        "easy"
+      ],
+      "warmup_min": 10,
+      "cooldown_min": 8,
+      "warmup": {
+        "detail": "Easy aerobic start. Dynamic mobility. No hard efforts yet."
+      },
+      "cooldown": {
+        "detail": "Easy cool-down. Stretch primary movers. Breathe."
+      },
+      "main": {
+        "intensity": "Moderate",
+        "detail": "Polarized easy day for {main_min} min.",
+        "targets": {
+          "pct_ftp": {
+            "low": 0.56,
+            "high": 0.75
+          }
+        }
+      }
+    },
+    {
+      "id": "bike_polarized_vo2",
+      "version": 1,
+      "sports": [
+        "cycling"
+      ],
+      "session_types": [
+        "intervals"
+      ],
+      "intent": "vo2",
+      "priority": 10,
+      "title": "Polarized VO2 day",
+      "summary": "Hard polarized day",
+      "evidence_tags": [
+        "ftp",
+        "zones",
+        "vo2"
+      ],
+      "warmup_min": 10,
+      "cooldown_min": 8,
+      "warmup": {
+        "detail": "Easy aerobic start. Dynamic mobility. No hard efforts yet."
+      },
+      "cooldown": {
+        "detail": "Easy cool-down. Stretch primary movers. Breathe."
+      },
+      "main": {
+        "type": "repeat",
+        "intensity": "VO\u2082",
+        "reps": 6,
+        "on": {
+          "duration_min": 2,
+          "label": "work",
+          "targets": {
+            "pct_ftp": {
+              "low": 1.06,
+              "high": 1.2
+            }
+          }
+        },
+        "off": {
+          "duration_min": 3,
+          "label": "recovery",
+          "targets": {
+            "rpe": {
+              "low": 3,
+              "high": 4
+            }
+          }
+        },
+        "detail_intro": ""
+      }
+    },
+    {
+      "id": "bike_cadence_high_4x3",
+      "version": 1,
+      "sports": [
+        "cycling"
+      ],
+      "session_types": [
+        "tempo"
+      ],
+      "intent": "tempo",
+      "priority": 10,
+      "title": "High-cadence blocks",
+      "summary": "Pedaling efficiency at tempo",
+      "evidence_tags": [
+        "ftp",
+        "zones",
+        "tempo"
+      ],
+      "warmup_min": 10,
+      "cooldown_min": 8,
+      "warmup": {
+        "detail": "Easy aerobic start. Dynamic mobility. No hard efforts yet."
+      },
+      "cooldown": {
+        "detail": "Easy cool-down. Stretch primary movers. Breathe."
+      },
+      "main": {
+        "intensity": "Moderate",
+        "detail": "High-cadence blocks for {main_min} min.",
+        "targets": {
+          "pct_ftp": {
+            "low": 0.76,
+            "high": 0.88
+          }
+        }
+      }
+    },
+    {
+      "id": "bike_cadence_low_4x5",
+      "version": 1,
+      "sports": [
+        "cycling"
+      ],
+      "session_types": [
+        "tempo"
+      ],
+      "intent": "tempo",
+      "priority": 10,
+      "title": "Low-cadence strength",
+      "summary": "Force production blocks",
+      "evidence_tags": [
+        "ftp",
+        "zones",
+        "tempo"
+      ],
+      "warmup_min": 10,
+      "cooldown_min": 8,
+      "warmup": {
+        "detail": "Easy aerobic start. Dynamic mobility. No hard efforts yet."
+      },
+      "cooldown": {
+        "detail": "Easy cool-down. Stretch primary movers. Breathe."
+      },
+      "main": {
+        "intensity": "Moderate",
+        "detail": "Low-cadence strength for {main_min} min.",
+        "targets": {
+          "pct_ftp": {
+            "low": 0.75,
+            "high": 0.85
+          }
+        }
+      }
+    },
+    {
+      "id": "bike_gravel_endurance",
+      "version": 1,
+      "sports": [
+        "cycling"
+      ],
+      "session_types": [
+        "long"
+      ],
+      "intent": "long",
+      "priority": 10,
+      "title": "Gravel endurance",
+      "summary": "Mixed terrain aerobic",
+      "evidence_tags": [
+        "ftp",
+        "zones",
+        "long"
+      ],
+      "warmup_min": 10,
+      "cooldown_min": 8,
+      "warmup": {
+        "detail": "Easy aerobic start. Dynamic mobility. No hard efforts yet."
+      },
+      "cooldown": {
+        "detail": "Easy cool-down. Stretch primary movers. Breathe."
+      },
+      "main": {
+        "intensity": "Moderate",
+        "detail": "Gravel endurance for {main_min} min.",
+        "targets": {
+          "pct_ftp": {
+            "low": 0.56,
+            "high": 0.72
+          }
+        }
+      }
+    },
+    {
+      "id": "bike_criterium_sim",
+      "version": 1,
+      "sports": [
+        "cycling"
+      ],
+      "session_types": [
+        "intervals"
+      ],
+      "intent": "race_pace",
+      "priority": 10,
+      "title": "Criterium simulation",
+      "summary": "Repeated surges",
+      "evidence_tags": [
+        "ftp",
+        "zones",
+        "race_pace"
+      ],
+      "warmup_min": 10,
+      "cooldown_min": 8,
+      "warmup": {
+        "detail": "Easy aerobic start. Dynamic mobility. No hard efforts yet."
+      },
+      "cooldown": {
+        "detail": "Easy cool-down. Stretch primary movers. Breathe."
+      },
+      "main": {
+        "intensity": "Moderate",
+        "detail": "Criterium simulation for {main_min} min.",
+        "targets": {
+          "pct_ftp": {
+            "low": 0.95,
+            "high": 1.15
+          }
+        }
+      }
+    },
+    {
+      "id": "bike_time_trial_prep",
+      "version": 1,
+      "sports": [
+        "cycling"
+      ],
+      "session_types": [
+        "intervals"
+      ],
+      "intent": "race_pace",
+      "priority": 10,
+      "title": "Time trial prep",
+      "summary": "TT pacing practice",
+      "evidence_tags": [
+        "ftp",
+        "zones",
+        "race_pace"
+      ],
+      "warmup_min": 10,
+      "cooldown_min": 8,
+      "warmup": {
+        "detail": "Easy aerobic start. Dynamic mobility. No hard efforts yet."
+      },
+      "cooldown": {
+        "detail": "Easy cool-down. Stretch primary movers. Breathe."
+      },
+      "main": {
+        "intensity": "Moderate",
+        "detail": "Time trial prep for {main_min} min.",
+        "targets": {
+          "pct_ftp": {
+            "low": 0.95,
+            "high": 1.02
+          }
+        }
+      }
+    },
+    {
+      "id": "bike_gran_fondo_long",
+      "version": 1,
+      "sports": [
+        "cycling"
+      ],
+      "session_types": [
+        "long"
+      ],
+      "intent": "long",
+      "priority": 10,
+      "title": "Gran fondo long ride",
+      "summary": "Event-specific volume",
+      "evidence_tags": [
+        "ftp",
+        "zones",
+        "long"
+      ],
+      "warmup_min": 10,
+      "cooldown_min": 8,
+      "warmup": {
+        "detail": "Easy aerobic start. Dynamic mobility. No hard efforts yet."
+      },
+      "cooldown": {
+        "detail": "Easy cool-down. Stretch primary movers. Breathe."
+      },
+      "main": {
+        "intensity": "Moderate",
+        "detail": "Gran fondo long ride for {main_min} min.",
+        "targets": {
+          "pct_ftp": {
+            "low": 0.56,
+            "high": 0.7
+          }
+        }
+      }
+    },
+    {
+      "id": "bike_indoor_zwift_race_prep",
+      "version": 1,
+      "sports": [
+        "cycling"
+      ],
+      "session_types": [
+        "intervals"
+      ],
+      "intent": "race_pace",
+      "priority": 10,
+      "title": "Virtual race prep",
+      "summary": "Race-start efforts",
+      "evidence_tags": [
+        "ftp",
+        "zones",
+        "race_pace"
+      ],
+      "warmup_min": 10,
+      "cooldown_min": 8,
+      "warmup": {
+        "detail": "Easy aerobic start. Dynamic mobility. No hard efforts yet."
+      },
+      "cooldown": {
+        "detail": "Easy cool-down. Stretch primary movers. Breathe."
+      },
+      "main": {
+        "intensity": "Moderate",
+        "detail": "Virtual race prep for {main_min} min.",
+        "targets": {
+          "pct_ftp": {
+            "low": 1.06,
+            "high": 1.2
+          }
+        }
+      }
+    },
+    {
+      "id": "bike_one_leg_drills",
+      "version": 1,
+      "sports": [
+        "cycling"
+      ],
+      "session_types": [
+        "easy"
+      ],
+      "intent": "easy",
+      "priority": 10,
+      "title": "Single-leg drills",
+      "summary": "Pedaling symmetry",
+      "evidence_tags": [
+        "ftp",
+        "zones",
+        "easy"
+      ],
+      "warmup_min": 10,
+      "cooldown_min": 8,
+      "warmup": {
+        "detail": "Easy aerobic start. Dynamic mobility. No hard efforts yet."
+      },
+      "cooldown": {
+        "detail": "Easy cool-down. Stretch primary movers. Breathe."
+      },
+      "main": {
+        "intensity": "Moderate",
+        "detail": "Single-leg drills for {main_min} min.",
+        "targets": {
+          "pct_ftp": {
+            "low": 0.5,
+            "high": 0.65
+          }
+        }
+      }
+    },
+    {
+      "id": "bike_over_under_short",
+      "version": 1,
+      "sports": [
+        "cycling"
+      ],
+      "session_types": [
+        "intervals"
+      ],
+      "intent": "over_under",
+      "priority": 10,
+      "title": "Short over-unders",
+      "summary": "Compact OU session",
+      "evidence_tags": [
+        "ftp",
+        "zones",
+        "over_under"
+      ],
+      "warmup_min": 10,
+      "cooldown_min": 8,
+      "warmup": {
+        "detail": "Easy aerobic start. Dynamic mobility. No hard efforts yet."
+      },
+      "cooldown": {
+        "detail": "Easy cool-down. Stretch primary movers. Breathe."
+      },
+      "main": {
+        "intensity": "Over-under",
+        "detail": "3\u00d79 min OU blocks: 2 min under / 45 s over, 4 min easy between.",
+        "targets": {
+          "pct_ftp": {
+            "low": 0.88,
+            "high": 1.15
+          }
+        }
+      }
+    },
+    {
+      "id": "bike_endurance_fasted",
+      "version": 1,
+      "sports": [
+        "cycling"
+      ],
+      "session_types": [
+        "easy"
+      ],
+      "intent": "easy",
+      "priority": 10,
+      "title": "Fasted easy ride",
+      "summary": "Optional fasted Z2 \u2014 skip if tired",
+      "evidence_tags": [
+        "ftp",
+        "zones",
+        "easy"
+      ],
+      "warmup_min": 10,
+      "cooldown_min": 8,
+      "warmup": {
+        "detail": "Easy aerobic start. Dynamic mobility. No hard efforts yet."
+      },
+      "cooldown": {
+        "detail": "Easy cool-down. Stretch primary movers. Breathe."
+      },
+      "main": {
+        "intensity": "Moderate",
+        "detail": "Fasted easy ride for {main_min} min.",
+        "targets": {
+          "pct_ftp": {
+            "low": 0.56,
+            "high": 0.68
+          }
+        }
+      }
+    },
+    {
+      "id": "bike_recovery_spin_legs",
+      "version": 1,
+      "sports": [
+        "cycling"
+      ],
+      "session_types": [
+        "easy"
+      ],
+      "intent": "easy",
+      "priority": 10,
+      "title": "Leg opener spin",
+      "summary": "Pre-event opener",
+      "evidence_tags": [
+        "ftp",
+        "zones",
+        "easy"
+      ],
+      "warmup_min": 10,
+      "cooldown_min": 8,
+      "warmup": {
+        "detail": "Easy aerobic start. Dynamic mobility. No hard efforts yet."
+      },
+      "cooldown": {
+        "detail": "Easy cool-down. Stretch primary movers. Breathe."
+      },
+      "main": {
+        "intensity": "Moderate",
+        "detail": "Leg opener spin for {main_min} min.",
+        "targets": {
+          "pct_ftp": {
+            "low": 0.45,
+            "high": 0.55
+          }
+        }
+      }
+    },
+    {
+      "id": "bike_40k_tt_blocks",
+      "version": 1,
+      "sports": [
+        "cycling"
+      ],
+      "session_types": [
+        "intervals"
+      ],
+      "intent": "race_pace",
+      "priority": 10,
+      "title": "40K TT blocks",
+      "summary": "Tri bike TT specificity",
+      "evidence_tags": [
+        "ftp",
+        "zones",
+        "race_pace"
+      ],
+      "warmup_min": 10,
+      "cooldown_min": 8,
+      "warmup": {
+        "detail": "Easy aerobic start. Dynamic mobility. No hard efforts yet."
+      },
+      "cooldown": {
+        "detail": "Easy cool-down. Stretch primary movers. Breathe."
+      },
+      "main": {
+        "intensity": "Moderate",
+        "detail": "40K TT blocks for {main_min} min.",
+        "targets": {
+          "pct_ftp": {
+            "low": 0.92,
+            "high": 0.98
+          }
+        }
+      }
+    },
+    {
+      "id": "bike_mountain_climb",
+      "version": 1,
+      "sports": [
+        "cycling"
+      ],
+      "session_types": [
+        "hills"
+      ],
+      "intent": "hills",
+      "priority": 10,
+      "title": "Mountain climb repeats",
+      "summary": "Long climb power",
+      "evidence_tags": [
+        "ftp",
+        "zones",
+        "hills"
+      ],
+      "warmup_min": 10,
+      "cooldown_min": 8,
+      "warmup": {
+        "detail": "Easy aerobic start. Dynamic mobility. No hard efforts yet."
+      },
+      "cooldown": {
+        "detail": "Easy cool-down. Stretch primary movers. Breathe."
+      },
+      "main": {
+        "intensity": "Moderate",
+        "detail": "Mountain climb repeats for {main_min} min.",
+        "targets": {
+          "pct_ftp": {
+            "low": 0.9,
+            "high": 1.05
+          }
+        }
+      }
+    }
+  ]
+}

@@ -46,6 +46,18 @@ function ReviewSummary({ answers }) {
             .join(', ')
         : 'None reported',
     ],
+    [
+      'Physiology',
+      answers.ftp_watts || answers.lthr_bpm || answers.threshold_pace
+        ? [
+            answers.ftp_watts ? `FTP ${answers.ftp_watts} W` : null,
+            answers.lthr_bpm ? `LTHR ${answers.lthr_bpm} bpm` : null,
+            answers.threshold_pace ? `Threshold ${answers.threshold_pace}` : null,
+          ]
+            .filter(Boolean)
+            .join(' · ')
+        : 'Skipped — estimate later from activities',
+    ],
   ]
 
   return (

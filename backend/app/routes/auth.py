@@ -8,6 +8,10 @@ from app.auth_schemas import (
     EmailVerifyStatusResponse,
     OnboardingSubmitRequest,
     ProfileUpdateRequest,
+    PhysiologyEstimateApplyResponse,
+    PhysiologyEstimateResponse,
+    TestSuggestionApplyResponse,
+    TrainingZonesResponse,
     UserLoginRequest,
     UserRegisterRequest,
     UserResponse,
@@ -15,7 +19,9 @@ from app.auth_schemas import (
 from app.database import get_db
 from app.models import AthleteProfile, User
 from app.services.athlete_profile import (
+    PACE_TEXT_FIELDS,
     age_from_dob,
+    apply_physiology_updates,
     dump_json_column,
     replace_injuries,
     replace_sports,
@@ -173,6 +179,93 @@ def get_profile(current_user: User = Depends(get_current_user), db: Session = De
     return build_user_response(current_user, db)
 
 
+def _training_zones_response(profile) -> TrainingZonesResponse:
+    from app.services.workout_library import physiology_from_profile
+
+    physiology = physiology_from_profile(profile)
+    return TrainingZonesResponse(
+        anchors=physiology.get("anchors") or {},
+        methods=physiology.get("methods") or {},
+        power_zones=physiology.get("power_zones") or [],
+        hr_zones=physiology.get("hr_zones") or [],
+        run_pace_zones=physiology.get("run_pace_zones") or [],
+        swim_pace_zones=physiology.get("swim_pace_zones") or [],
+    )
+
+
+@profile_router.get("/me/zones", response_model=TrainingZonesResponse)
+def get_training_zones(
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    profile = _get_profile_for_user(current_user, db)
+    return _training_zones_response(profile)
+
+
+@profile_router.get("/me/zones/estimate", response_model=PhysiologyEstimateResponse)
+def preview_physiology_estimate(
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    from app.services.physiology_estimate import build_physiology_estimate
+
+    profile = _get_profile_for_user(current_user, db)
+    preview = build_physiology_estimate(db, profile)
+    return PhysiologyEstimateResponse(
+        suggestions=preview["suggestions"],
+        sources=preview["sources"],
+        skipped=preview["skipped"],
+        activity_count=preview["activity_count"],
+        test_suggestions=preview.get("test_suggestions") or [],
+        nudges=preview.get("nudges") or [],
+        zones=_training_zones_response(profile),
+    )
+
+
+@profile_router.post("/me/zones/estimate", response_model=PhysiologyEstimateApplyResponse)
+def apply_physiology_estimate_route(
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    from app.services.physiology_estimate import apply_physiology_estimate
+
+    profile = _get_profile_for_user(current_user, db)
+    result = apply_physiology_estimate(db, profile)
+    return PhysiologyEstimateApplyResponse(
+        applied=result["applied"],
+        sources=result["sources"],
+        skipped=result["skipped"],
+        activity_count=result["activity_count"],
+        test_suggestions=result.get("test_suggestions") or [],
+        nudges=result.get("nudges") or [],
+        zones=_training_zones_response(profile),
+    )
+
+
+@profile_router.post(
+    "/me/zones/suggestions/{suggestion_id}/apply",
+    response_model=TestSuggestionApplyResponse,
+)
+def apply_test_suggestion_route(
+    suggestion_id: str,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    from app.services.physiology_estimate import apply_test_suggestion
+
+    profile = _get_profile_for_user(current_user, db)
+    try:
+        result = apply_test_suggestion(db, profile, suggestion_id)
+    except LookupError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    return TestSuggestionApplyResponse(
+        applied=result["applied"],
+        sources=result["sources"],
+        suggestion=result["suggestion"],
+        zones=_training_zones_response(profile),
+    )
+
+
 SCALAR_V2_FIELDS = (
     "sex",
     "date_of_birth",
@@ -190,6 +283,16 @@ SCALAR_V2_FIELDS = (
     "ftp_watts",
     "lthr_bpm",
     "max_hr_bpm",
+    "bike_lthr_bpm",
+    "resting_hr_bpm",
+    "threshold_pace_sec_per_km",
+    "lt1_pace_sec_per_km",
+    "marathon_pace_sec_per_km",
+    "css_sec_per_100m",
+    "vo2max",
+    "zone_run_hr_method",
+    "zone_bike_power_method",
+    "zone_run_pace_method",
     "cycle_tracking_enabled",
     "cycle_length_manual",
 )
@@ -217,6 +320,10 @@ def _apply_profile_v2_fields(db: Session, profile: AthleteProfile, updates: dict
     if "ftp_watts" in updates:
         profile.ftp_source = "manual" if updates.get("ftp_watts") else None
 
+    physiology_keys = set(SCALAR_V2_FIELDS) | set(PACE_TEXT_FIELDS)
+    if physiology_keys.intersection(updates):
+        apply_physiology_updates(profile, updates)
+
     if "current_weekly_volume" in updates:
         profile.current_weekly_volume = dump_json_column(updates["current_weekly_volume"])
 
@@ -243,9 +350,10 @@ def update_profile(
     profile = _get_profile_for_user(current_user, db)
     updates = payload.model_dump(exclude_unset=True)
     nested_fields = {"sports", "injuries", "consents", "current_weekly_volume"}
+    physiology_text_fields = set(PACE_TEXT_FIELDS)
 
     for field, value in updates.items():
-        if field in nested_fields or field in SCALAR_V2_FIELDS:
+        if field in nested_fields or field in SCALAR_V2_FIELDS or field in physiology_text_fields:
             continue
         if field == "avatar_letter" and value:
             value = value[0].upper()

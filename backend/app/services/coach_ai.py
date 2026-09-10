@@ -23,11 +23,25 @@ from sqlalchemy.orm import Session
 
 from app.config import AI_DEBUG
 from app.ai_schemas import ChatReplyJSON, DailyAdviceJSON, WeekPlanJSON
-from app.models import Activity, ActivityNote, AthleteProfile, CoachMessage, DailyAdviceSnapshot, PlannedWorkout, TrainingPlan, WeeklyAdviceSnapshot
+from app.models import (
+    Activity,
+    ActivityNote,
+    AthleteProfile,
+    CoachMessage,
+    DailyAdviceSnapshot,
+    FavoriteWorkoutTemplate,
+    PlannedWorkout,
+    TrainingPlan,
+    WeeklyAdviceSnapshot,
+)
 from app.services.ai import ProviderError, provider_chain
-from app.services.athlete_coach_context import build_athlete_coach_context
+from app.services.coach_context_cache import (
+    get_athlete_coach_context,
+    invalidate_coach_context_cache,
+)
 from app.services.coach_safety import (
     apply_joint_safe_recovery_mode,
+    build_safety_profile,
     detect_clinical_boundary,
     detect_red_flags,
     flag_clinical_injury,
@@ -36,6 +50,7 @@ from app.services.coach_safety import (
     strip_intensity,
     validate_plan,
 )
+from app.services.workout_compliance import compliance_for_planned_workout
 from app.services.coach_templates import (
     build_template_advice,
     build_template_daily_brief,
@@ -57,6 +72,9 @@ from app.services.science_kb import (
 from app.services.ai_coach import (
     AUTOPSY_SCHEMA,
     BASE_SYSTEM_PROMPT as SYSTEM_PROMPT,
+    advisory_system_prompt,
+    advisory_task,
+    go_deeper_advisory_task,
     athlete_state_block,
     autopsy_task_for_packet,
     chat_system_prompt,
@@ -66,6 +84,7 @@ from app.services.ai_coach import (
     science_sports_for_modality,
     schedule_system_prompt,
     schedule_task,
+    day_adjust_task,
     week_plan_review_task,
     science_system_prompt,
     science_task,
@@ -73,8 +92,12 @@ from app.services.ai_coach import (
     template_autopsy,
     template_clinical_veto,
     template_general_chat,
+    template_support_chat,
+    support_chat_system_prompt,
+    support_chat_task,
     template_off_topic,
     template_schedule,
+    template_day_adjust,
     template_week_plan_review,
     template_science_lookup,
     template_week_review,
@@ -85,6 +108,7 @@ from app.services.ai_coach import (
 )
 from app.services.coach_intent import (
     CLINICAL_VETO,
+    DAY_ADJUST,
     GENERAL_CHAT,
     OFF_TOPIC,
     SCHEDULE_UPDATE,
@@ -102,9 +126,68 @@ from app.services.session_telemetry import (
     laps_are_uninformative,
     match_activity_for_message,
 )
+from app.services.session_blueprints import downgrade_today_workout, enrich_plan, enrich_workout
+from app.services.workout_library import physiology_from_context, physiology_from_profile
+from app.services.workout_selection import (
+    apply_library_selection_to_plan,
+    build_library_week,
+)
 from app.services.week_from_chat import coerce_week_plan, parse_week_plan_from_text
+from app.services.coach_schedule_mode import (
+    ACTION_SUMMARY,
+    FULL_REPORT,
+    build_planner_packet,
+    build_proposed_schedule_week,
+    build_schedule_narrator_block,
+    build_week_table_rows,
+    detect_schedule_response_mode,
+    diff_week_plans,
+    finalize_schedule_narrator_reply,
+    format_physiology_anchor_lines,
+)
+from app.services.coach_advisory import (
+    advisory_prompt_block,
+    finalize_advisory_reply,
+    go_deeper_prompt_block,
+    is_go_deeper_followup,
+    is_plan_advice_message,
+    polish_advisory_reply,
+    strip_schedule_sections,
+    template_go_deeper_brief,
+    template_plan_advice,
+)
+from app.services.coach_agent import CoachAgentRun, run_coach_agent
+from app.services.coach_memory import (
+    build_memory_bundle,
+    capture_chat_memories,
+    consume_proactive_for_activity,
+    list_proactive_prompts,
+    memory_snapshot,
+)
+from app.services.coach_skills import (
+    SKILL_GO_DEEPER,
+    SKILL_SUPPORT_CHAT,
+    SKILL_VALIDATE_PLAN,
+    resolve_coach_skill,
+    skill_prompt_block,
+)
+from app.services.coach_tools import CoachToolContext
+from app.services.coach_voice import (
+    build_voice_context,
+    finalize_general_chat_reply,
+    finalize_schedule_full_reply,
+)
+from app.services.coach_variety import (
+    analyze_reply_variety,
+    build_variety_retry_block,
+    is_degenerate_reply,
+    max_overlap_with_recent,
+    recent_assistant_replies,
+    variety_prompt_block,
+)
 
 logger = logging.getLogger(__name__)
+
 
 WEEK_PLAN_SCHEMA = """{
   "title": "string",
@@ -120,8 +203,9 @@ WEEK_PLAN_SCHEMA = """{
       "duration_min": number,
       "distance_m": number or null,
       "intensity": "string",
-      "description": "string with warm-up, main set, cool-down",
-      "structure": [{"segment": "string", "duration_min": number, "intensity": "string"}]
+      "description": "string — coaching rationale; structure is filled from library when library_template_id is set",
+      "library_template_id": "optional string — prefer library ids over inventing structure",
+      "structure": [{"segment": "Warm-up|Main set|Cool-down", "duration_min": number, "intensity": "string", "detail": "optional if library_template_id is set"}]
     }
   ],
   "coach_notes": "string",
@@ -261,8 +345,8 @@ WEEK_PLAN_REVIEW_SCHEMA = """{
   "intent": "WEEK_PLAN_REVIEW"
 }"""
 
-SCHEDULE_SCHEMA = """{
-  "reply": "string, Pro Olympic Coach call: TODAY'S CALL status, one locker-room directive, 5-col week table, spine DO NOTs, science/lingo/analogy bullets. No essays.",
+SCHEDULE_ACTION_SCHEMA = """{
+  "reply": "string, action summary: WHAT CHANGED bullets, TODAY'S CALL, one DIRECTIVE, 5-col week table, spine lock if needed. NO WEEKLY TRANSLATIONS. No science/lingo/analogy triplets.",
   "citations": ["S1"],
   "escalate": false,
   "escalation_reason": null,
@@ -280,7 +364,60 @@ SCHEDULE_SCHEMA = """{
         "session_type": "rest|easy|long|tempo|threshold|intervals|hills|speed|strength|mobility|cross-training|race",
         "duration_min": number,
         "intensity": "string",
-        "description": "string"
+        "description": "string with warm-up, named main set, cool-down",
+        "structure": [{"segment": "Warm-up|Main set|Cool-down", "duration_min": number, "intensity": "string", "detail": "named exercises, intervals, poses, stretches, foam roll"}]
+      }
+    ]
+  }
+}"""
+
+SCHEDULE_SCHEMA = """{
+  "reply": "string, Pro Olympic Coach call: TODAY'S CALL status, one locker-room directive, 5-col week table, spine DO NOTs. Optional Why this works / Why recovery only when earned. No triplet templates.",
+  "citations": ["S1"],
+  "escalate": false,
+  "escalation_reason": null,
+  "intent": "SCHEDULE_UPDATE",
+  "week_plan": {
+    "title": "string",
+    "summary": "string",
+    "focus": "string",
+    "week_start": "YYYY-MM-DD",
+    "workouts": [
+      {
+        "date": "YYYY-MM-DD",
+        "sport": "string",
+        "title": "string",
+        "session_type": "rest|easy|long|tempo|threshold|intervals|hills|speed|strength|mobility|cross-training|race",
+        "duration_min": number,
+        "intensity": "string",
+        "description": "string with warm-up, named main set, cool-down",
+        "structure": [{"segment": "Warm-up|Main set|Cool-down", "duration_min": number, "intensity": "string", "detail": "named exercises, intervals, poses, stretches, foam roll"}]
+      }
+    ]
+  }
+}"""
+
+DAY_ADJUST_SCHEMA = """{
+  "reply": "string, today-only call: TODAY'S CALL, one locker-room sentence, today's session change, warmup/main/cooldown detail. Do not rewrite other days.",
+  "citations": ["S1"],
+  "escalate": false,
+  "escalation_reason": null,
+  "intent": "DAY_ADJUST",
+  "week_plan": {
+    "title": "string",
+    "summary": "string",
+    "focus": "string",
+    "week_start": "YYYY-MM-DD",
+    "workouts": [
+      {
+        "date": "YYYY-MM-DD (TODAY only)",
+        "sport": "string",
+        "title": "string",
+        "session_type": "rest|easy|long|tempo|threshold|intervals|hills|speed|strength|mobility|cross-training|race",
+        "duration_min": number,
+        "intensity": "string",
+        "description": "string with warm-up, named main set, cool-down",
+        "structure": [{"segment": "Warm-up|Main set|Cool-down", "duration_min": number, "intensity": "string", "detail": "named work"}]
       }
     ]
   }
@@ -543,6 +680,22 @@ def _context_digest(
             }
             for zone in (physiology.get("hr_zones") or [])
         ],
+        "run_pace": [
+            {
+                "name": zone.get("name"),
+                "low_pace": zone.get("low_pace"),
+                "high_pace": zone.get("high_pace"),
+            }
+            for zone in (physiology.get("run_pace_zones") or [])
+        ],
+        "swim_pace": [
+            {
+                "name": zone.get("name"),
+                "low_pace": zone.get("low_pace"),
+                "high_pace": zone.get("high_pace"),
+            }
+            for zone in (physiology.get("swim_pace_zones") or [])
+        ],
     }
     digest = {
         "data_sources": context.get("data_sources") or {},
@@ -556,6 +709,10 @@ def _context_digest(
             "max_hr_bpm": physiology.get("max_hr_bpm"),
             "max_hr_source": physiology.get("max_hr_source"),
             "resting_hr_bpm": physiology.get("resting_hr_bpm"),
+            "threshold_pace_sec_per_km": physiology.get("threshold_pace_sec_per_km"),
+            "css_sec_per_100m": physiology.get("css_sec_per_100m"),
+            "vo2max": physiology.get("vo2max"),
+            "zone_methods": physiology.get("methods"),
             "zones": zones,
         },
         "readiness_flags": context.get("readiness_flags") or [],
@@ -848,14 +1005,25 @@ def _retrieve(
     return retrieve_science(db, query, sports=sports, k=k)
 
 
-def _call_provider(system: str, user: str) -> tuple[dict, str, str] | None:
+def _call_provider(
+    system: str,
+    user: str,
+    *,
+    temperature: float = 0.4,
+    presence_penalty: float | None = None,
+) -> tuple[dict, str, str] | None:
     """Try each configured provider once. Returns (data, provider, model) or None."""
     for provider in provider_chain():
         started = time.perf_counter()
         if AI_DEBUG:
             logger.info("Coach AI trying %s/%s", provider.name, provider.model)
         try:
-            response = provider.generate_json(system, user)
+            response = provider.generate_json(
+                system,
+                user,
+                temperature=temperature,
+                presence_penalty=presence_penalty,
+            )
             elapsed_ms = (time.perf_counter() - started) * 1000
             logger.info(
                 "Coach AI %s/%s succeeded in %.0fms",
@@ -917,7 +1085,9 @@ Build the training week starting {week_start.isoformat()} (Monday).
 Today is {clock['weekday']} {clock['local_date']}. Do not prescribe new training on dates before today
 — those days already happened. Plan only {remaining_start.isoformat()} through {remaining_end.isoformat()}.
 If they already trained today, do not stack another hard session on top.
-Give every remaining session a concrete main set, not a vague label. Respect every safety limit above.
+Respect every safety limit above. Prefer assigning library_template_id for each workout when you know the
+session type (the app resolves zone-based structure from the library). You may omit structure when
+library_template_id is set; otherwise include Warm-up, Main set, and Cool-down with named work.
 
 Respond with JSON matching exactly this shape:
 {WEEK_PLAN_SCHEMA}"""
@@ -939,7 +1109,7 @@ def generate_week_plan(
     timezone_name: str | None = None,
 ) -> dict:
     clock = resolve_clock(timezone_name)
-    context = build_athlete_coach_context(db, profile.id)
+    context = get_athlete_coach_context(db, profile.id)
     safety = context["safety"]
     start = _monday_of(week_start or clock["today"])
     allowed = current_week_monday(clock["today"])
@@ -974,25 +1144,30 @@ def generate_week_plan(
         )
 
     if plan_data is None:
-        plan_data = build_template_week(context, safety, start, today=clock["today"])
+        plan_data = build_library_week(context, safety, start, today=clock["today"])
+        provider_name, model_name = "rules", "library-selection-v2"
 
     # Force the requested week regardless of what the model produced.
     plan_data["week_start"] = start.isoformat()
+    plan_data = apply_library_selection_to_plan(plan_data, context, safety)
 
     validation = validate_plan(plan_data, safety)
     if validation["blocked"]:
         generation_notes.append(
             "Generated plan failed safety validation and was replaced with a conservative week."
         )
-        fallback = build_template_week(context, safety, start, today=clock["today"])
+        fallback = build_library_week(context, safety, start, today=clock["today"])
+        fallback = apply_library_selection_to_plan(fallback, context, safety)
         validation = validate_plan(fallback, safety)
-        provider_name, model_name = "rules", "deterministic-template"
+        provider_name, model_name = "rules", "library-selection-v2"
         if validation["blocked"]:
             # Last resort: an all-easy week is always safe to show.
             validation = validate_plan(strip_intensity(fallback), safety)
 
     plan_data = validation["plan"]
     issues = validation["issues"]
+    physiology = physiology_from_context(context)
+    plan_data = enrich_plan(plan_data, safety, physiology=physiology)
     citations = citation_slugs(hits) if provider_name != "rules" else []
 
     stored_id = None
@@ -1006,6 +1181,8 @@ def generate_week_plan(
             model_name,
             issues,
             citations,
+            safety=safety,
+            physiology=physiology,
         )
 
     return {
@@ -1022,6 +1199,78 @@ def generate_week_plan(
     }
 
 
+def _load_compliance(value: str | None) -> dict | None:
+    if not value:
+        return None
+    try:
+        payload = json.loads(value)
+    except json.JSONDecodeError:
+        return None
+    if not isinstance(payload, dict):
+        return None
+    return {
+        "score": payload.get("score"),
+        "grade": payload.get("grade"),
+        "dimensions": payload.get("dimensions") or {},
+    }
+
+
+def _compliance_payload(report: dict | None) -> str | None:
+    if not report:
+        return None
+    return json.dumps(
+        {
+            "score": report.get("score"),
+            "grade": report.get("grade"),
+            "dimensions": report.get("dimensions") or {},
+        },
+        default=str,
+    )
+
+
+def _favorite_template_ids(db: Session, profile_id: int) -> set[str]:
+    rows = (
+        db.query(FavoriteWorkoutTemplate.template_id)
+        .filter(FavoriteWorkoutTemplate.athlete_profile_id == profile_id)
+        .all()
+    )
+    return {str(row[0]) for row in rows}
+
+
+def _workout_read_payload(
+    workout: PlannedWorkout,
+    *,
+    physiology: dict | None = None,
+    favorite_ids: set[str] | None = None,
+) -> dict:
+    try:
+        structure = json.loads(workout.structure_json) if workout.structure_json else []
+    except json.JSONDecodeError:
+        structure = []
+    payload = enrich_workout(
+        {
+            "id": workout.id,
+            "date": workout.workout_date.isoformat(),
+            "sport": workout.sport,
+            "title": workout.title,
+            "session_type": workout.session_type,
+            "duration_min": workout.duration_min,
+            "distance_m": workout.distance_m,
+            "intensity": workout.intensity,
+            "description": workout.description,
+            "structure": structure,
+            "completed_activity_id": workout.completed_activity_id,
+            "library_template_id": workout.library_template_id,
+            "library_version": workout.library_version,
+        },
+        physiology=physiology,
+    )
+    payload["compliance"] = _load_compliance(workout.compliance_json)
+    template_id = payload.get("library_template_id")
+    payload["is_favorite"] = bool(template_id and favorite_ids and template_id in favorite_ids)
+    return payload
+
+
 def _persist_plan(
     db: Session,
     profile: AthleteProfile,
@@ -1031,6 +1280,8 @@ def _persist_plan(
     model: str,
     issues: list[dict],
     citations: list[str],
+    safety: dict | None = None,
+    physiology: dict | None = None,
 ) -> int:
     existing = (
         db.query(TrainingPlan)
@@ -1066,19 +1317,22 @@ def _persist_plan(
             workout_date = date.fromisoformat(str(workout.get("date"))[:10])
         except (TypeError, ValueError):
             continue
+        filled = enrich_workout(workout, safety, physiology=physiology)
         db.add(
             PlannedWorkout(
                 training_plan_id=record.id,
                 athlete_profile_id=profile.id,
                 workout_date=workout_date,
-                sport=workout.get("sport"),
-                title=workout.get("title"),
-                session_type=workout.get("session_type"),
-                duration_min=workout.get("duration_min"),
-                distance_m=workout.get("distance_m"),
-                intensity=workout.get("intensity"),
-                description=workout.get("description"),
-                structure_json=json.dumps(workout.get("structure") or []),
+                sport=filled.get("sport"),
+                title=filled.get("title"),
+                session_type=filled.get("session_type"),
+                duration_min=filled.get("duration_min"),
+                distance_m=filled.get("distance_m"),
+                intensity=filled.get("intensity"),
+                description=filled.get("description"),
+                structure_json=json.dumps(filled.get("structure") or []),
+                library_template_id=filled.get("library_template_id"),
+                library_version=filled.get("library_version"),
             )
         )
 
@@ -1096,6 +1350,10 @@ def get_active_plan(db: Session, profile_id: int, week_start: date | None = None
     record = query.order_by(TrainingPlan.week_start.desc()).first()
     if record is None:
         return None
+
+    profile = db.query(AthleteProfile).filter(AthleteProfile.id == profile_id).first()
+    physiology = physiology_from_profile(profile)
+    favorite_ids = _favorite_template_ids(db, profile_id)
 
     workouts = (
         db.query(PlannedWorkout)
@@ -1123,19 +1381,11 @@ def get_active_plan(db: Session, profile_id: int, week_start: date | None = None
             "focus": record.focus,
             "week_start": record.week_start.isoformat(),
             "workouts": [
-                {
-                    "id": workout.id,
-                    "date": workout.workout_date.isoformat(),
-                    "sport": workout.sport,
-                    "title": workout.title,
-                    "session_type": workout.session_type,
-                    "duration_min": workout.duration_min,
-                    "distance_m": workout.distance_m,
-                    "intensity": workout.intensity,
-                    "description": workout.description,
-                    "structure": _load(workout.structure_json, []),
-                    "completed_activity_id": workout.completed_activity_id,
-                }
+                _workout_read_payload(
+                    workout,
+                    physiology=physiology,
+                    favorite_ids=favorite_ids,
+                )
                 for workout in workouts
             ],
             "coach_notes": (_load(record.raw_json, {}) or {}).get("coach_notes"),
@@ -1194,13 +1444,16 @@ def persist_week_from_chat(
     hits: list[dict] | None,
     provider: str,
     model: str,
+    context: dict | None = None,
 ) -> dict:
     """Save a chat-revised week as the active draft, replacing the previous draft."""
     start = clock["week_start"]
     plan_data = dict(plan_data)
     plan_data["week_start"] = start.isoformat()
+    plan_data = apply_library_selection_to_plan(plan_data, context or {}, safety)
     validation = validate_plan(plan_data, safety)
-    plan_data = validation["plan"]
+    physiology = physiology_from_context(context) or physiology_from_profile(profile)
+    plan_data = enrich_plan(validation["plan"], safety, physiology=physiology)
     issues = validation["issues"]
     citations = citation_slugs(hits or []) if provider != "rules" else []
     plan_id = _persist_plan(
@@ -1212,12 +1465,197 @@ def persist_week_from_chat(
         model,
         issues,
         citations,
+        safety=safety,
+        physiology=physiology,
     )
     _copy_completions_from_superseded(db, profile.id, start, plan_id)
     payload = get_active_plan(db, profile.id, start) or {}
     payload["disclaimer"] = safety.get("disclaimer")
     payload["generation_notes"] = payload.get("generation_notes") or []
     payload["safety_issues"] = issues
+    return payload
+
+
+def _workout_date(value) -> date | None:
+    if isinstance(value, date):
+        return value
+    try:
+        return date.fromisoformat(str(value)[:10])
+    except (TypeError, ValueError):
+        return None
+
+
+def _row_as_workout(row: PlannedWorkout) -> dict:
+    try:
+        structure = json.loads(row.structure_json) if row.structure_json else []
+    except json.JSONDecodeError:
+        structure = []
+    return {
+        "date": row.workout_date.isoformat(),
+        "sport": row.sport,
+        "title": row.title,
+        "session_type": row.session_type,
+        "duration_min": row.duration_min,
+        "distance_m": row.distance_m,
+        "intensity": row.intensity,
+        "description": row.description,
+        "structure": structure,
+        "completed_activity_id": row.completed_activity_id,
+        "library_template_id": row.library_template_id,
+        "library_version": row.library_version,
+        "compliance": _load_compliance(row.compliance_json),
+    }
+
+
+def persist_today_adjustment(
+    db: Session,
+    profile: AthleteProfile,
+    *,
+    today: date,
+    week_start: date,
+    plan_data: dict | None,
+    safety: dict,
+    hits: list[dict] | None,
+    provider: str,
+    model: str,
+) -> dict:
+    """Rewrite only today's PlannedWorkout rows. Other days stay put."""
+    proposed = []
+    for workout in (plan_data or {}).get("workouts") or []:
+        if _workout_date(workout.get("date")) == today:
+            proposed.append(dict(workout))
+
+    record = (
+        db.query(TrainingPlan)
+        .filter(
+            TrainingPlan.athlete_profile_id == profile.id,
+            TrainingPlan.week_start == week_start,
+            TrainingPlan.status == "active",
+        )
+        .order_by(TrainingPlan.id.desc())
+        .first()
+    )
+    if record is None:
+        seed = proposed or [
+            downgrade_today_workout(
+                {
+                    "date": today.isoformat(),
+                    "sport": "Mobility",
+                    "title": "Restore / mobility",
+                    "session_type": "mobility",
+                    "duration_min": 30,
+                    "intensity": "Recovery",
+                    "description": None,
+                    "structure": [],
+                },
+                safety,
+            )
+        ]
+        draft = {
+            "title": f"Week of {week_start.isoformat()}",
+            "summary": "Today's session adjusted for readiness. Other days were not rewritten.",
+            "focus": "Today only",
+            "week_start": week_start.isoformat(),
+            "workouts": [
+                enrich_workout(item, safety, physiology=physiology_from_profile(profile))
+                for item in seed
+            ],
+        }
+        validation = validate_plan(draft, safety)
+        physiology = physiology_from_profile(profile)
+        plan_id = _persist_plan(
+            db,
+            profile,
+            enrich_plan(validation["plan"], safety, physiology=physiology),
+            week_start,
+            provider,
+            model,
+            validation["issues"],
+            citation_slugs(hits or []) if provider != "rules" else [],
+            safety=safety,
+            physiology=physiology,
+        )
+        payload = get_active_plan(db, profile.id, week_start) or {}
+        payload["disclaimer"] = safety.get("disclaimer")
+        payload["safety_issues"] = validation["issues"]
+        payload["generation_notes"] = ["Adjusted today only — no full-week rewrite."]
+        payload["plan_id"] = plan_id
+        return payload
+
+    existing = (
+        db.query(PlannedWorkout)
+        .filter(
+            PlannedWorkout.training_plan_id == record.id,
+            PlannedWorkout.workout_date == today,
+        )
+        .order_by(PlannedWorkout.id.asc())
+        .all()
+    )
+    keep_completed = [row for row in existing if row.completed_activity_id]
+    open_rows = [row for row in existing if not row.completed_activity_id]
+    if keep_completed and not open_rows:
+        payload = get_active_plan(db, profile.id, week_start) or {}
+        payload["disclaimer"] = safety.get("disclaimer")
+        payload["generation_notes"] = [
+            "Today's planned session is already completed — no further change."
+        ]
+        return payload
+    if not proposed:
+        proposed = [downgrade_today_workout(_row_as_workout(row), safety) for row in open_rows]
+        if not proposed:
+            proposed = [
+                downgrade_today_workout(
+                    {
+                        "date": today.isoformat(),
+                        "sport": "Mobility",
+                        "title": "Restore / mobility",
+                        "session_type": "mobility",
+                        "duration_min": 30,
+                        "intensity": "Recovery",
+                        "structure": [],
+                    },
+                    safety,
+                )
+            ]
+    else:
+        proposed = [downgrade_today_workout(item, safety) for item in proposed]
+
+    for row in open_rows:
+        db.delete(row)
+    db.flush()
+    physiology = physiology_from_profile(profile)
+    for workout in proposed:
+        filled = enrich_workout(workout, safety, physiology=physiology)
+        db.add(
+            PlannedWorkout(
+                training_plan_id=record.id,
+                athlete_profile_id=profile.id,
+                workout_date=today,
+                sport=filled.get("sport"),
+                title=filled.get("title"),
+                session_type=filled.get("session_type"),
+                duration_min=filled.get("duration_min"),
+                distance_m=filled.get("distance_m"),
+                intensity=filled.get("intensity"),
+                description=filled.get("description"),
+                structure_json=json.dumps(filled.get("structure") or []),
+                library_template_id=filled.get("library_template_id"),
+                library_version=filled.get("library_version"),
+            )
+        )
+    notes = [
+        {
+            "level": "info",
+            "code": "today_only_adjustment",
+            "message": "Only today's session was changed for readiness. The rest of the week was left as planned.",
+        }
+    ]
+    record.safety_notes = json.dumps(notes)
+    db.commit()
+    payload = get_active_plan(db, profile.id, week_start) or {}
+    payload["disclaimer"] = safety.get("disclaimer")
+    payload["safety_issues"] = notes
+    payload["generation_notes"] = ["Adjusted today only — other days were left as planned."]
     return payload
 
 
@@ -1244,7 +1682,7 @@ def apply_week_from_chat(
 ) -> dict:
     """Turn a chat week table into the active plan and optionally put it on Schedule."""
     clock = resolve_clock(timezone_name)
-    context = build_athlete_coach_context(db, profile.id)
+    context = get_athlete_coach_context(db, profile.id)
     safety = context["safety"]
     stored_plan_id = None
     text = (markdown or "").strip()
@@ -1307,6 +1745,7 @@ def apply_week_from_chat(
         hits=[],
         provider="chat",
         model="week-from-chat",
+        context=context,
     )
     if publish and payload.get("plan_id"):
         return publish_plan_to_schedule(db, profile, payload["plan_id"])
@@ -1411,7 +1850,7 @@ def generate_daily_advice(
 ) -> dict:
     """Return today's brief. Rewrite only on Refresh or when signals changed."""
     clock = resolve_clock(timezone_name)
-    context = build_athlete_coach_context(db, profile.id)
+    context = get_athlete_coach_context(db, profile.id)
     fingerprint = advice_input_fingerprint(context, clock)
     try:
         advice_date = date.fromisoformat(str(clock["local_date"])[:10])
@@ -1899,7 +2338,7 @@ def generate_week_brief(
     """Return this week's page brief. Rewrite on Refresh or when that topic's signals change."""
     topic = normalize_week_topic(topic)
     clock = resolve_clock(timezone_name)
-    context = build_athlete_coach_context(db, profile.id)
+    context = get_athlete_coach_context(db, profile.id)
     current_plan = get_active_plan(db, profile.id, clock["week_start"])
     context["current_plan"] = current_plan or {}
     distance = _distance_load_dict(db, profile.id) if topic == "volume" else {}
@@ -2386,7 +2825,7 @@ def coach_chat(
     persist_plan: bool | None = None,
 ) -> dict:
     clock = resolve_clock(timezone_name)
-    context = build_athlete_coach_context(db, profile.id)
+    context = get_athlete_coach_context(db, profile.id)
     safety = context["safety"]
     red_flags = detect_red_flags(message)
 
@@ -2433,6 +2872,7 @@ def coach_chat(
         WEEK_REVIEW,
         WEEK_PLAN_REVIEW,
         SCHEDULE_UPDATE,
+        DAY_ADJUST,
         SCIENCE_LOOKUP,
         CLINICAL_VETO,
         OFF_TOPIC,
@@ -2440,8 +2880,38 @@ def coach_chat(
     ):
         intent = GENERAL_CHAT
 
+    plan_advice_mode = is_plan_advice_message(message)
+    go_deeper_mode = is_go_deeper_followup(message)
+    if plan_advice_mode or go_deeper_mode:
+        intent = GENERAL_CHAT
+        persist_plan = False
+    elif intent == SCHEDULE_UPDATE and plan_advice_mode:
+        intent = GENERAL_CHAT
+        persist_plan = False
+
+    skill_resolution = resolve_coach_skill(
+        intent,
+        message,
+        plan_advice_mode=plan_advice_mode,
+        go_deeper_mode=go_deeper_mode,
+    )
+    coach_skill = skill_resolution.skill
+    support_chat_mode = coach_skill == SKILL_SUPPORT_CHAT
+
+    capture_chat_memories(
+        db,
+        profile,
+        message,
+        skill=coach_skill,
+        clock=clock,
+    )
+    if activity_id:
+        consume_proactive_for_activity(db, profile.id, activity_id)
+    memory_bundle = build_memory_bundle(db, profile)
+    memory_block = memory_bundle.get("prompt_block") or ""
+
     if persist_plan is None:
-        persist_plan = intent == SCHEDULE_UPDATE
+        persist_plan = intent in {SCHEDULE_UPDATE, DAY_ADJUST}
 
     clinical = detect_clinical_boundary(message)
     if clinical:
@@ -2511,6 +2981,8 @@ def coach_chat(
                 week_plan=current_plan,
                 session_date=session_packet.get("date"),
                 family=session_packet.get("family") or session_packet.get("modality"),
+                physiology=physiology_from_profile(profile),
+                telemetry=session_packet,
             )
             session_packet.update(overlay)
             if overlay.get("prescribed_vs_executed"):
@@ -2551,7 +3023,7 @@ def coach_chat(
             profile,
             k=5,
         )
-    elif intent in {SCHEDULE_UPDATE, WEEK_PLAN_REVIEW}:
+    elif intent in {SCHEDULE_UPDATE, WEEK_PLAN_REVIEW, DAY_ADJUST}:
         hits = _retrieve(
             db,
             "weekly training plan ACWR consecutive hard days spinal load recovery sleep HRV "
@@ -2565,17 +3037,57 @@ def coach_chat(
         science_grounded = bool(strong)
         hits = strong if science_grounded else []
     else:
-        hits = _retrieve(db, _chat_retrieval_query(message), profile, k=5)
+        rag_k = 2 if (plan_advice_mode or go_deeper_mode) else 5
+        hits = _retrieve(db, _chat_retrieval_query(message), profile, k=rag_k)
         strong = grounded_hits(hits)
         if intent == GENERAL_CHAT:
             hits = strong if strong else hits[:1]
 
     has_prescription = bool(
         session_packet
-        and (session_packet.get("prescription") or session_packet.get("prescribed_vs_executed"))
+        and (
+            session_packet.get("prescription")
+            or session_packet.get("prescribed_vs_executed")
+            or session_packet.get("library_compliance")
+        )
     )
     drop_assistant = has_prescription or intent != WORKOUT_AUDIT
     transcript = _recent_transcript(history, drop_assistant=drop_assistant)
+    voice = build_voice_context(message, safety, context, history)
+
+    schedule_mode = FULL_REPORT
+    proposed_plan: dict | None = None
+    schedule_diff: dict | None = None
+    planner_packet: dict | None = None
+    physiology_lines: list[str] = []
+    if intent == SCHEDULE_UPDATE:
+        schedule_mode = detect_schedule_response_mode(message)
+        physiology_lines = format_physiology_anchor_lines(context)
+        proposed_plan = build_proposed_schedule_week(
+            context=context,
+            safety=safety,
+            clock=clock,
+            current_plan=current_plan,
+            message=message,
+        )
+        old_workouts = ((current_plan or {}).get("plan") or {}).get("workouts") or []
+        schedule_diff = diff_week_plans(old_workouts, proposed_plan.get("workouts") or [])
+        planner_packet = build_planner_packet(
+            proposed_plan=proposed_plan,
+            schedule_diff=schedule_diff or {"changes": []},
+            physiology_lines=physiology_lines,
+            safety=safety,
+            context=context,
+            schedule_mode=schedule_mode,
+            message=message,
+        )
+        logger.info(
+            "Coach schedule two-pass pass1 mode=%s workouts=%s changes=%s risks=%s",
+            schedule_mode,
+            len(proposed_plan.get("workouts") or []),
+            len((schedule_diff or {}).get("changes") or []),
+            len(planner_packet.get("risk_flags") or []),
+        )
 
     extra_block = ""
     if intent == WORKOUT_AUDIT and session_packet:
@@ -2621,20 +3133,32 @@ Do not autopsy a past ride. Skip ⚡ THE BOTTOM LINE, 🔬 MECHANICAL PRECISION,
 No NP / IF / TSS / laps. No 5-column week table. No week_plan JSON.
 Use SEASON PLAN limits and the athlete's stated constraints. Copy TODAY'S CALL status exactly.
 """
-    elif intent == SCHEDULE_UPDATE:
+    elif intent == SCHEDULE_UPDATE and proposed_plan is not None and planner_packet is not None:
+        table_rows = build_week_table_rows(proposed_plan, clock=clock)
+        voice_block = voice.conditional_teaching_block if schedule_mode == FULL_REPORT else ""
+        extra_block = build_schedule_narrator_block(
+            schedule_mode=schedule_mode,
+            planner_packet=planner_packet,
+            proposed_plan=proposed_plan,
+            schedule_diff=schedule_diff or {"changes": []},
+            physiology_lines=physiology_lines,
+            table_rows=table_rows,
+            today_call_block=today_call_prompt_block(context, safety),
+            athlete_state_block=athlete_state_block(context, safety),
+            voice_teaching_block=voice_block,
+        )
+    elif intent == DAY_ADJUST:
         extra_block = f"""
 {today_call_prompt_block(context, safety)}
 
 {athlete_state_block(context, safety)}
 
 ROUTING (hard)
-Intent is SCHEDULE_UPDATE. Do not autopsy a past ride. Do not load or invent session telemetry.
-Completely skip ⚡ THE BOTTOM LINE, 🔬 MECHANICAL PRECISION, and 🫀 CARDIOVASCULAR COST.
-Do not inject the last synced workout's laps, NP, IF, TSS, or autopsy metrics.
-Do not write essays or paragraphs. Never more than two consecutive sentences per block.
-Bullets, key-values, and the week table only.
-Use CURRENT WEEK PLAN plus the athlete's proposed calendar.
-Copy TODAY'S CALL status line exactly. Guard active back/spine limits with non-negotiable DO NOT lifts on strength days.
+Intent is DAY_ADJUST. Change TODAY only. Do not rewrite the rest of the week.
+Do not autopsy a past ride. Skip ⚡ THE BOTTOM LINE, 🔬 MECHANICAL PRECISION, and 🫀 CARDIOVASCULAR COST.
+Poor HRV, readiness, stress, or ACWR today: convert today's quality to easy (same duration) or mobility if REST.
+Fill Warm-up, named Main set, Cool-down for today's session only.
+week_plan.workouts must contain only today's date.
 """
     elif intent == SCIENCE_LOOKUP:
         extra_block = f"""
@@ -2644,18 +3168,63 @@ ROUTING (hard)
 Intent is SCIENCE_LOOKUP. Teach the concept. Do not autopsy a file.
 Grounded retrieval: {"yes — cite only [S#]" if science_grounded else "NO — Evidence: Not in playbook. Do not invent a paper."}
 Never more than two consecutive sentences per bullet.
+
+{skill_prompt_block(coach_skill)}
+"""
+    elif support_chat_mode:
+        extra_block = f"""
+{athlete_state_block(context, safety)}
+
+{skill_prompt_block(coach_skill)}
+"""
+    elif plan_advice_mode:
+        extra_block = f"""
+{athlete_state_block(context, safety)}
+
+CURRENT WEEK PLAN (reference only — do not paste as a table)
+{_plan_digest(current_plan, clock)}
+
+{advisory_prompt_block()}
+"""
+    elif go_deeper_mode:
+        extra_block = f"""
+{athlete_state_block(context, safety)}
+
+CURRENT WEEK PLAN (reference only — do not paste as a table)
+{_plan_digest(current_plan, clock)}
+
+{go_deeper_prompt_block()}
 """
     else:
         extra_block = f"""
 {athlete_state_block(context, safety)}
 
 ROUTING (hard)
-Intent is GENERAL_CHAT. Completely skip ⚡ THE BOTTOM LINE, 🔬 MECHANICAL PRECISION, and 🫀 CARDIOVASCULAR COST.
+Intent is GENERAL_CHAT. Follow ELITE COACH PERSONA — warm prose, no emoji section headers.
+Completely skip ⚡ THE BOTTOM LINE autopsy block, 🔬 MECHANICAL PRECISION, and 🫀 CARDIOVASCULAR COST.
 Do not load, invent, or quote the last synced workout's telemetry, laps, NP, IF, or TSS.
-Focus 100% on the athlete's specific biological, schedule-adjacent, or emotional question.
-Never more than two consecutive sentences per bullet.
-If they feel they failed or cut a session short: 💬 REFRAME as spaced **bold** bullets.
+BAN 🟢 TODAY'S CALL, 🗓️ REVISED WEEK, PRIMED/ACCUMULATE, and week tables.
+{skill_prompt_block(coach_skill)}
+{voice.conditional_teaching_block}
+{voice.plain_language_block}
 """
+
+    agent_run: CoachAgentRun = run_coach_agent(
+        CoachToolContext(
+            message=message,
+            skill=coach_skill,
+            context=context,
+            safety=safety,
+            clock=clock,
+            current_plan=current_plan,
+            hits=hits,
+            session_packet=session_packet,
+            week_packet=week_packet,
+            activity_id=activity_id,
+            memory_snapshot=memory_snapshot(memory_bundle.get("memories") or []),
+        )
+    )
+    agent_tool_block = agent_run.prompt_block()
 
     if intent == WORKOUT_AUDIT:
         task = autopsy_task_for_packet(modality, session_packet)
@@ -2670,17 +3239,38 @@ If they feel they failed or cut a session short: 💬 REFRAME as spaced **bold**
         chat_schema = WEEK_PLAN_REVIEW_SCHEMA
         system_prompt = schedule_system_prompt()
     elif intent == SCHEDULE_UPDATE:
-        task = schedule_task()
-        chat_schema = SCHEDULE_SCHEMA
+        task = schedule_task(schedule_mode)
+        chat_schema = (
+            SCHEDULE_ACTION_SCHEMA if schedule_mode == ACTION_SUMMARY else SCHEDULE_SCHEMA
+        )
+        system_prompt = schedule_system_prompt(
+            schedule_mode,
+            voice if schedule_mode == FULL_REPORT else None,
+        )
+    elif intent == DAY_ADJUST:
+        task = day_adjust_task()
+        chat_schema = DAY_ADJUST_SCHEMA
         system_prompt = schedule_system_prompt()
     elif intent == SCIENCE_LOOKUP:
         task = science_task(grounded=science_grounded)
         chat_schema = SCIENCE_SCHEMA
         system_prompt = science_system_prompt()
+    elif plan_advice_mode:
+        task = advisory_task()
+        chat_schema = CHAT_SCHEMA
+        system_prompt = advisory_system_prompt()
+    elif go_deeper_mode:
+        task = go_deeper_advisory_task()
+        chat_schema = CHAT_SCHEMA
+        system_prompt = advisory_system_prompt()
+    elif support_chat_mode:
+        task = support_chat_task()
+        chat_schema = CHAT_SCHEMA
+        system_prompt = support_chat_system_prompt()
     else:
         task = chat_task()
         chat_schema = CHAT_SCHEMA
-        system_prompt = chat_system_prompt()
+        system_prompt = chat_system_prompt(voice)
 
     review_plan_block = ""
     if intent == WEEK_REVIEW and review_plan is not current_plan:
@@ -2705,8 +3295,11 @@ SAFETY RULES (hard limits)
 RECENT CONVERSATION
 {transcript or '(none)'}
 
+{memory_block}
+
 RETRIEVED EVIDENCE
 {format_science_for_prompt(hits, grounded=(science_grounded if intent == SCIENCE_LOOKUP else None))}
+{agent_tool_block}
 {extra_block}
 ATHLETE MESSAGE
 {message.strip()}
@@ -2717,21 +3310,132 @@ TASK
 Respond with JSON matching exactly this shape:
 {chat_schema}"""
 
-    result = None
-    if not (intent == SCIENCE_LOOKUP and not science_grounded):
-        result = _call_provider(system_prompt, user_prompt)
+    variety_steering = ""
+    if intent in {SCHEDULE_UPDATE, GENERAL_CHAT} and not plan_advice_mode and not go_deeper_mode:
+        variety_steering = variety_prompt_block(history)
+    if variety_steering:
+        user_prompt = f"{user_prompt}\n\n{variety_steering}"
+
     provider_name, model_name = "rules", "deterministic-template"
     reply: dict | None = None
     raw_payload: dict | None = None
+    variety_regenerated = False
+
+    def _finalize_llm_reply(candidate: dict) -> dict:
+        if intent == SCHEDULE_UPDATE and proposed_plan:
+            return finalize_schedule_narrator_reply(
+                candidate,
+                proposed_plan=proposed_plan,
+                schedule_mode=schedule_mode,
+                schedule_diff=schedule_diff or {"changes": []},
+                physiology_lines=physiology_lines,
+                message=message,
+                voice=voice,
+                safety=safety,
+                context=context,
+                clock=clock,
+            )
+        if intent == GENERAL_CHAT and skill_resolution.uses_advisory_polish:
+            finalized = finalize_advisory_reply(candidate)
+            if not (plan_advice_mode or go_deeper_mode):
+                finalized = finalize_general_chat_reply(
+                    finalized, voice, context=context, safety=safety
+                )
+            return finalized
+        if intent == GENERAL_CHAT:
+            finalized = finalize_general_chat_reply(
+                candidate, voice, context=context, safety=safety
+            )
+            finalized["reply"] = polish_advisory_reply(
+                strip_schedule_sections(finalized.get("reply") or "")
+            )
+            return finalized
+        return candidate
+
+    def _parse_llm_reply(raw: dict) -> dict | None:
+        try:
+            return _finalize_llm_reply(
+                ChatReplyJSON.model_validate(raw).model_dump(mode="json")
+            )
+        except ValidationError as exc:
+            logger.warning("Chat schema validation failed: %s", exc)
+            return None
+
+    llm_temperature = 0.4
+    llm_presence: float | None = None
+    if intent == SCHEDULE_UPDATE and proposed_plan is not None:
+        llm_temperature = 0.7
+        llm_presence = 0.45
+    elif intent == GENERAL_CHAT:
+        if plan_advice_mode or go_deeper_mode:
+            llm_temperature = 0.68
+            llm_presence = 0.42
+        else:
+            llm_temperature = 0.55
+            llm_presence = 0.35
+
+    result = None
+    if not (intent == SCIENCE_LOOKUP and not science_grounded):
+        if go_deeper_mode:
+            result = None
+        elif intent in {SCHEDULE_UPDATE, GENERAL_CHAT} and (
+            intent != SCHEDULE_UPDATE or proposed_plan is not None
+        ):
+            result = _call_provider(
+                system_prompt,
+                user_prompt,
+                temperature=llm_temperature,
+                presence_penalty=llm_presence,
+            )
+        elif intent not in {SCHEDULE_UPDATE, GENERAL_CHAT}:
+            result = _call_provider(system_prompt, user_prompt)
 
     if result is not None:
         raw, provider_name, model_name = result
         raw_payload = raw if isinstance(raw, dict) else None
-        try:
-            reply = ChatReplyJSON.model_validate(raw).model_dump(mode="json")
-        except ValidationError as exc:
-            logger.warning("Chat schema validation failed for %s: %s", provider_name, exc)
-            reply = None
+        reply = _parse_llm_reply(raw) if isinstance(raw, dict) else None
+        skip_variety_retry = (
+            plan_advice_mode
+            or go_deeper_mode
+            or skill_resolution.uses_advisory_polish
+        )
+        if (
+            reply
+            and not skip_variety_retry
+            and is_degenerate_reply(reply.get("reply") or "", history)
+        ):
+            overlap, _ = max_overlap_with_recent(reply.get("reply") or "", history)
+            priors = recent_assistant_replies(history, max_turns=1)
+            retry_block = build_variety_retry_block(
+                overlap_score=overlap,
+                last_reply=priors[0] if priors else "",
+                section_signature=analyze_reply_variety(reply.get("reply") or "", history)[
+                    "section_signature"
+                ],
+                analogies_used=analyze_reply_variety(reply.get("reply") or "", history)[
+                    "analogies_used"
+                ],
+            )
+            logger.info(
+                "Coach variety retry overlap=%.2f intent=%s provider=%s",
+                overlap,
+                intent,
+                provider_name,
+            )
+            retry_result = _call_provider(
+                system_prompt,
+                f"{user_prompt}\n\n{retry_block}",
+                temperature=min(0.85, llm_temperature + 0.08),
+                presence_penalty=min(0.55, (llm_presence or 0.35) + 0.12),
+            )
+            if retry_result is not None:
+                retry_raw, provider_name, model_name = retry_result
+                raw_payload = retry_raw if isinstance(retry_raw, dict) else raw_payload
+                retry_reply = _parse_llm_reply(retry_raw) if isinstance(retry_raw, dict) else None
+                if retry_reply:
+                    reply = retry_reply
+                    variety_regenerated = True
+        if reply is None:
             provider_name, model_name = "rules", "deterministic-template"
 
     if reply is None:
@@ -2764,6 +3468,21 @@ Respond with JSON matching exactly this shape:
                 current_plan=current_plan,
                 context=context,
                 clock=clock,
+                response_mode=schedule_mode,
+                proposed_plan=proposed_plan,
+                diff=schedule_diff,
+                physiology_lines=physiology_lines,
+            )
+            if proposed_plan:
+                provider_name, model_name = "rules", "library-selection-v2-two-pass"
+        elif intent == DAY_ADJUST:
+            reply = template_day_adjust(
+                message,
+                safety,
+                hits,
+                current_plan=current_plan,
+                context=context,
+                clock=clock,
             )
         elif intent == SCIENCE_LOOKUP:
             reply = template_science_lookup(
@@ -2773,12 +3492,64 @@ Respond with JSON matching exactly this shape:
                 grounded=science_grounded,
                 context=context,
             )
+        elif plan_advice_mode:
+            reply = template_plan_advice(
+                message,
+                safety,
+                current_plan=current_plan,
+                context=context,
+                clock=clock,
+            )
+            provider_name, model_name = "rules", "plan-advice-v1"
+        elif go_deeper_mode:
+            reply = template_go_deeper_brief(
+                safety,
+                current_plan=current_plan,
+                clock=clock,
+                context=context,
+            )
+            provider_name, model_name = "rules", "go-deeper-v1"
+        elif support_chat_mode:
+            reply = template_support_chat(
+                message,
+                safety,
+                hits,
+                context=context,
+            )
+            provider_name, model_name = "rules", "support-chat-v1"
         else:
-            reply = template_general_chat(message, safety, hits)
+            reply = template_general_chat(message, safety, hits, context=context)
 
     reply["intent"] = intent
+    reply["skill"] = coach_skill
+    reply["tools"] = agent_run.tools_used
+    if reply.get("reply"):
+        variety_meta = analyze_reply_variety(reply.get("reply") or "", history)
+        variety_meta["regenerated"] = variety_regenerated
+        reply["_variety"] = variety_meta
     applied_plan = None
-    if intent == SCHEDULE_UPDATE and persist_plan:
+    if intent == DAY_ADJUST and persist_plan:
+        plan_data = extract_week_plan_from_chat(
+            raw=raw_payload or reply,
+            reply_text=reply.get("reply") or "",
+            week_start=clock["week_start"],
+        )
+        try:
+            applied_plan = persist_today_adjustment(
+                db,
+                profile,
+                today=clock["today"],
+                week_start=clock["week_start"],
+                plan_data=plan_data,
+                safety=safety,
+                hits=hits,
+                provider=provider_name,
+                model=model_name,
+            )
+            reply["plan_id"] = applied_plan.get("plan_id")
+        except Exception as exc:  # noqa: BLE001 — chat must still return
+            logger.warning("Could not persist today-only adjustment: %s", exc)
+    elif intent == SCHEDULE_UPDATE and persist_plan:
         plan_data = extract_week_plan_from_chat(
             raw=raw_payload or reply,
             reply_text=reply.get("reply") or "",
@@ -2795,13 +3566,38 @@ Respond with JSON matching exactly this shape:
                     hits=hits,
                     provider=provider_name,
                     model=model_name,
+                    context=context,
                 )
                 reply["plan_id"] = applied_plan.get("plan_id")
             except Exception as exc:  # noqa: BLE001 — chat must still return the table
                 logger.warning("Could not persist chat week: %s", exc)
-    logger.info("Coach routed intent=%s source=%s", intent, decision_source)
+    logger.info(
+        "Coach routed intent=%s skill=%s source=%s",
+        intent,
+        coach_skill,
+        decision_source,
+    )
 
-    _store_assistant_message(db, profile.id, reply, provider_name)
+    if intent == GENERAL_CHAT and reply.get("reply"):
+        if skill_resolution.uses_advisory_polish:
+            reply["reply"] = polish_advisory_reply(reply["reply"])
+        else:
+            reply["reply"] = strip_schedule_sections(reply["reply"])
+
+    variety_meta = reply.pop("_variety", None)
+    assistant_message_id = _store_assistant_message(
+        db, profile.id, reply, provider_name, variety=variety_meta
+    )
+    _maybe_auto_flag_coach_reply(
+        db,
+        profile.id,
+        assistant_message_id,
+        reply.get("reply") or "",
+        skill=coach_skill,
+    )
+
+    if applied_plan:
+        invalidate_coach_context_cache(profile.id)
 
     return {
         "provider": provider_name,
@@ -2811,6 +3607,7 @@ Respond with JSON matching exactly this shape:
         "history": chat_history(db, profile.id),
         "disclaimer": safety["disclaimer"],
         "plan": applied_plan,
+        "proactive_prompts": list_proactive_prompts(db, profile.id),
     }
 
 
@@ -2826,6 +3623,9 @@ def _decode_message_meta(raw: str | None) -> dict:
             "citations": data.get("citations") or [],
             "plan_id": data.get("plan_id"),
             "intent": data.get("intent"),
+            "skill": data.get("skill"),
+            "tools": data.get("tools"),
+            "variety": data.get("variety"),
         }
     if isinstance(data, list):
         return {"citations": data}
@@ -2837,34 +3637,283 @@ def _history_meta_fields(raw: str | None) -> dict:
     fields = {}
     if meta.get("intent"):
         fields["intent"] = meta["intent"]
+    if meta.get("skill"):
+        fields["skill"] = meta["skill"]
+    if meta.get("tools"):
+        fields["tools"] = meta["tools"]
     if meta.get("plan_id"):
         fields["plan_id"] = meta["plan_id"]
+    if meta.get("variety"):
+        fields["variety"] = meta["variety"]
     return fields
 
 
-def _store_assistant_message(db: Session, profile_id: int, reply: dict, provider: str) -> None:
+def _maybe_auto_flag_coach_reply(
+    db: Session,
+    profile_id: int,
+    message_id: int,
+    reply_text: str,
+    *,
+    skill: str | None,
+) -> None:
+    try:
+        from app.services.coach_reply_eval import CoachEvalExpectation, score_phase_e_reply
+        from app.services.coach_review import maybe_auto_flag_reply
+
+        scored = score_phase_e_reply(
+            reply_text,
+            skill=skill,
+            expectation=CoachEvalExpectation(),
+        )
+        if scored.get("auto_flag"):
+            maybe_auto_flag_reply(
+                db,
+                profile_id,
+                message_id,
+                reply_text,
+                skill=skill,
+                quality_score=scored["total"],
+            )
+    except Exception as exc:  # noqa: BLE001 — chat must not fail on quality sidecar
+        logger.debug("Coach auto-review flag skipped: %s", exc)
+
+
+def _store_assistant_message(
+    db: Session,
+    profile_id: int,
+    reply: dict,
+    provider: str,
+    *,
+    variety: dict | None = None,
+) -> int:
     citations = reply.get("citations") or []
     payload: dict | list = citations
-    if reply.get("plan_id") or reply.get("intent"):
+    if (
+        reply.get("plan_id")
+        or reply.get("intent")
+        or reply.get("skill")
+        or reply.get("tools")
+        or variety
+    ):
         payload = {
             "citations": citations,
             "plan_id": reply.get("plan_id"),
             "intent": reply.get("intent"),
+            "skill": reply.get("skill"),
+            "tools": reply.get("tools"),
+            "variety": variety,
         }
-    db.add(
-        CoachMessage(
-            athlete_profile_id=profile_id,
-            role="assistant",
-            content=reply["reply"],
-            citations=json.dumps(payload),
-            provider=provider,
-        )
+    row = CoachMessage(
+        athlete_profile_id=profile_id,
+        role="assistant",
+        content=reply["reply"],
+        citations=json.dumps(payload),
+        provider=provider,
     )
+    db.add(row)
     db.commit()
+    db.refresh(row)
+    return row.id
 
 
 def confirm_baseline(db: Session, profile: AthleteProfile) -> AthleteProfile:
+    from app.models import FitnessAssessment
+    from app.services.workout_library import parse_pace_seconds
+
+    fitness = (
+        db.query(FitnessAssessment)
+        .filter(
+            FitnessAssessment.athlete_profile_id == profile.id,
+            FitnessAssessment.provider == "coros",
+        )
+        .order_by(FitnessAssessment.snapshot_at.desc())
+        .first()
+    )
+    if fitness:
+        if fitness.vo2max and not profile.vo2max:
+            profile.vo2max = fitness.vo2max
+        if fitness.threshold_pace and not profile.threshold_pace_sec_per_km:
+            parsed = parse_pace_seconds(fitness.threshold_pace)
+            if parsed:
+                profile.threshold_pace_sec_per_km = parsed
     profile.baseline_confirmed_at = datetime.utcnow()
     db.commit()
     db.refresh(profile)
+    invalidate_coach_context_cache(profile.id)
     return profile
+
+
+def repeat_planned_workout(
+    db: Session,
+    profile: AthleteProfile,
+    workout_id: int,
+    *,
+    target_date: date | None = None,
+) -> dict:
+    """Schedule the same library workout again on a future date."""
+    source = (
+        db.query(PlannedWorkout)
+        .filter(
+            PlannedWorkout.id == workout_id,
+            PlannedWorkout.athlete_profile_id == profile.id,
+        )
+        .first()
+    )
+    if source is None:
+        raise LookupError("Planned workout not found.")
+
+    repeat_day = target_date or (source.workout_date + timedelta(days=7))
+    week_start = current_week_monday(repeat_day)
+    physiology = physiology_from_profile(profile)
+    safety = build_safety_profile(db, profile, readiness_flags=[])
+
+    record = (
+        db.query(TrainingPlan)
+        .filter(
+            TrainingPlan.athlete_profile_id == profile.id,
+            TrainingPlan.week_start == week_start,
+            TrainingPlan.status == "active",
+        )
+        .order_by(TrainingPlan.id.desc())
+        .first()
+    )
+    if record is None:
+        record = TrainingPlan(
+            athlete_profile_id=profile.id,
+            week_start=week_start,
+            title=f"Repeat week — {week_start.isoformat()}",
+            summary="Repeated library session from a prior plan.",
+            focus="repeat",
+            provider="swl",
+            model="repeat",
+            status="active",
+        )
+        db.add(record)
+        db.flush()
+
+    workout = _row_as_workout(source)
+    workout["date"] = repeat_day.isoformat()
+    filled = enrich_workout(workout, safety, physiology=physiology)
+    row = PlannedWorkout(
+        training_plan_id=record.id,
+        athlete_profile_id=profile.id,
+        workout_date=repeat_day,
+        sport=filled.get("sport"),
+        title=filled.get("title"),
+        session_type=filled.get("session_type"),
+        duration_min=filled.get("duration_min"),
+        distance_m=filled.get("distance_m"),
+        intensity=filled.get("intensity"),
+        description=filled.get("description"),
+        structure_json=json.dumps(filled.get("structure") or []),
+        library_template_id=filled.get("library_template_id") or source.library_template_id,
+        library_version=filled.get("library_version") or source.library_version,
+    )
+    db.add(row)
+    db.commit()
+    db.refresh(row)
+    return {
+        "workout_id": row.id,
+        "plan_id": record.id,
+        "date": repeat_day.isoformat(),
+        "library_template_id": row.library_template_id,
+        "title": row.title,
+    }
+
+
+def list_favorite_templates(db: Session, profile_id: int) -> list[dict]:
+    from app.services.workout_library import get_template_by_id
+
+    rows = (
+        db.query(FavoriteWorkoutTemplate)
+        .filter(FavoriteWorkoutTemplate.athlete_profile_id == profile_id)
+        .order_by(FavoriteWorkoutTemplate.created_at.desc())
+        .all()
+    )
+    favorites: list[dict] = []
+    for row in rows:
+        template = get_template_by_id(row.template_id)
+        sports = (template or {}).get("sports") or []
+        favorites.append(
+            {
+                "template_id": row.template_id,
+                "title": (template or {}).get("title"),
+                "sport": sports[0] if sports else None,
+                "intent": (template or {}).get("intent"),
+                "created_at": row.created_at.isoformat() if row.created_at else None,
+            }
+        )
+    return favorites
+
+
+def add_favorite_template(db: Session, profile_id: int, template_id: str) -> dict:
+    from app.services.workout_library import get_template_by_id
+
+    template = get_template_by_id(template_id)
+    if template is None:
+        raise LookupError("Library template not found.")
+    existing = (
+        db.query(FavoriteWorkoutTemplate)
+        .filter(
+            FavoriteWorkoutTemplate.athlete_profile_id == profile_id,
+            FavoriteWorkoutTemplate.template_id == template_id,
+        )
+        .first()
+    )
+    if existing is None:
+        db.add(
+            FavoriteWorkoutTemplate(
+                athlete_profile_id=profile_id,
+                template_id=template_id,
+            )
+        )
+        db.commit()
+    return {"template_id": template_id, "favorited": True}
+
+
+def remove_favorite_template(db: Session, profile_id: int, template_id: str) -> dict:
+    (
+        db.query(FavoriteWorkoutTemplate)
+        .filter(
+            FavoriteWorkoutTemplate.athlete_profile_id == profile_id,
+            FavoriteWorkoutTemplate.template_id == template_id,
+        )
+        .delete()
+    )
+    db.commit()
+    return {"template_id": template_id, "favorited": False}
+
+
+def compute_workout_compliance(
+    db: Session,
+    profile: AthleteProfile,
+    workout_id: int,
+) -> dict:
+    workout = (
+        db.query(PlannedWorkout)
+        .filter(
+            PlannedWorkout.id == workout_id,
+            PlannedWorkout.athlete_profile_id == profile.id,
+        )
+        .first()
+    )
+    if workout is None:
+        raise LookupError("Planned workout not found.")
+    if not workout.completed_activity_id:
+        raise ValueError("Workout has no linked activity.")
+    activity = (
+        db.query(Activity)
+        .filter(
+            Activity.id == workout.completed_activity_id,
+            Activity.athlete_profile_id == profile.id,
+        )
+        .first()
+    )
+    if activity is None:
+        raise ValueError("Linked activity not found.")
+    physiology = physiology_from_profile(profile)
+    report = compliance_for_planned_workout(_row_as_workout(workout), activity, physiology)
+    if report:
+        workout.compliance_json = _compliance_payload(report)
+        db.commit()
+    return report or {}

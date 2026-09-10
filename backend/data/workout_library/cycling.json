@@ -1,0 +1,377 @@
+{
+  "templates": [
+    {
+      "id": "bike_easy_z2",
+      "sports": ["cycling"],
+      "session_types": ["easy"],
+      "intent": "easy",
+      "priority": 10,
+      "title": "Easy endurance ride (Z2)",
+      "summary": "Aerobic base cycling — conversational spin",
+      "evidence_tags": ["polarized", "aerobic_base", "zones"],
+      "warmup_min": 10,
+      "cooldown_min": 8,
+      "warmup": {"detail": "Easy spin 8 min, cadence 85–95. 3 × 30 s spin-ups, 30 s easy."},
+      "main": {
+        "intensity": "Easy / endurance",
+        "detail": "Steady Z2 spin {main_min} min. Gossip pace — nasal breathing if you can.",
+        "targets": {"pct_ftp": {"low": 0.56, "high": 0.75}, "hr_pct_lthr": {"low": 0.69, "high": 0.83}}
+      },
+      "cooldown": {"detail": "Easy spin 6 min. Stretch hip flexors and quads."}
+    },
+    {
+      "id": "bike_long_z2",
+      "sports": ["cycling"],
+      "session_types": ["long"],
+      "intent": "long",
+      "priority": 10,
+      "title": "Long endurance ride",
+      "summary": "Long Z2 ride — fat oxidation and durability",
+      "evidence_tags": ["aerobic_base", "glycogen", "periodization"],
+      "warmup_min": 12,
+      "cooldown_min": 10,
+      "warmup": {"detail": "Easy spin 10 min. Open hips on the bike. Fuel before you need it on long rides."},
+      "main": {
+        "intensity": "Easy / endurance",
+        "detail": "Steady Z2 for {main_min} min. Cadence 80–95. Eat 30–60 g carb/h after 75 min.",
+        "targets": {"pct_ftp": {"low": 0.56, "high": 0.72}, "hr_pct_lthr": {"low": 0.68, "high": 0.78}}
+      },
+      "cooldown": {"detail": "Easy spin 8 min. Rehydrate and refuel within 30 min."}
+    },
+    {
+      "id": "bike_tempo_steady",
+      "sports": ["cycling"],
+      "session_types": ["tempo"],
+      "intent": "tempo",
+      "priority": 10,
+      "title": "Tempo ride",
+      "summary": "Sub-threshold steady state on the bike",
+      "evidence_tags": ["tempo", "threshold", "zones"],
+      "warmup_min": 12,
+      "cooldown_min": 10,
+      "warmup": {"detail": "Easy spin 10 min. 3 × 30 s spin-ups."},
+      "main": {
+        "intensity": "Tempo",
+        "detail": "Continuous tempo {main_min} min — moderately hard, controlled breathing.",
+        "targets": {"pct_ftp": {"low": 0.76, "high": 0.90}, "hr_pct_lthr": {"low": 0.85, "high": 0.92}}
+      },
+      "cooldown": {"detail": "Easy spin 8 min."}
+    },
+    {
+      "id": "bike_threshold_3x10",
+      "sports": ["cycling"],
+      "session_types": ["threshold"],
+      "intent": "threshold",
+      "priority": 20,
+      "title": "Threshold intervals (3×10)",
+      "summary": "FTP threshold repeats — cycling lactate threshold",
+      "evidence_tags": ["threshold", "ftp", "lactate"],
+      "warmup_min": 15,
+      "cooldown_min": 10,
+      "warmup": {"detail": "Easy spin 12 min. 3 × 1 min at tempo with 1 min easy. Settle before rep 1."},
+      "main": {
+        "type": "repeat",
+        "intensity": "Threshold (FTP)",
+        "reps": 3,
+        "on": {"duration_min": 10, "label": "at threshold", "targets": {"pct_ftp": {"low": 0.91, "high": 1.05}, "hr_pct_lthr": {"low": 0.94, "high": 1.02}}},
+        "off": {"duration_min": 5, "label": "easy spin", "targets": {"pct_ftp": {"low": 0.50, "high": 0.60}}},
+        "detail_intro": "Stay seated unless climbing. No surges in the last 2 min of each rep."
+      },
+      "cooldown": {"detail": "Easy spin 8 min. Stretch hip flexors."}
+    },
+    {
+      "id": "bike_threshold_2x20",
+      "sports": ["cycling"],
+      "session_types": ["threshold"],
+      "intent": "threshold",
+      "priority": 18,
+      "match_keywords": ["2 x 20", "2×20"],
+      "title": "Threshold blocks (2×20)",
+      "summary": "Long threshold blocks — muscular endurance at FTP",
+      "evidence_tags": ["threshold", "ftp", "build"],
+      "warmup_min": 15,
+      "cooldown_min": 10,
+      "warmup": {"detail": "Easy spin 12 min. Include 2 × 3 min at high tempo."},
+      "main": {
+        "type": "repeat",
+        "intensity": "Threshold (FTP)",
+        "reps": 2,
+        "on": {"duration_min": 20, "label": "at threshold", "targets": {"pct_ftp": {"low": 0.91, "high": 1.00}}},
+        "off": {"duration_min": 5, "label": "easy spin", "targets": {"pct_ftp": {"low": 0.50, "high": 0.58}}},
+        "detail_intro": "Fuel before this session. Even power — avoid early surges."
+      },
+      "cooldown": {"detail": "Easy spin 8 min."}
+    },
+    {
+      "id": "bike_sweet_spot_2x20",
+      "sports": ["cycling"],
+      "session_types": ["threshold", "tempo"],
+      "intent": "sweet_spot",
+      "priority": 22,
+      "title": "Sweet spot (2×20)",
+      "summary": "Sweet spot training — high aerobic return, sustainable intensity",
+      "evidence_tags": ["sweet-spot", "ftp", "threshold"],
+      "warmup_min": 12,
+      "cooldown_min": 10,
+      "warmup": {"detail": "Easy spin 10 min. 2 × 3 min at tempo."},
+      "main": {
+        "type": "repeat",
+        "intensity": "Sweet spot",
+        "reps": 2,
+        "on": {"duration_min": 20, "label": "sweet spot", "targets": {"pct_ftp": {"low": 0.84, "high": 0.94}}},
+        "off": {"duration_min": 5, "label": "easy spin", "targets": {"pct_ftp": {"low": 0.50, "high": 0.60}}},
+        "detail_intro": "Hard enough to stress aerobic capacity, sustainable enough to accumulate time."
+      },
+      "cooldown": {"detail": "Easy spin 8 min."}
+    },
+    {
+      "id": "bike_over_under_3x12",
+      "sports": ["cycling"],
+      "session_types": ["threshold", "intervals"],
+      "intent": "over_under",
+      "priority": 20,
+      "title": "Over-unders (3×12)",
+      "summary": "FTP over-unders — lactate tolerance and surge capacity",
+      "evidence_tags": ["over-unders", "threshold", "ftp"],
+      "warmup_min": 15,
+      "cooldown_min": 10,
+      "warmup": {"detail": "Easy spin 12 min. 2 × 2 min at tempo."},
+      "main": {
+        "intensity": "Over-under blocks",
+        "detail": "3 × 12 min blocks: 3 min at 88–92% FTP, 1 min at 105–115% FTP, repeat within block, 5 min easy between blocks.",
+        "targets": {"pct_ftp": {"low": 0.88, "high": 1.15}}
+      },
+      "cooldown": {"detail": "Easy spin 8 min. Cadence 80–90 on unders."}
+    },
+    {
+      "id": "bike_vo2_5x3",
+      "sports": ["cycling"],
+      "session_types": ["intervals"],
+      "intent": "vo2",
+      "priority": 20,
+      "title": "VO₂ intervals (5×3)",
+      "summary": "Short VO₂ max intervals on the bike",
+      "evidence_tags": ["vo2", "intervals", "ftp"],
+      "warmup_min": 15,
+      "cooldown_min": 10,
+      "warmup": {"detail": "Easy spin 12 min. 3 × 1 min fast spin with full recovery."},
+      "main": {
+        "type": "repeat",
+        "intensity": "VO₂ max",
+        "reps": 5,
+        "on": {"duration_min": 3, "label": "hard", "targets": {"pct_ftp": {"low": 1.06, "high": 1.20}}},
+        "off": {"duration_min": 3, "label": "easy spin", "targets": {"pct_ftp": {"low": 0.45, "high": 0.55}}},
+        "detail_intro": "Stay seated on flat; stand on climbs if needed. Drop a rep if power fades >8%."
+      },
+      "cooldown": {"detail": "Easy spin 8 min."}
+    },
+    {
+      "id": "bike_vo2_4x5",
+      "sports": ["cycling"],
+      "session_types": ["intervals"],
+      "intent": "vo2",
+      "priority": 18,
+      "match_keywords": ["4 x 5", "4×5"],
+      "title": "VO₂ intervals (4×5)",
+      "summary": "Classic 4×5 min VO₂ session",
+      "evidence_tags": ["vo2", "intervals", "polarized"],
+      "warmup_min": 15,
+      "cooldown_min": 10,
+      "warmup": {"detail": "Easy spin 12 min. Include 2 × 2 min at high tempo."},
+      "main": {
+        "type": "repeat",
+        "intensity": "VO₂ max",
+        "reps": 4,
+        "on": {"duration_min": 5, "label": "hard", "targets": {"pct_ftp": {"low": 1.05, "high": 1.18}}},
+        "off": {"duration_min": 5, "label": "easy spin", "targets": {"pct_ftp": {"low": 0.45, "high": 0.55}}},
+        "detail_intro": "Judge from lap power vs FTP, not average HR."
+      },
+      "cooldown": {"detail": "Easy spin 8 min."}
+    },
+    {
+      "id": "bike_hills_6x2",
+      "sports": ["cycling"],
+      "session_types": ["hills"],
+      "intent": "hills",
+      "priority": 15,
+      "title": "Climbing repeats (6×2)",
+      "summary": "Seated climbing power — force development",
+      "evidence_tags": ["hills", "strength", "ftp"],
+      "warmup_min": 12,
+      "cooldown_min": 10,
+      "warmup": {"detail": "Easy spin 10 min. 2 × 1 min moderate climb."},
+      "main": {
+        "type": "repeat",
+        "intensity": "Climb / hard",
+        "reps": 6,
+        "on": {"duration_min": 2, "label": "seated climb", "targets": {"pct_ftp": {"low": 0.95, "high": 1.08}, "rpe": {"low": 8, "high": 9}}},
+        "off": {"duration_min": 3, "label": "easy spin down", "targets": {"pct_ftp": {"low": 0.45, "high": 0.55}}},
+        "detail_intro": "Cadence 70–80 on the work. No grinding."
+      },
+      "cooldown": {"detail": "Easy spin 8 min."}
+    },
+    {
+      "id": "bike_low_cadence_strength",
+      "sports": ["cycling"],
+      "session_types": ["tempo", "threshold"],
+      "intent": "hills",
+      "priority": 12,
+      "match_keywords": ["low cadence", "strength"],
+      "title": "Low-cadence strength",
+      "summary": "Force production at moderate power — muscular endurance",
+      "evidence_tags": ["strength", "cadence", "economy"],
+      "warmup_min": 12,
+      "cooldown_min": 10,
+      "warmup": {"detail": "Easy spin 10 min. Open hips."},
+      "main": {
+        "intensity": "Moderate / low cadence",
+        "detail": "3 × 8 min at 75–85% FTP, cadence 55–65 rpm. 4 min easy between. Smooth circles — no rocking.",
+        "targets": {"pct_ftp": {"low": 0.75, "high": 0.85}}
+      },
+      "cooldown": {"detail": "Easy spin 8 min at normal cadence."}
+    },
+    {
+      "id": "bike_recovery_spin",
+      "sports": ["cycling"],
+      "session_types": ["easy"],
+      "intent": "easy",
+      "priority": 5,
+      "match_keywords": ["recovery"],
+      "title": "Recovery spin",
+      "summary": "Active recovery — very easy pedaling",
+      "evidence_tags": ["recovery", "polarized", "lactate-clearance"],
+      "warmup_min": 5,
+      "cooldown_min": 5,
+      "warmup": {"detail": "Easy spin 4 min."},
+      "main": {
+        "intensity": "Recovery",
+        "detail": "Recovery spin {main_min} min — barely pedaling. High cadence 90+ if comfortable.",
+        "targets": {"pct_ftp": {"low": 0.40, "high": 0.55}, "hr_pct_lthr": {"low": 0.60, "high": 0.70}}
+      },
+      "cooldown": {"detail": "Easy spin 4 min."}
+    },
+    {
+      "id": "bike_race_pace_2x15",
+      "sports": ["cycling"],
+      "session_types": ["race", "tempo"],
+      "intent": "race_pace",
+      "priority": 14,
+      "match_keywords": ["race pace", "gran fondo"],
+      "title": "Race-pace blocks (2×15)",
+      "summary": "Event-specific pacing practice",
+      "evidence_tags": ["race-specific", "tempo", "periodization"],
+      "warmup_min": 15,
+      "cooldown_min": 10,
+      "warmup": {"detail": "Easy spin 12 min. 2 × 2 min at tempo."},
+      "main": {
+        "type": "repeat",
+        "intensity": "Race pace",
+        "reps": 2,
+        "on": {"duration_min": 15, "label": "at race pace", "targets": {"pct_ftp": {"low": 0.85, "high": 0.92}}},
+        "off": {"duration_min": 5, "label": "easy spin", "targets": {"pct_ftp": {"low": 0.50, "high": 0.58}}},
+        "detail_intro": "Practice nutrition and pacing strategy during blocks."
+      },
+      "cooldown": {"detail": "Easy spin 8 min."}
+    },
+    {
+      "id": "bike_cadence_drills",
+      "sports": ["cycling"],
+      "session_types": ["easy"],
+      "intent": "easy",
+      "priority": 8,
+      "match_keywords": ["cadence", "drill"],
+      "title": "Easy ride + cadence drills",
+      "summary": "Pedaling efficiency — neuromuscular coordination",
+      "evidence_tags": ["cadence", "economy", "technique"],
+      "warmup_min": 10,
+      "cooldown_min": 8,
+      "warmup": {"detail": "Easy spin 8 min."},
+      "main": {
+        "intensity": "Easy + drills",
+        "detail": "Easy Z2 with 6 × 1 min cadence builds (95→110 rpm) and 4 × 30 s single-leg drills each leg. Full easy between.",
+        "targets": {"pct_ftp": {"low": 0.56, "high": 0.70}}
+      },
+      "cooldown": {"detail": "Easy spin 6 min."}
+    },
+    {
+      "id": "bike_30_30s",
+      "sports": ["cycling"],
+      "session_types": ["intervals"],
+      "intent": "vo2",
+      "priority": 16,
+      "match_keywords": ["30/30", "30-30"],
+      "title": "30/30 VO₂ session",
+      "summary": "Micro-intervals — high aerobic stimulus with manageable fatigue",
+      "evidence_tags": ["vo2", "intervals", "polarized"],
+      "warmup_min": 12,
+      "cooldown_min": 10,
+      "warmup": {"detail": "Easy spin 10 min."},
+      "main": {
+        "intensity": "VO₂ micro-intervals",
+        "detail": "3 sets of 10 × 30 s hard / 30 s easy (5 min easy between sets). Hard = 120–130% FTP, easy = 50% FTP.",
+        "targets": {"pct_ftp": {"low": 1.15, "high": 1.30}}
+      },
+      "cooldown": {"detail": "Easy spin 8 min."}
+    },
+    {
+      "id": "bike_taper_opener",
+      "sports": ["cycling"],
+      "session_types": ["easy", "race"],
+      "intent": "easy",
+      "priority": 8,
+      "match_keywords": ["taper", "opener"],
+      "title": "Taper opener",
+      "summary": "Pre-event openers — neuromuscular priming",
+      "evidence_tags": ["taper", "neuromuscular", "race-specific"],
+      "warmup_min": 10,
+      "cooldown_min": 8,
+      "warmup": {"detail": "Easy spin 8 min."},
+      "main": {
+        "intensity": "Easy + openers",
+        "detail": "Easy spin with 3 × 1 min at 90% FTP and 3 × 30 s at 110% FTP (full easy between). Total {main_min} min.",
+        "targets": {"pct_ftp": {"low": 0.55, "high": 0.75}}
+      },
+      "cooldown": {"detail": "Easy spin 6 min."}
+    },
+    {
+      "id": "bike_endurance_progression",
+      "sports": ["cycling"],
+      "session_types": ["long"],
+      "intent": "progression",
+      "priority": 12,
+      "match_keywords": ["progression", "fast finish"],
+      "title": "Progression ride",
+      "summary": "Negative-split long ride — race fatigue management",
+      "evidence_tags": ["long", "race-specific", "glycogen"],
+      "warmup_min": 12,
+      "cooldown_min": 10,
+      "warmup": {"detail": "Easy spin 10 min."},
+      "main": {
+        "intensity": "Easy → tempo",
+        "detail": "First 70% at Z2, last 30% at sweet spot / tempo. Fuel throughout.",
+        "targets": {"pct_ftp": {"low": 0.56, "high": 0.88}}
+      },
+      "cooldown": {"detail": "Easy spin 8 min."}
+    },
+    {
+      "id": "bike_ftp_test_prep",
+      "sports": ["cycling"],
+      "session_types": ["threshold", "race"],
+      "intent": "threshold",
+      "priority": 6,
+      "match_keywords": ["ftp test", "test prep"],
+      "title": "FTP test preparation",
+      "summary": "Pre-test opener — not a test itself",
+      "evidence_tags": ["ftp", "testing", "zones"],
+      "warmup_min": 15,
+      "cooldown_min": 10,
+      "warmup": {"detail": "Easy spin 12 min. 2 × 3 min at tempo."},
+      "main": {
+        "intensity": "Opener",
+        "detail": "2 × 5 min at 95% FTP with 5 min easy between, then 1 × 1 min at 110% FTP. Practice test pacing without full effort.",
+        "targets": {"pct_ftp": {"low": 0.90, "high": 1.10}}
+      },
+      "cooldown": {"detail": "Easy spin 8 min. Rest 48 h before a formal FTP test."}
+    }
+  ]
+}

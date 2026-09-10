@@ -1,0 +1,164 @@
+{
+  "generated_at": "2026-09-10T10:13:24.929879+00:00",
+  "provider": "rules",
+  "phase": 7,
+  "weights": {
+    "diversity": 0.25,
+    "intent_adherence": 0.3,
+    "plain_language": 0.25,
+    "athlete_panel": 0.2
+  },
+  "summary": {
+    "cases": 4,
+    "overall_avg": 0.938,
+    "dimensions_avg": {
+      "diversity": 0.75,
+      "intent_adherence": 1.0,
+      "plain_language": 1.0,
+      "athlete_panel": 1.0
+    },
+    "would_read_all": true
+  },
+  "cases": [
+    {
+      "case_id": "replan_same_schedule",
+      "message": "Plan my this week again keep the schedule same, but plan it with your new updated workout library my newly add LTHR FTP MAX HR and Resrting HR and etc.",
+      "description": "Replan with updated zones \u2014 action summary, WHAT CHANGED, no triplets",
+      "expectation": {
+        "schedule_mode": "action_summary",
+        "require_what_changed": true,
+        "require_zone_mentions": true
+      },
+      "reply_preview": "\ud83d\udfe2 PRIMED / ACCUMULATE \u2014 You're cleared for the planned hard session \u2014 hit the targets, not extras. Friday **Bike O/U 3\u00d712** \u2014 under 204\u2013213 W \u00b7 over 244\u2013267 W Stay inside the week shape \u2014 one quality day, everything else truly easy.\n\n\ud83d\udcca **WHAT CHANGED**\n**Your anchors now drive the sessions:**\n\u2022 **FTP:** 232 W\n\u2022 **LTHR:** 168 bpm\n\u2022 **Max HR:** 192 bpm\n\u2022 **Sessions:** same layout \u2014 zone targets and \u2026",
+      "reply_words": 261,
+      "score": {
+        "total": 0.75,
+        "dimensions": {
+          "diversity": {
+            "score": 0.0,
+            "detail": "max_overlap=1.00, avg=1.00, pairs=10"
+          },
+          "intent_adherence": {
+            "score": 1.0,
+            "detail": "what_changed=y, zone_mentions=y, no_weekly_translations=y, triplet_cap=y, no_formal_triplet_labels=y"
+          },
+          "plain_language": {
+            "score": 1.0,
+            "detail": "fk_grade=5.39, banned_headers=0, words=106"
+          },
+          "athlete_panel": {
+            "score": 1.0,
+            "detail": "would_read=yes, words=106, headers=6"
+          }
+        },
+        "would_read_whole_message": true
+      },
+      "diversity_runs": 5
+    },
+    {
+      "case_id": "adjust_week_full",
+      "message": "How should I adjust this week with my current load?",
+      "description": "Routine schedule adjust \u2014 plain voice, readable length",
+      "expectation": {
+        "schedule_mode": "full_report",
+        "require_what_changed": false,
+        "require_zone_mentions": false
+      },
+      "reply_preview": "\ud83d\udfe2 PRIMED / ACCUMULATE \u2014 You're cleared for the planned hard session \u2014 hit the targets, not extras. Friday **Bike O/U 3\u00d712** \u2014 under 204\u2013213 W \u00b7 over 244\u2013267 W Stay inside the week shape \u2014 one quality day, everything else truly easy.\n\n\ud83d\udfe2 TODAY'S CALL\n**\ud83d\udfe2 PRIMED / ACCUMULATE**\n**Readiness:** 85 (sleep_score)\n**Sleep:** 85\n**HRV:** 63\n**ACWR:** 1.13\n\n\ud83d\udde3\ufe0f LOCKER ROOM DIRECTIVE\nBank quality. The engine i\u2026",
+      "reply_words": 230,
+      "score": {
+        "total": 1.0,
+        "dimensions": {
+          "diversity": {
+            "score": 1.0,
+            "detail": "not measured"
+          },
+          "intent_adherence": {
+            "score": 1.0,
+            "detail": "no_weekly_translations=y, triplet_cap=y"
+          },
+          "plain_language": {
+            "score": 1.0,
+            "detail": "fk_grade=4.95, banned_headers=0, words=81"
+          },
+          "athlete_panel": {
+            "score": 1.0,
+            "detail": "would_read=yes, words=81, headers=5"
+          }
+        },
+        "would_read_whole_message": true
+      },
+      "diversity_runs": 0
+    },
+    {
+      "case_id": "why_acwr",
+      "message": "Why does ACWR matter for my training this week?",
+      "description": "Explicit WHY \u2014 teaching allowed, still plain language",
+      "expectation": {
+        "schedule_mode": "full_report",
+        "require_what_changed": false,
+        "require_zone_mentions": false
+      },
+      "reply_preview": "\ud83d\udfe2 PRIMED / ACCUMULATE \u2014 You're cleared for the planned hard session \u2014 hit the targets, not extras. Use **232 W** as your FTP anchor for today's efforts Stay inside the week shape \u2014 one quality day, everything else truly easy.\n\n\ud83e\udde0 THE CALL\nThis is a question, not a file autopsy.\n\n\ud83d\udccc ANSWER\n\u2022 You asked: **Why does ACWR matter for my training this week?**\n\u2022 **Readiness rule:** Cleared.\n\u2022 I will not def\u2026",
+      "reply_words": 124,
+      "score": {
+        "total": 1.0,
+        "dimensions": {
+          "diversity": {
+            "score": 1.0,
+            "detail": "not measured"
+          },
+          "intent_adherence": {
+            "score": 1.0,
+            "detail": "triplet_cap=y"
+          },
+          "plain_language": {
+            "score": 1.0,
+            "detail": "fk_grade=5.54, banned_headers=0, words=111"
+          },
+          "athlete_panel": {
+            "score": 1.0,
+            "detail": "would_read=yes, words=111, headers=2"
+          }
+        },
+        "would_read_whole_message": true
+      },
+      "diversity_runs": 0
+    },
+    {
+      "case_id": "general_pace",
+      "message": "How should I pace my long run this week?",
+      "description": "Quick chat \u2014 short, no schedule blocks required",
+      "expectation": {
+        "schedule_mode": "full_report",
+        "require_what_changed": false,
+        "require_zone_mentions": false
+      },
+      "reply_preview": "\ud83d\udfe2 PRIMED / ACCUMULATE \u2014 You're cleared for the planned hard session \u2014 hit the targets, not extras. Use **232 W** as your FTP anchor for today's efforts Stay inside the week shape \u2014 one quality day, everything else truly easy.\n\n\ud83e\udde0 THE CALL\nThis is a question, not a file autopsy.\n\n\ud83d\udccc ANSWER\n\u2022 You asked: **How should I pace my long run this week?**\n\u2022 **Readiness rule:** Cleared.\n\u2022 I will not default to\u2026",
+      "reply_words": 84,
+      "score": {
+        "total": 1.0,
+        "dimensions": {
+          "diversity": {
+            "score": 1.0,
+            "detail": "not measured"
+          },
+          "intent_adherence": {
+            "score": 1.0,
+            "detail": "no_weekly_translations=y, triplet_cap=y"
+          },
+          "plain_language": {
+            "score": 1.0,
+            "detail": "fk_grade=6.12, banned_headers=0, words=74"
+          },
+          "athlete_panel": {
+            "score": 1.0,
+            "detail": "would_read=yes, words=74, headers=2"
+          }
+        },
+        "would_read_whole_message": true
+      },
+      "diversity_runs": 0
+    }
+  ]
+}

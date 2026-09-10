@@ -491,7 +491,7 @@ export default function SeasonPage() {
               title="Set your goal race first"
               description="Your season is built backward from one A-race. Add it on Profile, then come back to generate your roadmap."
               actionLabel="Go to Profile"
-              actionTo="/profile#profile-training"
+              actionTo="/profile/training"
             />
           </div>
         ) : (

@@ -130,12 +130,13 @@ SCHEDULE_FORMAT_RULES = """OUTPUT FORMAT — hard fail if you violate any of the
 - Do NOT autopsy a past ride. Completely skip ⚡ THE BOTTOM LINE, 🔬 MECHANICAL PRECISION, and 🫀 CARDIOVASCULAR COST.
 - No NP, IF, TSS, or lap-by-lap watts unless they asked to change a session because of it.
 - Blank line between sections. One idea per bullet.
-- Layout in this exact order, with these exact headers:
+- Open with a plain-language lead sentence block before headers: decision + one watch number + one why (Phase 4).
+- Layout in this exact order (skip teaching blocks when not earned — see CONDITIONAL TEACHING):
   🟢 TODAY'S CALL
   🗣️ LOCKER ROOM DIRECTIVE
   🗓️ REVISED WEEK
   🛡️ SPINE LOCK
-  🔬 WEEKLY TRANSLATIONS
+  **Why this works** OR **Why recovery** (ONLY when earned)
 - 🟢 TODAY'S CALL = one color-coded status line from ATHLETE STATE, then 2-4 **key: value** pairs (Readiness, Sleep, HRV, ACWR). No prose.
   Readiness score = sleep_score (0-100) unless a dedicated readiness score is present. Never invent Oura numbers.
   Bands (hard):
@@ -151,12 +152,10 @@ SCHEDULE_FORMAT_RULES = """OUTPUT FORMAT — hard fail if you violate any of the
 - 🛡️ SPINE LOCK = non-negotiable DO / DO NOT bullets for lower back and spine.
   If an active back/spine limit is on file, lead with **DO NOT:** back squat, deadlift, crunch, sit-up, good morning, loaded twist.
   **DO:** anti-extension core only (dead bug, bird dog, side plank). If no back limit, write **No spinal lock on file.**
-- 🔬 WEEKLY TRANSLATIONS = 2-3 (max 4) safety or load adjustments, each as this exact 3-line block:
-  • 🔬 THE SCIENCE: metric or biological principle (one clause)
-  • 🗣️ LOCKER ROOM LINGO: plain athletic translation (one sentence)
-  • 💡 REAL-WORLD EXAMPLE: visual physical analogy — engine, radiator, scaffolding, battery (one sentence)
+- Do NOT add 🔬 WEEKLY TRANSLATIONS or science/lingo/analogy triplets unless the athlete asked WHY/HOW or readiness is 🔴 REST / RESTORE.
+- When teaching IS earned: one **Why this works** or **Why recovery** block — max 3 plain bullets with THEIR numbers. No metaphors.
 - Markdown **bold** on status, session names, and DO NOT items. No # headings.
-- Aim for 350-450 words besides the table when load and safety need explanation."""
+- Aim for 80-180 words besides the table for routine updates. Longer only when teaching is earned."""
 
 SCHEDULE_SYSTEM_PROMPT = (
     BASE_SYSTEM_PROMPT
@@ -166,48 +165,191 @@ SCHEDULE_SYSTEM_PROMPT = (
     + SCHEDULE_FORMAT_RULES
 )
 
+SCHEDULE_ACTION_FORMAT_RULES = """OUTPUT FORMAT — action summary (replan / zone refresh). Hard fail if violated:
+- Open with a plain-language lead: decision + one watch number + one why sentence (Phase 4).
+- The athlete asked to replan or refresh zones — then WHAT CHANGED, not a lecture.
+- BAN 🔬 WEEKLY TRANSLATIONS. BAN THE SCIENCE / LOCKER ROOM LINGO / REAL-WORLD EXAMPLE triplets.
+- BAN engine, radiator, battery, scaffolding analogies unless the athlete explicitly asked why.
+- BAN essays. Never more than TWO consecutive sentences in any block or bullet.
+- Layout in this exact order:
+  📊 WHAT CHANGED
+  🟢 TODAY'S CALL
+  🗣️ DIRECTIVE
+  🗓️ REVISED WEEK
+  🛡️ SPINE LOCK (only if a back/spine limit is active — else one line: No spinal lock on file.)
+- 📊 WHAT CHANGED = bullets using PROPOSED PLAN DIFF and physiology anchors. Say what shifted (FTP, LTHR, session targets). If schedule shape is unchanged, say so plainly.
+- 🟢 TODAY'S CALL = copy the precomputed status line + 2-4 **key: value** pairs (Readiness, Sleep, HRV, ACWR).
+- 🗣️ DIRECTIVE = ONE sentence for today. No second sentence.
+- 🗓️ REVISED WEEK = copy the PROPOSED WEEK TABLE exactly — do not invent sessions.
+- Optional: one short **Why this week** bullet (max 2 bullets) ONLY if ACWR, travel, or injury forces a constraint. No analogies.
+- Aim for 120-280 words besides the table. Shorter is better."""
 
-def schedule_system_prompt() -> str:
-    return SCHEDULE_SYSTEM_PROMPT
+SCHEDULE_ACTION_SYSTEM_PROMPT = (
+    BASE_SYSTEM_PROMPT
+    + "\n\nRole lens:\nYou narrate a zone-calibrated week replan like a sharp human coach — "
+    "specific numbers, plain language, zero template filler.\n\n"
+    + SCHEDULE_ACTION_FORMAT_RULES
+)
+
+
+def schedule_system_prompt(mode: str = "full_report", voice=None) -> str:
+    from app.services.coach_schedule_mode import ACTION_SUMMARY
+
+    if mode == ACTION_SUMMARY:
+        return SCHEDULE_ACTION_SYSTEM_PROMPT
+    base = SCHEDULE_SYSTEM_PROMPT
+    if voice is not None:
+        base = (
+            base
+            + "\n\n"
+            + voice.conditional_teaching_block
+            + "\n"
+            + voice.plain_language_block
+        )
+    return base
+
+
+ELITE_COACH_PERSONA = """ELITE COACH PERSONA (conversational warmth — hard fail if violated):
+
+1. EMPATHY & VALIDATION FIRST
+- If they mention a tough day, missed workouts, work stress, travel, or equipment (bike fit): OPEN by validating that experience.
+- Reframe missed sessions positively (bike fit = injury-prevention investment, not a failed target).
+- Warm opener allowed: "Hey!" / "First off, take a deep breath —" when the tone fits.
+
+2. NO UI / SYSTEM CODE LEAKS
+- NEVER open with raw dashboard headers: PRIMED/ACCUMULATE, STATUS: AMBER, 🟢 TODAY'S CALL, READINESS: 100.
+- Blend load/readiness into prose or **The Bottom Line** — not status-card syntax.
+- BAN week tables, REVISED WEEK, SPINE LOCK, autopsy sections (⚡ THE BOTTOM LINE autopsy block, 🔬 MECHANICAL PRECISION).
+
+3. COLLABORATIVE "LOCKER ROOM" DIRECTIVES
+- BAN cold transactional lines: "Mostly yes — with three edits", "Failed target", "Short answer:".
+- Frame as a shared plan: "You've got the right instincts — let's tweak a few things so you stay fresh."
+
+4. STRUCTURED YET CONVERSATIONAL LAYOUT (plan advice / multi-day questions)
+- After empathy: one transition paragraph.
+- Then each day as:
+  **Friday (Tomorrow):** [Session summary line]
+  **Coach's Rule:** [One clear, encouraging rule with their numbers]
+- End with **The Bottom Line:** — exactly 2 sentences tying ACWR, HRV/sleep, and their life context (travel, etc.) in plain English.
+
+General chat (non-plan): 2–4 warm paragraphs, one watch number woven in. 150–280 words."""
 
 
 CHAT_FORMAT_RULES = """OUTPUT FORMAT — hard fail if you violate any of these:
-- Intent is GENERAL_CHAT. Answer the athlete's specific question. Nothing else.
-- Completely skip ⚡ THE BOTTOM LINE, 🔬 MECHANICAL PRECISION, and 🫀 CARDIOVASCULAR COST.
-- Do NOT autopsy the last synced workout. Do not quote NP, IF, TSS, laps, or file metrics unless they asked about that session by name.
-- BAN essays. Never more than TWO consecutive sentences in any block or bullet.
-- Every line is a bullet, a **key: value** pair, or a one-line callout.
-- Layout:
-  🧠 THE CALL
-  💬 REFRAME  (include ONLY if the athlete sounds emotional, guilty, or like they failed / cut a session short; otherwise omit this section)
-  📌 ANSWER
-- 🧠 THE CALL = one sentence. What this question is really about.
-- 💬 REFRAME = 3-5 spaced **bold** bullets. High-impact psychological reset. No paragraph. No pep-talk essay.
-- 📌 ANSWER = bullets that answer the biological / training question with ATHLETE STATE (sleep, HRV, ACWR, back limits). Cite [S1] if used.
-- Markdown **bold** on the hits that must stick. No # headings.
-- Aim for 300-450 words. Simple questions can be shorter; training or emotional questions need depth."""
+- Intent is GENERAL_CHAT. Answer like an elite human coach in a message thread — not a clinical report.
+- Follow ELITE COACH PERSONA rules above.
+- Do NOT autopsy the last synced workout. No NP, IF, TSS, laps unless they asked about that session.
+- BAN 🟢 TODAY'S CALL, 🗓️ REVISED WEEK, week tables, SPINE LOCK, WEEKLY TRANSLATIONS.
+- Skip autopsy-only blocks: 🔬 MECHANICAL PRECISION, 🫀 CARDIOVASCULAR COST (the ⚡ autopsy BOTTOM LINE block).
+- "The Bottom Line:" at the end is ALLOWED and encouraged when giving multi-day or plan advice.
+- 150–280 words for plan advice; 80–200 for simple questions."""
 
 CHAT_SYSTEM_PROMPT = (
     BASE_SYSTEM_PROMPT
     + "\n\nRole lens:\nYou are their Pro Olympic Coach in the locker room, not a session physiologist. "
     "If they asked a science, recovery, or emotional question, answer that question. "
     "Do not default to yesterday's file.\n\n"
+    + ELITE_COACH_PERSONA
+    + "\n\n"
     + CHAT_FORMAT_RULES
 )
 
 
-def chat_system_prompt() -> str:
-    return CHAT_SYSTEM_PROMPT
+def chat_system_prompt(voice=None) -> str:
+    if voice is None:
+        return CHAT_SYSTEM_PROMPT
+    return (
+        CHAT_SYSTEM_PROMPT
+        + "\n\n"
+        + voice.conditional_teaching_block
+        + "\n"
+        + voice.plain_language_block
+    )
 
 
 def chat_task() -> str:
-    return """Answer the athlete's question as a Pro Olympic Coach. Follow OUTPUT FORMAT exactly.
-BAN essays. Never more than two consecutive sentences per bullet.
-Completely skip ⚡ THE BOTTOM LINE, 🔬 MECHANICAL PRECISION, and 🫀 CARDIOVASCULAR COST.
+    return """Answer the athlete's question as a Pro Olympic Coach. Follow ELITE COACH PERSONA exactly.
+Warm paragraphs — no emoji section headers (no THE CALL, REFRAME, ANSWER blocks).
+Completely skip ⚡ THE BOTTOM LINE autopsy block, 🔬 MECHANICAL PRECISION, and 🫀 CARDIOVASCULAR COST.
 Do not load or quote the last synced workout's telemetry, laps, or autopsy metrics.
-Focus 100% on the schedule, biological, or emotional question they asked.
-If they feel they failed or cut a session short: 💬 REFRAME as spaced **bold** bullets, then 📌 ANSWER.
-Use ATHLETE STATE (sleep, HRV, ACWR, back limits). Never contradict the safety rules."""
+Weave one watch number from ATHLETE STATE (HRV, ACWR, sleep, FTP) into prose.
+80–200 words. Never contradict the safety rules."""
+
+
+SUPPORT_CHAT_VOICE = """SUPPORT CHAT MODE — empathy-first elite coach (missed sessions, stress, travel).
+
+Required flow:
+1. Validate their experience in the opening paragraph (bike fit, busy day, guilt, travel — whatever they named).
+2. Reframe positively — no punishment, no "failed target" language.
+3. One clear next step for the next 24–48 hours (easy movement or rest — not a full week rebuild).
+4. One watch number woven naturally (HRV, ACWR, or sleep).
+
+BAN: PRIMED/ACCUMULATE, TODAY'S CALL, REVISED WEEK, tables, emoji headers, "Short answer:"
+Length: 120–220 words."""
+
+
+def support_chat_system_prompt() -> str:
+    return (
+        BASE_SYSTEM_PROMPT
+        + "\n\nRole lens:\nYou are their elite coach in a private message thread. "
+        "They need emotional support and practical guidance — not a calendar export.\n\n"
+        + ELITE_COACH_PERSONA
+        + "\n\n"
+        + SUPPORT_CHAT_VOICE
+    )
+
+
+def support_chat_task() -> str:
+    return """Support the athlete with empathy first, then one practical next step.
+Do not rebuild their week. Do not autopsy a past ride.
+Follow SUPPORT CHAT MODE layout. Use ATHLETE STATE for one watch number."""
+
+
+ADVISORY_COACH_VOICE = """PLAN ADVICE MODE — elite coach persona (they proposed a DIY schedule).
+
+Follow ELITE COACH PERSONA exactly. Required layout:
+
+[Empathy paragraph — validate bike fit / missed sessions / travel / stress first]
+
+[Transition — "You've got the right instincts, but let's tweak…" so they stay fresh for travel/goals]
+
+**Friday (Tomorrow):** [Short session summary]
+**Coach's Rule:** [Zone 2 watts or RPE — no makeup threshold language]
+
+**Saturday:** [Short session summary]
+**Coach's Rule:** [Conversational pace, cap duration before travel/packing]
+
+**Sunday (Travel Day):** [Rest / recover framing]
+**Coach's Rule:** [Why skip long run before train — stiffness, recovery]
+
+**The Bottom Line:** [Exactly 2 sentences: ACWR + HRV/sleep + arrive fresh at destination]
+
+Hard bans: PRIMED/ACCUMULATE, TODAY'S CALL, REVISED WEEK, tables, "Mostly yes — with three edits", "Short answer:"
+Length: 180–280 words."""
+
+
+def advisory_system_prompt() -> str:
+    return (
+        BASE_SYSTEM_PROMPT
+        + "\n\nRole lens:\nYou are their elite coach in a private message thread. "
+        "They proposed a plan and want your honest, warm take — never a calendar export.\n\n"
+        + ELITE_COACH_PERSONA
+        + "\n\n"
+        + ADVISORY_COACH_VOICE
+    )
+
+
+def advisory_task() -> str:
+    return """Give your honest opinion on the DIY plan they proposed.
+Use the ELITE COACH PERSONA layout: empathy first → collaborative transition → Fri/Sat/Sun each with Coach's Rule → The Bottom Line (2 sentences).
+Reference their words (bike fit, train, destination). Use saved week as quiet context — no week table.
+Weave their FTP/LTHR zones into Coach's Rule lines. Never guilt-trip missed sessions."""
+
+
+def go_deeper_advisory_task() -> str:
+    return """Brief warm follow-up — why this week's shape works for THEM.
+One short paragraph OR 3 bullets. One watch number. End with one encouraging sentence.
+No week table. No PRIMED/ACCUMULATE headers."""
 
 
 SCIENCE_FORMAT_RULES = """OUTPUT FORMAT — hard fail if you violate any of these:
@@ -426,24 +568,49 @@ BAN essays. Never more than two consecutive sentences per bullet. No full week t
 ⚠️ Conflicts — bullets: anything that fights volume bias, long-day cap, or events this week
 📅 Schedule notes — bullets: how to arrange days given their constraints
 🛡️ Safety — copy TODAY'S CALL status exactly; spine/injury guards if active
-🔬 2 metric → locker-room → analogy triplets (ACWR, sleep/HRV, stacking). Cite [S#] if used.
+**Why this works** ONLY if they asked WHY/HOW — max 2 plain bullets. Cite [S#] if used. No analogy triplets.
 
 Do NOT output week_plan. Do NOT fill a 5-column week table. Review only — they confirm before you build."""
 
 
-def schedule_task() -> str:
-    return """Issue this week's call as a Pro Olympic Coach. Follow OUTPUT FORMAT exactly.
+def schedule_task(mode: str = "full_report") -> str:
+    from app.services.coach_schedule_mode import ACTION_SUMMARY
+
+    if mode == ACTION_SUMMARY:
+        return """Narrate the PROPOSED WEEK PLAN (pass 1 — already built from the workout library and zone engine).
+Follow OUTPUT FORMAT exactly — action summary mode.
+Lead with 📊 WHAT CHANGED using the diff block and physiology anchors provided.
+Copy the proposed week table verbatim into 🗓️ REVISED WEEK.
+Do NOT add 🔬 WEEKLY TRANSLATIONS or science/lingo/analogy triplets.
+Copy week_plan from PROPOSED WEEK PLAN JSON — do not invent sessions or dates.
+Every workout in week_plan must include structure: Warm-up, Main set, Cool-down."""
+
+    return """Pass 2 narrator only — PLANNER PACKET and PROPOSED WEEK PLAN are already built (pass 1).
+Follow OUTPUT FORMAT exactly. Do NOT invent sessions or zone targets — narrate pass-1 ground truth.
 BAN essays. Never more than two consecutive sentences. Bullets, key-values, or the table only.
 Bypass the workout-autopsy template completely. Skip ⚡ THE BOTTOM LINE, 🔬 MECHANICAL PRECISION, and 🫀 CARDIOVASCULAR COST. No NP / IF / TSS.
 
 🟢 TODAY'S CALL — copy the precomputed TODAY'S CALL block status line exactly. Bands: ≥85 PRIMED / ACCUMULATE, 65-84 CAUTION / ABSORB, <65 REST / RESTORE.
 🗣️ One locker-room sentence for today.
-🗓️ Table: | Day | Session | Primary Focus | Intensity | Coach's Secret Rule |
+🗓️ Copy PROPOSED WEEK TABLE verbatim: | Day | Session | Primary Focus | Intensity | Coach's Secret Rule |
 🛡️ Spine lock: specific DO NOT lifts if a back/spine limit is active.
-🔬 2-3 Metric → Locker-room → Analogy triplets for the week's load/safety calls (ACWR, sleep/HRV, stacking, impact).
+**Why this works** or **Why recovery** ONLY if they asked WHY/HOW or readiness is 🔴 — max 3 plain bullets with their numbers. No triplets otherwise.
 
-If the athlete pasted a proposed week, use that as the draft and correct it. If they only asked to adjust, edit CURRENT WEEK PLAN. Do not invent a sport they do not do.
-Also fill week_plan.workouts — one object per session with real YYYY-MM-DD dates (even though the visible table omits Date). Split doubles onto the same date so Schedule can store them."""
+Copy week_plan from PLANNER PACKET exactly — do not rewrite workouts in prose.
+Every workout must include structure: Warm-up, Main set with named work, and Cool-down."""
+
+
+def day_adjust_task() -> str:
+    return """Issue a TODAY-ONLY adjustment. Follow OUTPUT FORMAT exactly.
+BAN essays. Never more than two consecutive sentences.
+
+🟢 TODAY'S CALL — copy the precomputed TODAY'S CALL block status line exactly.
+🗣️ One locker-room sentence for today.
+🛠️ TODAY'S SESSION — what changes for TODAY only. Keep duration unless the call is REST.
+Warm-up, named Main set, Cool-down (stretches / foam roll / mobility).
+Do NOT rewrite Tuesday–Sunday or any day that is not today. Do not output a full week table.
+
+Fill week_plan.workouts with TODAY's date only. Other days stay as CURRENT WEEK PLAN."""
 
 
 def coach_modality(sport_type: str | None, family: str | None = None) -> str:
@@ -565,6 +732,15 @@ def autopsy_task_for_packet(modality: str | None, packet: dict | None) -> str:
         extra.append(
             "Match this file to week_plan_session / CURRENT WEEK PLAN for that date. "
             "Say whether Tuesday's scheduled session was this quality bike or a different planned day."
+        )
+    library = packet.get("library_compliance") or {}
+    if (prescription or {}).get("source") == "library_template" or library:
+        extra.extend(
+            [
+                "Prescription comes from the Science Workout Library template — grade execution against resolved LTHR/FTP/pace/CSS bands, not generic RPE.",
+                "If library_compliance.score is present, reference the grade (A–F) and whether duration + intensity targets were hit.",
+                "Cite evidence_tags from the prescription when explaining why this session was planned.",
+            ]
         )
     if not extra:
         return base
@@ -1017,6 +1193,13 @@ _EMOTION_HINTS = (
     "i suck",
     "worthless",
     "ashamed",
+    "not so good",
+    "rough day",
+    "bad day",
+    "missed",
+    "skipped",
+    "busy",
+    "bike fit",
 )
 
 
@@ -1029,39 +1212,101 @@ def template_general_chat(
     message: str,
     safety: dict,
     science_hits: list[dict],
+    *,
+    context: dict | None = None,
 ) -> dict[str, Any]:
-    reason = (safety.get("readiness") or {}).get("reason") or "Train inside the safety rules."
-    asked = message.strip()[:180] or "a training question"
-    lines = [
-        "🧠 THE CALL",
-        "This is a question, not a file autopsy.",
-        "",
-    ]
+    """Deterministic elite-coach fallback — warm prose, no emoji headers."""
+    from app.services.coach_advisory import polish_advisory_reply
+
+    load = (safety or {}).get("load") or {}
+    acwr = load.get("minutes_acwr")
+    health = ((context or {}).get("coros") or {}).get("latest_health") or {}
+    hrv = health.get("hrv")
+    acwr_bit = f"**{acwr:.2f}**" if isinstance(acwr, (int, float)) else "steady"
+    hrv_bit = f"**{hrv}**" if hrv is not None else "your baseline"
+
     if _looks_emotional(message):
-        lines.extend(
-            [
-                "💬 REFRAME",
-                "• **Stopping was a decision, not a character verdict.**",
-                "• **The work you did still counts. Makeup intensity does not.**",
-                "• **Next session is the next session — no punishment blocks.**",
-                "",
-            ]
+        body = (
+            "Hey — first off, what you're feeling is normal. Missing a session when life gets busy "
+            "isn't failure; the calendar moved, not your fitness.\n\n"
+            f"Your load is sitting at a {acwr_bit} ACWR and HRV at {hrv_bit} — that's the number "
+            "to watch before you chase makeup work. Keep the next session easy enough to talk through, "
+            "and resist turning recovery into punishment."
         )
-    lines.extend(
-        [
-            "📌 ANSWER",
-            f"• You asked: **{asked}**",
-            f"• **Readiness rule:** {reason}",
-            "• I will not default to the last synced workout's laps or watts here.",
-        ]
-    )
-    if science_hits:
-        top = science_hits[0]
-        heading = top.get("heading")
-        if heading:
-            lines.append(f"• Evidence: {heading}")
+    else:
+        asked = (message or "").strip()[:120] or "your question"
+        evidence = ""
+        if science_hits:
+            heading = science_hits[0].get("heading")
+            if heading:
+                evidence = f" On the science side: {heading}."
+        body = (
+            f"Good question on {asked.lower().rstrip('?')} — I'll keep this practical.\n\n"
+            f"With ACWR at {acwr_bit} and HRV at {hrv_bit}, stay inside what your body is signaling.{evidence} "
+            "I'm not pulling yesterday's file into this — we're answering what you actually asked."
+        )
+
     return {
-        "reply": "\n".join(lines),
+        "reply": polish_advisory_reply(body),
+        "citations": [
+            hit["citation"]["slug"]
+            for hit in science_hits[:2]
+            if hit.get("citation", {}).get("slug")
+        ],
+        "escalate": False,
+        "escalation_reason": None,
+        "intent": "GENERAL_CHAT",
+    }
+
+
+def template_support_chat(
+    message: str,
+    safety: dict,
+    science_hits: list[dict],
+    *,
+    context: dict | None = None,
+) -> dict[str, Any]:
+    """Deterministic empathy-first fallback for missed sessions / stress."""
+    from app.services.coach_advisory import MISSED_OR_ROUGH_RE, polish_advisory_reply
+
+    load = (safety or {}).get("load") or {}
+    acwr = load.get("minutes_acwr")
+    health = ((context or {}).get("coros") or {}).get("latest_health") or {}
+    hrv = health.get("hrv")
+    text_lower = (message or "").lower()
+    acwr_bit = f"**{acwr:.2f}**" if isinstance(acwr, (int, float)) else "healthy"
+    hrv_bit = f"**{hrv}**" if hrv is not None else "solid"
+
+    if "bike fit" in text_lower:
+        opener = (
+            "Hey! First off, take a deep breath — missing today for a proper **bike fit** is a total win, "
+            "not a missed target. Getting fit dialed protects your knees and back long-term."
+        )
+    elif MISSED_OR_ROUGH_RE.search(message or ""):
+        opener = (
+            "Hey — rough days happen. Missing sessions when life gets busy isn't failure; "
+            "it means the calendar moved, not your fitness."
+        )
+    elif "travel" in text_lower or "train" in text_lower:
+        opener = (
+            "Travel weeks are tricky — you're juggling logistics and training at the same time. "
+            "That's normal, and we can shape what's next without piling on."
+        )
+    else:
+        opener = (
+            "I hear you — training stress plus life stress adds up. "
+            "Let's keep the next step simple so you don't dig a hole."
+        )
+
+    body = (
+        f"{opener}\n\n"
+        "Don't chase makeup intensity. The next 24 hours: one easy session or full rest — "
+        "whichever lets you sleep well and wake up without dreading the plan.\n\n"
+        f"Watch ACWR at {acwr_bit} and HRV at {hrv_bit}. If easy pace doesn't feel conversational, "
+        "that's your body asking for more recovery, not more willpower."
+    )
+    return {
+        "reply": polish_advisory_reply(body),
         "citations": [
             hit["citation"]["slug"]
             for hit in science_hits[:2]
@@ -1108,12 +1353,20 @@ def template_week_plan_review(
         f"**{status_label}** · Readiness {score if score is not None else 'Missing'} ({source})",
         f"ACWR {acwr if acwr is not None else 'Missing'} — hold progression if load is already spiking.",
         "",
-        "🔬 **Science**",
-        "• **Metric:** ACWR · **Locker room:** spike vs chronic · **Analogy:** a credit card you have not paid off.",
-        "• **Metric:** Sleep/HRV · **Locker room:** recovery deposit · **Analogy:** charging the battery before race pace.",
         "",
-        "Reply **Plan my week** when this review fits — I will build the full table and save it.",
     ]
+    from app.services.coach_voice import wants_teaching
+
+    if wants_teaching(message):
+        lines.extend(
+            [
+                "**Why this works**",
+                f"• **{phase}** phase sets volume at {intent.get('volume_bias', '—')} — your week should mirror that bias.",
+                f"• ACWR **{acwr if acwr is not None else 'Missing'}** — do not stack extra quality if load is already elevated.",
+            ]
+        )
+        lines.append("")
+    lines.append("Reply **Plan my week** when this review fits — I will build the full table and save it.")
     return {
         "reply": "\n".join(lines),
         "citations": [
@@ -1127,6 +1380,198 @@ def template_week_plan_review(
     }
 
 
+def template_schedule_action_summary(
+    message: str,
+    safety: dict,
+    science_hits: list[dict],
+    *,
+    proposed_plan: dict,
+    diff: dict[str, Any],
+    physiology_lines: list[str],
+    current_plan: dict | None = None,
+    context: dict | None = None,
+    clock: dict | None = None,
+) -> dict[str, Any]:
+    """Deterministic action-summary fallback — WHAT CHANGED first, no translation triplets."""
+    from app.services.coach_schedule_mode import (
+        build_week_table_rows,
+        format_what_changed_section,
+        wants_same_schedule,
+    )
+
+    load = safety.get("load") or {}
+    injuries = safety.get("injuries") or {}
+    health = ((context or {}).get("coros") or {}).get("latest_health") or {}
+    acwr = load.get("minutes_acwr")
+    active = injuries.get("active") or []
+    back_limited = any(
+        "back" in str(item).lower() or "spine" in str(item).lower() for item in active
+    )
+
+    score, source = readiness_score(health, safety)
+    band, status_label = today_call_status(score)
+    sleep = health.get("sleep_score")
+    hrv = health.get("hrv")
+    score_display = f"{score} ({source})" if score is not None else "Missing"
+
+    if back_limited:
+        spine_lines = [
+            "• **DO NOT:** back squat, deadlift, crunch, sit-up, good morning, loaded twist.",
+            "• **DO:** anti-extension only — dead bug, bird dog, side plank.",
+        ]
+    else:
+        spine_lines = ["• **No spinal lock on file.**"]
+
+    from app.services.coach_plain_language import build_plain_lead
+
+    what_changed = format_what_changed_section(
+        diff,
+        physiology_lines,
+        same_schedule=wants_same_schedule(message),
+    )
+    rows = build_week_table_rows(proposed_plan, clock=clock)
+    plain_lead = build_plain_lead(context, safety, proposed_plan=proposed_plan, clock=clock)
+
+    lines = [
+        plain_lead,
+        "",
+        *what_changed,
+        "",
+        "🟢 TODAY'S CALL",
+        f"**{status_label}**",
+        f"**Readiness:** {score_display}",
+        f"**Sleep:** {sleep if sleep is not None else 'Missing'}",
+        f"**HRV:** {hrv if hrv is not None else 'Missing'}",
+        f"**ACWR:** {acwr if acwr is not None else 'Missing'}",
+        "",
+        "🗣️ DIRECTIVE",
+        _LOCKER_DIRECTIVES[band],
+        "",
+        "🗓️ REVISED WEEK",
+        *rows,
+        "",
+        "🛡️ SPINE LOCK",
+        *spine_lines,
+    ]
+    return {
+        "reply": "\n".join(lines),
+        "citations": [
+            hit["citation"]["slug"]
+            for hit in science_hits[:2]
+            if hit.get("citation", {}).get("slug")
+        ],
+        "escalate": False,
+        "escalation_reason": None,
+        "intent": "SCHEDULE_UPDATE",
+        "week_plan": proposed_plan,
+    }
+
+
+def _template_schedule_from_proposed_plan(
+    message: str,
+    safety: dict,
+    science_hits: list[dict],
+    *,
+    proposed_plan: dict,
+    diff: dict[str, Any],
+    context: dict | None = None,
+    clock: dict | None = None,
+) -> dict[str, Any]:
+    """Phase 3 full-report fallback — table and week_plan from pass-1 proposed plan."""
+    from app.services.coach_schedule_mode import build_week_table_rows
+    from app.services.coach_voice import should_include_weekly_translations
+
+    load = safety.get("load") or {}
+    injuries = safety.get("injuries") or {}
+    health = ((context or {}).get("coros") or {}).get("latest_health") or {}
+    acwr = load.get("minutes_acwr")
+    active = injuries.get("active") or []
+    back_limited = any(
+        "back" in str(item).lower() or "spine" in str(item).lower() for item in active
+    )
+
+    score, source = readiness_score(health, safety)
+    band, status_label = today_call_status(score)
+    sleep = health.get("sleep_score")
+    hrv = health.get("hrv")
+    score_display = f"{score} ({source})" if score is not None else "Missing"
+
+    hard_days: list[str] = []
+    for workout in proposed_plan.get("workouts") or []:
+        session_l = f"{workout.get('title')} {workout.get('intensity')}".lower()
+        if any(
+            token in session_l
+            for token in ("hard", "threshold", "interval", "vo2", "quality", "race")
+        ):
+            day_key = str(workout.get("date") or "")[:10]
+            if day_key:
+                try:
+                    hard_days.append(date.fromisoformat(day_key).strftime("%A"))
+                except ValueError:
+                    hard_days.append(day_key)
+
+    if back_limited:
+        spine_lines = [
+            "• **DO NOT:** back squat, deadlift, crunch, sit-up, good morning, loaded twist.",
+            "• **DO:** anti-extension only — dead bug, bird dog, side plank.",
+            "• Strength days: unilateral lower body. Spine is a pillar, never a loaded hinge.",
+        ]
+    else:
+        spine_lines = ["• **No spinal lock on file.**"]
+
+    teaching_lines = _conditional_schedule_teaching(
+        message=message,
+        safety=safety,
+        context=context,
+        acwr=acwr,
+        sleep=sleep,
+        hrv=hrv,
+        back_limited=back_limited,
+        hard_days=hard_days,
+    )
+    from app.services.coach_plain_language import build_plain_lead
+
+    rows = build_week_table_rows(proposed_plan, clock=clock)
+    plain_lead = build_plain_lead(context, safety, proposed_plan=proposed_plan, clock=clock)
+
+    lines = [
+        plain_lead,
+        "",
+        "🟢 TODAY'S CALL",
+        f"**{status_label}**",
+        f"**Readiness:** {score_display}",
+        f"**Sleep:** {sleep if sleep is not None else 'Missing'}",
+        f"**HRV:** {hrv if hrv is not None else 'Missing'}",
+        f"**ACWR:** {acwr if acwr is not None else 'Missing'}",
+        "",
+        "🗣️ LOCKER ROOM DIRECTIVE",
+        _LOCKER_DIRECTIVES[band],
+        "",
+        "🗓️ REVISED WEEK",
+        *rows,
+        "",
+        "🛡️ SPINE LOCK",
+        *spine_lines,
+    ]
+    if teaching_lines:
+        lines.extend(["", *teaching_lines])
+    elif should_include_weekly_translations(message, safety, context):
+        lines.extend(["", "**Why recovery**", "• Readiness is low — keep today easy or rest."])
+
+    return {
+        "reply": "\n".join(lines),
+        "citations": [
+            hit["citation"]["slug"]
+            for hit in science_hits[:2]
+            if hit.get("citation", {}).get("slug")
+        ],
+        "escalate": False,
+        "escalation_reason": None,
+        "intent": "SCHEDULE_UPDATE",
+        "week_plan": proposed_plan,
+    }
+
+
 def template_schedule(
     message: str,
     safety: dict,
@@ -1135,8 +1580,38 @@ def template_schedule(
     current_plan: dict | None = None,
     context: dict | None = None,
     clock: dict | None = None,
+    response_mode: str = "full_report",
+    proposed_plan: dict | None = None,
+    diff: dict | None = None,
+    physiology_lines: list[str] | None = None,
 ) -> dict[str, Any]:
     """Deterministic Pro Olympic Coach fallback — never an autopsy, never an essay."""
+    from app.services.coach_schedule_mode import ACTION_SUMMARY
+
+    if response_mode == ACTION_SUMMARY and proposed_plan is not None:
+        return template_schedule_action_summary(
+            message,
+            safety,
+            science_hits,
+            proposed_plan=proposed_plan,
+            diff=diff or {"changes": [], "unchanged_days": 0, "total_days": 0},
+            physiology_lines=physiology_lines or [],
+            current_plan=current_plan,
+            context=context,
+            clock=clock,
+        )
+
+    if proposed_plan is not None:
+        return _template_schedule_from_proposed_plan(
+            message,
+            safety,
+            science_hits,
+            proposed_plan=proposed_plan,
+            diff=diff or {"changes": [], "unchanged_days": 0, "total_days": 0},
+            context=context,
+            clock=clock,
+        )
+
     from datetime import timedelta
 
     load = safety.get("load") or {}
@@ -1199,7 +1674,12 @@ def template_schedule(
     else:
         spine_lines = ["• **No spinal lock on file.**"]
 
-    translations = _schedule_translations(
+    from app.services.coach_voice import should_include_weekly_translations
+
+    teaching_lines = _conditional_schedule_teaching(
+        message=message,
+        safety=safety,
+        context=context,
         acwr=acwr,
         sleep=sleep,
         hrv=hrv,
@@ -1223,10 +1703,11 @@ def template_schedule(
         "",
         "🛡️ SPINE LOCK",
         *spine_lines,
-        "",
-        "🔬 WEEKLY TRANSLATIONS",
-        *translations,
     ]
+    if teaching_lines:
+        lines.extend(["", *teaching_lines])
+    elif should_include_weekly_translations(message, safety, context):
+        lines.extend(["", "**Why recovery**", "• Readiness is low — keep today easy or rest."])
     return {
         "reply": "\n".join(lines),
         "citations": [
@@ -1237,6 +1718,87 @@ def template_schedule(
         "escalate": False,
         "escalation_reason": None,
         "intent": "SCHEDULE_UPDATE",
+    }
+
+
+def template_day_adjust(
+    message: str,
+    safety: dict,
+    science_hits: list[dict],
+    *,
+    current_plan: dict | None = None,
+    context: dict | None = None,
+    clock: dict | None = None,
+) -> dict[str, Any]:
+    """Deterministic today-only fallback when HRV/readiness/stress/ACWR is poor."""
+    from app.services.session_blueprints import downgrade_today_workout
+
+    today = (clock or {}).get("today")
+    health = ((context or {}).get("coros") or {}).get("latest_health") or {}
+    load = safety.get("load") or {}
+    score, source = readiness_score(health, safety)
+    band, status_label = today_call_status(score)
+    today_iso = today.isoformat() if today is not None else ""
+    today_workout = None
+    for workout in ((current_plan or {}).get("plan") or {}).get("workouts") or []:
+        if str(workout.get("date") or "")[:10] == today_iso:
+            today_workout = workout
+            break
+    if today_workout is None:
+        today_workout = {
+            "date": today_iso,
+            "sport": "Mobility",
+            "title": "Restore / mobility",
+            "session_type": "mobility",
+            "duration_min": 30,
+            "intensity": "Recovery",
+            "structure": [],
+        }
+    adjusted = downgrade_today_workout(today_workout, safety)
+    structure_lines = []
+    for segment in adjusted.get("structure") or []:
+        structure_lines.append(
+            f"• **{segment.get('segment')}** ({segment.get('duration_min')} min, "
+            f"{segment.get('intensity')}): {segment.get('detail')}"
+        )
+    hrv = health.get("hrv")
+    acwr = load.get("minutes_acwr")
+    lines = [
+        "🟢 TODAY'S CALL",
+        f"**{status_label}**",
+        f"**Readiness:** {score if score is not None else 'Missing'} ({source})"
+        if score is not None
+        else "**Readiness:** Missing",
+        f"**HRV:** {hrv if hrv is not None else 'Missing'}",
+        f"**ACWR:** {acwr if acwr is not None else 'Missing'}",
+        "",
+        "🗣️ LOCKER ROOM DIRECTIVE",
+        _LOCKER_DIRECTIVES[band],
+        "",
+        "🛠️ TODAY ONLY — other days stay as planned.",
+        f"**Session:** {adjusted.get('title')} · {adjusted.get('duration_min')} min · {adjusted.get('intensity')}",
+        *structure_lines,
+        "",
+        "🔬 WHY TODAY, NOT THE WEEK",
+        "• One suppressed HRV, readiness, stress, or ACWR day changes today. The week plan stays.",
+    ]
+    return {
+        "reply": "\n".join(lines),
+        "citations": [
+            hit["citation"]["slug"]
+            for hit in science_hits[:2]
+            if hit.get("citation", {}).get("slug")
+        ],
+        "escalate": False,
+        "escalation_reason": None,
+        "intent": "DAY_ADJUST",
+        "week_plan": {
+            "title": ((current_plan or {}).get("plan") or {}).get("title") or "This week",
+            "summary": "Today only — health markers changed this session, not the week.",
+            "focus": "Today only",
+            "week_start": str((clock or {}).get("week_start") or ""),
+            "workouts": [adjusted],
+        },
     }
 
 
@@ -1416,6 +1978,55 @@ def _secret_rule(workout: dict, session: str, intensity: str, *, past: bool) -> 
     return "Easy means you can talk. If you can't, back off."
 
 
+def _conditional_schedule_teaching(
+    *,
+    message: str,
+    safety: dict,
+    context: dict | None,
+    acwr: Any,
+    sleep: Any,
+    hrv: Any,
+    back_limited: bool,
+    hard_days: list[str],
+) -> list[str]:
+    """Plain-language teaching for deterministic schedule fallback — only when earned."""
+    from app.services.coach_voice import readiness_is_red, should_include_weekly_translations, wants_teaching
+
+    if not should_include_weekly_translations(message, safety, context):
+        return []
+
+    bullets: list[str] = []
+    if wants_teaching(message):
+        header = "**Why this works**"
+    elif readiness_is_red(safety, context):
+        header = "**Why recovery**"
+    else:
+        header = "**Why this works**"
+
+    if sleep is not None:
+        bullets.append(
+            f"• Sleep **{sleep}** sets today's ceiling — match intensity to that number, not ambition."
+        )
+    elif hrv is not None:
+        bullets.append(f"• HRV **{hrv}** — keep quality work off the table if the nervous system looks flat.")
+    if isinstance(acwr, (int, float)):
+        if acwr >= 1.3:
+            bullets.append(
+                f"• ACWR **{acwr:.2f}** is spiked — one hard day max; everything else truly easy."
+            )
+        else:
+            bullets.append(f"• ACWR **{acwr:.2f}** is in range — protect the hard/easy split you already have.")
+    if back_limited:
+        bullets.append("• Active back limit — no loaded spinal flexion; anti-extension core only on strength days.")
+    elif len(hard_days) >= 2:
+        bullets.append(
+            f"• Quality on **{', '.join(hard_days)}** — insert easy days between them so tissue can absorb."
+        )
+    if not bullets:
+        return []
+    return [header, *bullets[:3]]
+
+
 def _schedule_translations(
     *,
     acwr: Any,
@@ -1424,13 +2035,14 @@ def _schedule_translations(
     back_limited: bool,
     hard_days: list[str],
 ) -> list[str]:
+    """Legacy triplet builder — kept for callers that still expect the old shape."""
     blocks: list[str] = []
     if sleep is not None:
         blocks.append(
             _call_triplet(
                 f"Sleep score {sleep} (readiness band uses this 0-100 check-in)",
                 "Your overnight recharge is the day's permission slip, not a vibe.",
-                f"Think of this like a battery at {sleep}% — it finishes the workday, it does not start a new project.",
+                f"Sleep at {sleep} sets today's ceiling — match intensity to that number.",
             )
         )
     elif hrv is not None:
@@ -1438,7 +2050,7 @@ def _schedule_translations(
             _call_triplet(
                 f"HRV {hrv} with no sleep score on file",
                 "The nervous system is talking. Don't shout over it with extra intensity.",
-                "Like a radio with weak signal — turning the volume up just adds noise.",
+                "Keep quality work off the table if HRV looks flat.",
             )
         )
     if isinstance(acwr, (int, float)):
@@ -1447,7 +2059,7 @@ def _schedule_translations(
                 _call_triplet(
                     f"ACWR {acwr} — acute load spiked vs 28-day chronic",
                     "You've been spending faster than the tissue bank can refill.",
-                    "Like stacking overtime weeks — the paycheck looks big until the injury invoice lands.",
+                    "One hard day max; everything else truly easy.",
                 )
             )
         else:
@@ -1455,7 +2067,7 @@ def _schedule_translations(
                 _call_triplet(
                     f"ACWR {acwr} — acute:chronic in range",
                     "The weekly volume is legal. Don't invent a fourth hard day.",
-                    "Like a well-built scaffold — it holds if you don't hang extra bricks on one side.",
+                    "Protect the hard/easy split you already have.",
                 )
             )
     if back_limited:
@@ -1463,7 +2075,7 @@ def _schedule_translations(
             _call_triplet(
                 "Active lower-back / spinal limitation — high compressive and shear risk under axial load",
                 "The spine is a pillar this week. No hinge-under-load on strength days.",
-                "Treat it like a cracked mast: you can still sail, you do not hang extra sails on it.",
+                "Anti-extension core only on strength days.",
             )
         )
     elif len(hard_days) >= 2:
@@ -1471,7 +2083,7 @@ def _schedule_translations(
             _call_triplet(
                 f"Quality days currently sit on {', '.join(hard_days)}",
                 "Hard days need an easy day between them. Stacking them is how niggles become layoffs.",
-                "Like two race days with no cooldown lap — the engine overheats even if the dashboard looks fine.",
+                "Insert easy days between quality sessions.",
             )
         )
     return blocks[:4]

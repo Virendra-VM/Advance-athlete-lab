@@ -507,6 +507,8 @@ def complete_event(
                 row,
                 ftp_watts=payload.ftp_watts,
                 lthr_bpm=payload.lthr_bpm,
+                threshold_pace=payload.threshold_pace,
+                threshold_pace_sec_per_km=payload.threshold_pace_sec_per_km,
                 result_metric=payload.result_metric,
             )
         elif row.priority == "B":

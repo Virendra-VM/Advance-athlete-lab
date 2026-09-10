@@ -191,10 +191,54 @@ def upsert_consent(db: Session, profile: AthleteProfile, consents) -> None:
         record.accepted_at = utcnow()
 
 
+PACE_TEXT_FIELDS = ("threshold_pace", "lt1_pace", "marathon_pace", "css_pace")
+
+
+def apply_physiology_updates(profile: AthleteProfile, updates: dict) -> None:
+    """Parse pace strings and write physiology anchor columns."""
+    from app.services.workout_library import format_pace, format_swim_pace, parse_pace_seconds, parse_swim_pace_seconds
+
+    text_to_column = {
+        "threshold_pace": ("threshold_pace_sec_per_km", parse_pace_seconds),
+        "lt1_pace": ("lt1_pace_sec_per_km", parse_pace_seconds),
+        "marathon_pace": ("marathon_pace_sec_per_km", parse_pace_seconds),
+        "css_pace": ("css_sec_per_100m", parse_swim_pace_seconds),
+    }
+    for text_key, (column, parser) in text_to_column.items():
+        if text_key not in updates:
+            continue
+        raw = updates[text_key]
+        if raw is None or (isinstance(raw, str) and not raw.strip()):
+            setattr(profile, column, None)
+        else:
+            setattr(profile, column, parser(raw))
+
+    scalar_columns = (
+        "threshold_pace_sec_per_km",
+        "lt1_pace_sec_per_km",
+        "marathon_pace_sec_per_km",
+        "css_sec_per_100m",
+        "bike_lthr_bpm",
+        "resting_hr_bpm",
+        "vo2max",
+        "zone_run_hr_method",
+        "zone_bike_power_method",
+        "zone_run_pace_method",
+    )
+    for column in scalar_columns:
+        if column in updates:
+            setattr(profile, column, updates[column])
+
+    # Keep display-friendly strings available on read without storing duplicate text.
+    _ = format_pace, format_swim_pace
+
+
 def serialize_profile(db: Session, profile: AthleteProfile) -> AthleteProfileResponse:
     sports = get_profile_sports(db, profile.id)
     injuries = get_profile_injuries(db, profile.id)
     consent = get_profile_consent(db, profile.id)
+
+    from app.services.workout_library import format_pace, format_swim_pace
 
     response = AthleteProfileResponse.model_validate(profile)
     response.sports = [SportRead.model_validate(row) for row in sports]
@@ -202,4 +246,12 @@ def serialize_profile(db: Session, profile: AthleteProfile) -> AthleteProfileRes
     if consent is not None:
         response.consents = ConsentRead.model_validate(consent)
     response.profile_completeness = compute_profile_completeness(profile, len(sports))
+    if profile.threshold_pace_sec_per_km:
+        response.threshold_pace_display = format_pace(profile.threshold_pace_sec_per_km)
+    if profile.lt1_pace_sec_per_km:
+        response.lt1_pace_display = format_pace(profile.lt1_pace_sec_per_km)
+    if profile.marathon_pace_sec_per_km:
+        response.marathon_pace_display = format_pace(profile.marathon_pace_sec_per_km)
+    if profile.css_sec_per_100m:
+        response.css_pace_display = format_swim_pace(profile.css_sec_per_100m)
     return response

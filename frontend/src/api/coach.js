@@ -78,6 +78,13 @@ export async function applyChatWeek(
   return handleResponse(response)
 }
 
+export async function warmCoach(token = getStoredToken()) {
+  const response = await fetch(`${API_BASE_URL}/api/coach/warm`, {
+    headers: authHeaders(token),
+  })
+  return handleResponse(response)
+}
+
 export async function getTodaysCall(token = getStoredToken()) {
   const response = await fetch(`${API_BASE_URL}/api/coach/todays-call`, {
     headers: authHeaders(token),
@@ -119,12 +126,95 @@ export async function getChatHistory(token = getStoredToken()) {
   return handleResponse(response)
 }
 
+export async function getProactivePrompts(token = getStoredToken()) {
+  const response = await fetch(`${API_BASE_URL}/api/coach/proactive-prompts`, {
+    headers: authHeaders(token),
+  })
+  return handleResponse(response)
+}
+
+export async function dismissProactivePrompt(memoryId, token = getStoredToken()) {
+  const response = await fetch(
+    `${API_BASE_URL}/api/coach/proactive-prompts/${memoryId}/dismiss`,
+    {
+      method: 'POST',
+      headers: authHeaders(token),
+    },
+  )
+  return handleResponse(response)
+}
+
 export async function getWeekPlanContext(token = getStoredToken()) {
   const params = new URLSearchParams({ timezone: athleteTimezone() })
   const response = await fetch(`${API_BASE_URL}/api/coach/week-plan/context?${params}`, {
     headers: authHeaders(token),
   })
   return handleResponse(response)
+}
+
+export async function sendChatMessageStream(message, tokenOrOptions = getStoredToken(), options = {}) {
+  let token = tokenOrOptions
+  if (tokenOrOptions && typeof tokenOrOptions === 'object') {
+    options = tokenOrOptions
+    token = options.token || getStoredToken()
+  }
+  const body = { message, timezone: athleteTimezone() }
+  if (options.activityId) body.activity_id = options.activityId
+  if (options.chatMode) body.chat_mode = options.chatMode
+  const response = await fetch(`${API_BASE_URL}/api/coach/chat/stream`, {
+    method: 'POST',
+    headers: authHeaders(token),
+    body: JSON.stringify(body),
+    signal: options.signal,
+  })
+  if (!response.ok) {
+    const errorBody = await response.json().catch(() => ({}))
+    const detail = errorBody.detail || `Request failed with status ${response.status}`
+    const error = new Error(typeof detail === 'string' ? detail : JSON.stringify(detail))
+    error.status = response.status
+    throw error
+  }
+  if (!response.body) {
+    throw new Error('Streaming is not supported in this browser.')
+  }
+
+  const reader = response.body.getReader()
+  const decoder = new TextDecoder()
+  let buffer = ''
+  let finalPayload = null
+
+  while (true) {
+    const { done, value } = await reader.read()
+    if (done) break
+    buffer += decoder.decode(value, { stream: true })
+    const lines = buffer.split('\n')
+    buffer = lines.pop() || ''
+    for (const line of lines) {
+      if (!line.trim()) continue
+      const event = JSON.parse(line)
+      options.onEvent?.(event)
+      if (event.type === 'done') {
+        finalPayload = event.payload
+      }
+      if (event.type === 'error') {
+        throw new Error(event.message || 'Coach stream failed.')
+      }
+    }
+  }
+
+  if (buffer.trim()) {
+    const event = JSON.parse(buffer)
+    options.onEvent?.(event)
+    if (event.type === 'done') finalPayload = event.payload
+    if (event.type === 'error') {
+      throw new Error(event.message || 'Coach stream failed.')
+    }
+  }
+
+  if (!finalPayload) {
+    throw new Error('Coach stream ended without a reply.')
+  }
+  return finalPayload
 }
 
 export async function sendChatMessage(message, tokenOrOptions = getStoredToken(), options = {}) {
@@ -163,4 +253,61 @@ export async function confirmWearableBaseline(token = getStoredToken()) {
     headers: authHeaders(token),
   })
   return handleResponse(response)
+}
+
+export async function repeatWorkout(workoutId, targetDate, token = getStoredToken()) {
+  const response = await fetch(`${API_BASE_URL}/api/coach/workouts/${workoutId}/repeat`, {
+    method: 'POST',
+    headers: authHeaders(token),
+    body: JSON.stringify({ target_date: targetDate ?? null }),
+  })
+  return handleResponse(response)
+}
+
+export async function getWorkoutCompliance(workoutId, token = getStoredToken()) {
+  const response = await fetch(`${API_BASE_URL}/api/coach/workouts/${workoutId}/compliance`, {
+    headers: authHeaders(token),
+  })
+  return handleResponse(response)
+}
+
+export async function getFavoriteTemplates(token = getStoredToken()) {
+  const response = await fetch(`${API_BASE_URL}/api/coach/library/favorites`, {
+    headers: authHeaders(token),
+  })
+  return handleResponse(response)
+}
+
+export async function addFavoriteTemplate(templateId, token = getStoredToken()) {
+  const response = await fetch(`${API_BASE_URL}/api/coach/library/favorites/${encodeURIComponent(templateId)}`, {
+    method: 'POST',
+    headers: authHeaders(token),
+  })
+  return handleResponse(response)
+}
+
+export async function removeFavoriteTemplate(templateId, token = getStoredToken()) {
+  const response = await fetch(`${API_BASE_URL}/api/coach/library/favorites/${encodeURIComponent(templateId)}`, {
+    method: 'DELETE',
+    headers: authHeaders(token),
+  })
+  return handleResponse(response)
+}
+
+export async function exportWorkout(workoutId, format = 'fit', token = getStoredToken()) {
+  const params = new URLSearchParams({ format })
+  const response = await fetch(
+    `${API_BASE_URL}/api/coach/workouts/${workoutId}/export?${params}`,
+    { headers: authHeaders(token) },
+  )
+  if (!response.ok) {
+    const errorBody = await response.json().catch(() => ({}))
+    const message = errorBody.detail || `Export failed with status ${response.status}`
+    throw new Error(typeof message === 'string' ? message : JSON.stringify(message))
+  }
+  const blob = await response.blob()
+  const disposition = response.headers.get('Content-Disposition') || ''
+  const match = disposition.match(/filename=\"?([^\";]+)\"?/)
+  const filename = match ? match[1] : `workout.${format}`
+  return { blob, filename }
 }

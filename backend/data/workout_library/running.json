@@ -1,0 +1,405 @@
+{
+  "templates": [
+    {
+      "id": "run_easy_z2",
+      "sports": ["running"],
+      "session_types": ["easy"],
+      "intent": "easy",
+      "priority": 10,
+      "title": "Easy aerobic (Z2)",
+      "summary": "Polarized easy day — conversational aerobic volume",
+      "evidence_tags": ["polarized", "intensity", "aerobic_base"],
+      "warmup_min": 8,
+      "cooldown_min": 8,
+      "warmup": {"detail": "Easy jog 4 min. Leg swings, world's greatest stretch, 2 × 20 m strides. Ankle circles."},
+      "main": {
+        "intensity": "Easy / conversational",
+        "detail": "Easy run {main_min} min — talk test throughout. Nasal breathing if comfortable.",
+        "targets": {"hr_pct_lthr": {"low": 0.69, "high": 0.83}, "pace_pct_threshold": {"low": 1.15, "high": 1.32}}
+      },
+      "cooldown": {"detail": "Easy jog/walk 4 min. Stretch calves, hip flexors, quads 45 s each."}
+    },
+    {
+      "id": "run_long_z2",
+      "sports": ["running"],
+      "session_types": ["long"],
+      "intent": "long",
+      "priority": 10,
+      "title": "Long aerobic run",
+      "summary": "Steady Z2 long run for endurance adaptation",
+      "evidence_tags": ["aerobic_base", "glycogen", "periodization"],
+      "warmup_min": 10,
+      "cooldown_min": 10,
+      "warmup": {"detail": "Easy jog 8 min. Dynamic hip openers. Start conservative — first 15 min are settling in."},
+      "main": {
+        "intensity": "Easy / conversational",
+        "detail": "Steady Z2 for {main_min} min. If form fades, insert 1 min walk every 15 min. Fuel after 75 min.",
+        "targets": {"hr_pct_lthr": {"low": 0.69, "high": 0.80}, "pace_pct_threshold": {"low": 1.18, "high": 1.35}}
+      },
+      "cooldown": {"detail": "Walk 5 min. Stretch hips and calves. Rehydrate and refuel within 30 min."}
+    },
+    {
+      "id": "run_tempo_steady",
+      "sports": ["running"],
+      "session_types": ["tempo"],
+      "intent": "tempo",
+      "priority": 10,
+      "title": "Tempo run",
+      "summary": "Sub-threshold steady state — lactate steady state development",
+      "evidence_tags": ["threshold", "lactate", "tempo"],
+      "warmup_min": 12,
+      "cooldown_min": 10,
+      "warmup": {"detail": "Easy jog 8 min. 4 × 20 m strides. 2 min easy before the tempo block."},
+      "main": {
+        "intensity": "Moderately hard / tempo",
+        "detail": "Continuous tempo {main_min} min — comfortably hard, short phrases only.",
+        "targets": {"hr_pct_lthr": {"low": 0.88, "high": 0.94}, "pace_pct_threshold": {"low": 1.02, "high": 1.08}}
+      },
+      "cooldown": {"detail": "Easy jog 8 min. Hip flexor and calf stretch."}
+    },
+    {
+      "id": "run_threshold_2x10_lthr1",
+      "sports": ["running"],
+      "session_types": ["threshold"],
+      "intent": "threshold",
+      "priority": 20,
+      "title": "Threshold repeats (2×10)",
+      "summary": "Classic LTHR1 intervals — lactate threshold improvement",
+      "evidence_tags": ["threshold", "lactate-clearance", "polarized"],
+      "warmup_min": 12,
+      "cooldown_min": 10,
+      "warmup": {"detail": "Easy jog 8 min. 4 × 20 m strides. 2 min easy before first rep."},
+      "main": {
+        "type": "repeat",
+        "intensity": "Threshold (LTHR1)",
+        "reps": 2,
+        "on": {
+          "duration_min": 10,
+          "label": "at threshold",
+          "intensity": "Threshold",
+          "targets": {"hr_pct_lthr": {"low": 0.95, "high": 1.02}, "pace_pct_threshold": {"low": 0.98, "high": 1.02}}
+        },
+        "off": {
+          "duration_min": 3,
+          "label": "easy jog",
+          "targets": {"hr_pct_lthr": {"low": 0.65, "high": 0.75}}
+        },
+        "detail_intro": "Even splits; first rep is a feeler. Active recovery between reps clears lactate faster than standing rest."
+      },
+      "cooldown": {"detail": "Easy jog 8 min. Stretch quads, hip flexors, calves."}
+    },
+    {
+      "id": "run_threshold_3x8_lthr2",
+      "sports": ["running"],
+      "session_types": ["threshold"],
+      "intent": "threshold",
+      "priority": 15,
+      "match_keywords": ["cruise", "3 x 8", "3×8"],
+      "title": "Cruise intervals (3×8)",
+      "summary": "LTHR2 cruise intervals — build-phase threshold density",
+      "evidence_tags": ["threshold", "build", "lactate"],
+      "warmup_min": 12,
+      "cooldown_min": 10,
+      "warmup": {"detail": "Easy jog 8 min. 4 × 20 m strides. Settle HR before rep 1."},
+      "main": {
+        "type": "repeat",
+        "intensity": "Threshold (LTHR2)",
+        "reps": 3,
+        "on": {
+          "duration_min": 8,
+          "label": "at threshold",
+          "targets": {"hr_pct_lthr": {"low": 0.96, "high": 1.03}, "pace_pct_threshold": {"low": 0.97, "high": 1.01}}
+        },
+        "off": {"duration_min": 2, "label": "easy jog", "targets": {"hr_pct_lthr": {"low": 0.65, "high": 0.75}}},
+        "detail_intro": "Stop the set if pace drops >5% on a rep — quality over volume."
+      },
+      "cooldown": {"detail": "Easy jog 8 min. Foam roll quads and calves if available."}
+    },
+    {
+      "id": "run_vo2_5x3",
+      "sports": ["running"],
+      "session_types": ["intervals", "speed"],
+      "intent": "vo2",
+      "priority": 20,
+      "title": "VO₂ max intervals (5×3)",
+      "summary": "Short VO₂ repeats — central cardiovascular adaptation",
+      "evidence_tags": ["vo2", "intervals", "polarized"],
+      "warmup_min": 15,
+      "cooldown_min": 10,
+      "warmup": {"detail": "Easy jog 10 min. 4 × 20 m strides building to fast. 2 min easy before set."},
+      "main": {
+        "type": "repeat",
+        "intensity": "VO₂ max",
+        "reps": 5,
+        "on": {
+          "duration_min": 3,
+          "label": "hard",
+          "targets": {"hr_pct_lthr": {"low": 1.05, "high": 1.12}, "pace_pct_threshold": {"low": 0.88, "high": 0.94}}
+        },
+        "off": {"duration_min": 2, "label": "easy jog", "targets": {"hr_pct_lthr": {"low": 0.65, "high": 0.75}}},
+        "detail_intro": "Rep 1 is a feeler. Drop a rep if HR fails to recover on the jog."
+      },
+      "cooldown": {"detail": "Easy jog 8 min. Walk last 2 min if legs are heavy."}
+    },
+    {
+      "id": "run_vo2_4x4",
+      "sports": ["running"],
+      "session_types": ["intervals"],
+      "intent": "vo2",
+      "priority": 18,
+      "match_keywords": ["4 x 4", "4×4", "norwegian"],
+      "title": "VO₂ intervals (4×4)",
+      "summary": "Classic 4×4 min VO₂ session — high aerobic power",
+      "evidence_tags": ["vo2", "intervals", "threshold"],
+      "warmup_min": 15,
+      "cooldown_min": 10,
+      "warmup": {"detail": "Easy jog 10 min. 4 × 20 m strides. Full easy recovery before rep 1."},
+      "main": {
+        "type": "repeat",
+        "intensity": "VO₂ max",
+        "reps": 4,
+        "on": {
+          "duration_min": 4,
+          "label": "hard",
+          "targets": {"hr_pct_lthr": {"low": 1.04, "high": 1.10}, "pace_pct_threshold": {"low": 0.90, "high": 0.95}}
+        },
+        "off": {"duration_min": 3, "label": "easy jog", "targets": {"hr_pct_lthr": {"low": 0.65, "high": 0.75}}},
+        "detail_intro": "Active recovery between reps — do not stand still."
+      },
+      "cooldown": {"detail": "Easy jog 8 min. Stretch hip flexors and calves."}
+    },
+    {
+      "id": "run_hills_8x60",
+      "sports": ["running"],
+      "session_types": ["hills"],
+      "intent": "hills",
+      "priority": 15,
+      "title": "Hill repeats (8×60 s)",
+      "summary": "Uphill power — running economy and strength",
+      "evidence_tags": ["hills", "economy", "strength"],
+      "warmup_min": 12,
+      "cooldown_min": 10,
+      "warmup": {"detail": "Easy jog 8 min on flat. Leg swings. 2 × 30 s moderate uphill to preview grade."},
+      "main": {
+        "type": "repeat",
+        "intensity": "Hard / uphill",
+        "reps": 8,
+        "on": {"duration_min": 1, "label": "uphill strong", "targets": {"hr_pct_lthr": {"low": 0.95, "high": 1.05}, "rpe": {"low": 8, "high": 9}}},
+        "off": {"duration_min": 2, "label": "walk/jog down", "targets": {"hr_pct_lthr": {"low": 0.60, "high": 0.70}}},
+        "detail_intro": "Form over speed. Stop if anything sharp shows up."
+      },
+      "cooldown": {"detail": "Easy jog 8 min flat. Stretch calves and hip flexors."}
+    },
+    {
+      "id": "run_strides_6x20",
+      "sports": ["running"],
+      "session_types": ["easy", "speed"],
+      "intent": "strides",
+      "priority": 12,
+      "match_keywords": ["stride"],
+      "title": "Easy run + strides",
+      "summary": "Neuromuscular touches without metabolic load",
+      "evidence_tags": ["economy", "neuromuscular", "aerobic_base"],
+      "warmup_min": 8,
+      "cooldown_min": 8,
+      "warmup": {"detail": "Easy jog 6 min. Dynamic drills: A-skips, butt kicks 2 × 20 m."},
+      "main": {
+        "intensity": "Easy + strides",
+        "detail": "Easy run {main_min} min with 6 × 20 s fast-but-relaxed strides (full easy recovery between). Not a sprint — smooth acceleration.",
+        "targets": {"hr_pct_lthr": {"low": 0.69, "high": 0.83}}
+      },
+      "cooldown": {"detail": "Easy jog 5 min. Light calf stretch."}
+    },
+    {
+      "id": "run_fartlek_6x3",
+      "sports": ["running"],
+      "session_types": ["intervals", "tempo"],
+      "intent": "fartlek",
+      "priority": 12,
+      "title": "Fartlek (6×3 hard / 2 easy)",
+      "summary": "Unstructured speed play — mental break from track intervals",
+      "evidence_tags": ["intervals", "variety", "aerobic_base"],
+      "warmup_min": 12,
+      "cooldown_min": 10,
+      "warmup": {"detail": "Easy jog 10 min. 4 × 20 m strides."},
+      "main": {
+        "type": "repeat",
+        "intensity": "Moderate-hard / varied",
+        "reps": 6,
+        "on": {"duration_min": 3, "label": "hard", "targets": {"hr_pct_lthr": {"low": 0.92, "high": 1.00}, "rpe": {"low": 7, "high": 8}}},
+        "off": {"duration_min": 2, "label": "easy", "targets": {"hr_pct_lthr": {"low": 0.65, "high": 0.75}}},
+        "detail_intro": "Use landmarks — not a track. Effort over pace."
+      },
+      "cooldown": {"detail": "Easy jog 8 min."}
+    },
+    {
+      "id": "run_race_pace_marathon",
+      "sports": ["running"],
+      "session_types": ["race", "tempo", "threshold"],
+      "intent": "race_pace",
+      "priority": 14,
+      "match_keywords": ["marathon", "race pace"],
+      "title": "Marathon race-pace block",
+      "summary": "Race-specific pacing — marathon preparation",
+      "evidence_tags": ["race-specific", "periodization", "threshold"],
+      "warmup_min": 15,
+      "cooldown_min": 10,
+      "warmup": {"detail": "Easy jog 12 min. 4 × 20 m strides. 2 min easy before race-pace block."},
+      "main": {
+        "intensity": "Marathon race pace",
+        "detail": "2 × 20 min at marathon race pace with 5 min easy between. First block conservative.",
+        "targets": {"hr_pct_lthr": {"low": 0.85, "high": 0.92}, "pace_pct_threshold": {"low": 1.05, "high": 1.12}}
+      },
+      "cooldown": {"detail": "Easy jog 8 min. Refuel within 30 min."}
+    },
+    {
+      "id": "run_progression_long",
+      "sports": ["running"],
+      "session_types": ["long"],
+      "intent": "progression",
+      "priority": 12,
+      "match_keywords": ["progression", "fast finish"],
+      "title": "Progression long run",
+      "summary": "Negative-split long run — race-specific fatigue management",
+      "evidence_tags": ["long", "race-specific", "glycogen"],
+      "warmup_min": 10,
+      "cooldown_min": 8,
+      "warmup": {"detail": "Easy jog 8 min. Settle into conversational pace."},
+      "main": {
+        "intensity": "Easy → moderate",
+        "detail": "First 70% easy Z2, last 30% at marathon effort or steady tempo. Do not start the progression too early.",
+        "targets": {"hr_pct_lthr": {"low": 0.69, "high": 0.90}}
+      },
+      "cooldown": {"detail": "Walk 5 min. Stretch and refuel."}
+    },
+    {
+      "id": "run_recovery_jog",
+      "sports": ["running"],
+      "session_types": ["easy", "mobility"],
+      "intent": "easy",
+      "priority": 5,
+      "match_keywords": ["recovery"],
+      "title": "Recovery jog",
+      "summary": "Active recovery — very easy movement",
+      "evidence_tags": ["recovery", "polarized", "lactate-clearance"],
+      "warmup_min": 5,
+      "cooldown_min": 5,
+      "warmup": {"detail": "Walk 3 min. Loose ankles and hips."},
+      "main": {
+        "intensity": "Very easy",
+        "detail": "Recovery jog {main_min} min — embarrassingly easy. Should feel better after than before.",
+        "targets": {"hr_pct_lthr": {"low": 0.60, "high": 0.72}, "rpe": {"low": 3, "high": 4}}
+      },
+      "cooldown": {"detail": "Walk 3 min. Optional light stretch."}
+    },
+    {
+      "id": "run_800_repeats",
+      "sports": ["running"],
+      "session_types": ["intervals", "speed"],
+      "intent": "vo2",
+      "priority": 14,
+      "match_keywords": ["800", "track"],
+      "title": "800 m repeats (5×)",
+      "summary": "Track VO₂ session — speed endurance",
+      "evidence_tags": ["vo2", "intervals", "economy"],
+      "warmup_min": 15,
+      "cooldown_min": 10,
+      "warmup": {"detail": "Easy jog 10 min. Drills: A-skips, high knees. 4 × 100 m build-ups."},
+      "main": {
+        "type": "repeat",
+        "intensity": "VO₂ / speed endurance",
+        "reps": 5,
+        "on": {"duration_min": 3, "label": "800 m effort", "targets": {"hr_pct_lthr": {"low": 1.05, "high": 1.12}, "pace_pct_threshold": {"low": 0.88, "high": 0.93}}},
+        "off": {"duration_min": 2.5, "label": "easy jog", "targets": {"hr_pct_lthr": {"low": 0.65, "high": 0.75}}},
+        "detail_intro": "Even splits. Jog the recoveries — do not walk unless needed."
+      },
+      "cooldown": {"detail": "Easy jog 8 min."}
+    },
+    {
+      "id": "run_marathon_pace_2x20",
+      "sports": ["running"],
+      "session_types": ["tempo", "threshold"],
+      "intent": "race_pace",
+      "priority": 13,
+      "match_keywords": ["half marathon", "hm pace"],
+      "title": "Half-marathon pace intervals",
+      "summary": "HM race-pace work — lactate tolerance at goal pace",
+      "evidence_tags": ["race-specific", "threshold", "tempo"],
+      "warmup_min": 12,
+      "cooldown_min": 10,
+      "warmup": {"detail": "Easy jog 10 min. 4 × 20 m strides."},
+      "main": {
+        "type": "repeat",
+        "intensity": "Half-marathon pace",
+        "reps": 2,
+        "on": {"duration_min": 15, "label": "at HM pace", "targets": {"hr_pct_lthr": {"low": 0.90, "high": 0.96}, "pace_pct_threshold": {"low": 1.00, "high": 1.05}}},
+        "off": {"duration_min": 4, "label": "easy jog", "targets": {"hr_pct_lthr": {"low": 0.65, "high": 0.75}}},
+        "detail_intro": "Controlled breathing — short phrases only on the work."
+      },
+      "cooldown": {"detail": "Easy jog 8 min."}
+    },
+    {
+      "id": "run_10k_pace_6x1",
+      "sports": ["running"],
+      "session_types": ["intervals", "race"],
+      "intent": "race_pace",
+      "priority": 12,
+      "match_keywords": ["10k", "10 k"],
+      "title": "10K pace repeats (6×1 km)",
+      "summary": "10K race-pace intervals — speed endurance at goal pace",
+      "evidence_tags": ["race-specific", "vo2", "intervals"],
+      "warmup_min": 15,
+      "cooldown_min": 10,
+      "warmup": {"detail": "Easy jog 10 min. 4 × 20 m strides. 2 × 200 m at 10K feel."},
+      "main": {
+        "type": "repeat",
+        "intensity": "10K race pace",
+        "reps": 6,
+        "on": {"duration_min": 4, "label": "1 km at 10K pace", "targets": {"hr_pct_lthr": {"low": 0.98, "high": 1.05}, "pace_pct_threshold": {"low": 0.95, "high": 1.00}}},
+        "off": {"duration_min": 2, "label": "easy jog", "targets": {"hr_pct_lthr": {"low": 0.65, "high": 0.75}}},
+        "detail_intro": "Even splits across all six."
+      },
+      "cooldown": {"detail": "Easy jog 8 min."}
+    },
+    {
+      "id": "run_walk_long",
+      "sports": ["running", "walking"],
+      "session_types": ["long", "easy"],
+      "intent": "long",
+      "priority": 8,
+      "match_keywords": ["run walk", "run/walk"],
+      "title": "Run-walk long",
+      "summary": "Run-walk strategy for durability and beginner long runs",
+      "evidence_tags": ["aerobic_base", "beginner", "injury-prevention"],
+      "warmup_min": 8,
+      "cooldown_min": 8,
+      "warmup": {"detail": "Walk 3 min. Easy jog 5 min."},
+      "main": {
+        "intensity": "Easy / run-walk",
+        "detail": "Run-walk {main_min} min total: 4 min run / 1 min walk repeating. Keep run portions conversational.",
+        "targets": {"hr_pct_lthr": {"low": 0.65, "high": 0.80}, "rpe": {"low": 4, "high": 6}}
+      },
+      "cooldown": {"detail": "Walk 5 min. Stretch calves and hips."}
+    },
+    {
+      "id": "run_taper_shakeout",
+      "sports": ["running"],
+      "session_types": ["easy", "race"],
+      "intent": "easy",
+      "priority": 8,
+      "match_keywords": ["taper", "shakeout"],
+      "title": "Taper shakeout + strides",
+      "summary": "Pre-race neuromuscular priming without fatigue",
+      "evidence_tags": ["taper", "neuromuscular", "race-specific"],
+      "warmup_min": 8,
+      "cooldown_min": 5,
+      "warmup": {"detail": "Easy jog 6 min."},
+      "main": {
+        "intensity": "Easy + short strides",
+        "detail": "Easy jog with 4 × 15 s race-feel strides (full easy between). Total {main_min} min. Stop well before fatigue.",
+        "targets": {"hr_pct_lthr": {"low": 0.65, "high": 0.78}}
+      },
+      "cooldown": {"detail": "Walk 3 min. Stay off your feet after."}
+    }
+  ]
+}

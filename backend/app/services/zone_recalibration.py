@@ -8,6 +8,8 @@ from typing import Any
 from sqlalchemy.orm import Session
 
 from app.models import AthleteEvent, AthleteProfile
+from app.services.test_activity_detection import threshold_pace_from_event_result
+from app.services.workout_library import parse_pace_seconds
 
 
 def d_race_test_protocol(event: AthleteEvent) -> dict[str, Any]:
@@ -47,6 +49,8 @@ def complete_d_race_event(
     *,
     ftp_watts: float | None = None,
     lthr_bpm: float | None = None,
+    threshold_pace: str | None = None,
+    threshold_pace_sec_per_km: float | None = None,
     result_metric: str | None = None,
 ) -> dict[str, Any]:
     if event.priority != "D":
@@ -83,6 +87,27 @@ def complete_d_race_event(
             updates["lthr_bpm"] = previous
             updates["lthr_improved"] = False
             updates["lthr_note"] = "Submitted LTHR was lower than current — profile unchanged."
+
+    pace_sec = threshold_pace_sec_per_km
+    if pace_sec is None and threshold_pace:
+        pace_sec = parse_pace_seconds(threshold_pace)
+    if pace_sec is None and result_metric:
+        pace_sec = threshold_pace_from_event_result(event, result_metric)
+    if pace_sec is not None:
+        new_pace = float(pace_sec)
+        previous_pace = profile.threshold_pace_sec_per_km
+        if previous_pace is None or new_pace <= float(previous_pace):
+            profile.threshold_pace_sec_per_km = new_pace
+            updates["threshold_pace_sec_per_km"] = new_pace
+            updates["threshold_pace_improved"] = (
+                previous_pace is None or new_pace < float(previous_pace)
+            )
+        else:
+            updates["threshold_pace_sec_per_km"] = previous_pace
+            updates["threshold_pace_improved"] = False
+            updates["threshold_pace_note"] = (
+                "Submitted threshold pace was slower than current — profile unchanged."
+            )
 
     db.commit()
     return {

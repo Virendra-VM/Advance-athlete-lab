@@ -59,7 +59,7 @@ export default function SeasonPlanMenu({
           className="absolute right-0 top-[calc(100%+6px)] z-50 w-56 overflow-hidden rounded-xl border border-[var(--aal-line)] bg-[var(--aal-card)] py-1 shadow-lg"
         >
           <Link
-            to="/profile#profile-training"
+            to="/profile/training"
             role="menuitem"
             onClick={() => setOpen(false)}
             className="flex w-full items-center gap-2.5 px-3 py-2.5 text-left text-sm text-[var(--aal-ink)] transition hover:bg-indigo-50/60 dark:hover:bg-indigo-950/30"

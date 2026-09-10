@@ -64,7 +64,7 @@ function PlanDetailModal({ plan, onClose, navigate }) {
       <div
         role="dialog"
         aria-modal="true"
-        className="w-full max-w-md rounded-2xl border border-[var(--aal-line)] bg-[var(--aal-card)] p-6 shadow-xl"
+        className="w-full max-w-lg max-h-[85vh] overflow-y-auto rounded-2xl border border-[var(--aal-line)] bg-[var(--aal-card)] p-6 shadow-xl"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="mb-4 flex items-start justify-between gap-3">
@@ -121,6 +121,36 @@ function PlanDetailModal({ plan, onClose, navigate }) {
             <div>
               <dt className="text-[var(--aal-muted)]">Session</dt>
               <dd className="mt-1 text-sm">{plan.description}</dd>
+            </div>
+          ) : null}
+          {(plan.structure || []).length ? (
+            <div>
+              <dt className="text-[var(--aal-muted)]">Workout detail</dt>
+              <dd className="mt-2 space-y-2">
+                {plan.structure.map((segment, index) => (
+                  <div
+                    key={`${segment.segment}-${index}`}
+                    className="rounded-xl border border-[var(--aal-line)] bg-[var(--aal-bg)] px-3 py-2"
+                  >
+                    <p className="flex justify-between gap-3 text-sm font-medium">
+                      <span>{segment.segment || 'Segment'}</span>
+                      <span className="text-[var(--aal-muted)]">
+                        {[
+                          segment.duration_min
+                            ? `${Math.round(segment.duration_min)} min`
+                            : null,
+                          segment.intensity,
+                        ]
+                          .filter(Boolean)
+                          .join(' · ')}
+                      </span>
+                    </p>
+                    {segment.detail ? (
+                      <p className="mt-1 text-sm text-[var(--aal-muted)]">{segment.detail}</p>
+                    ) : null}
+                  </div>
+                ))}
+              </dd>
             </div>
           ) : null}
           {completed ? (
