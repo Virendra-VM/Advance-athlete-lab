@@ -834,6 +834,11 @@ def replan_season(
     if diff:
         for phase in future_before:
             db.delete(phase)
+        # Finished weeks of the current phase stay; trim the open end so the
+        # rebuilt tail abuts it instead of overlapping.
+        for phase in straddling:
+            phase.end_date = rebuild_from - timedelta(days=1)
+            phase.week_count = weeks_between_inclusive(phase.start_date, phase.end_date)
         new_rows = _payloads_to_phase_rows(
             plan,
             future_payloads,
