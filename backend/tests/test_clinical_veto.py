@@ -5,7 +5,9 @@ from __future__ import annotations
 import sys
 from datetime import date, timedelta
 from pathlib import Path
+from types import SimpleNamespace
 
+import pytest
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
@@ -18,9 +20,13 @@ from app.models import AthleteInjury, AthleteProfile, PlannedWorkout, TrainingPl
 from app.services.ai_coach import template_clinical_veto, template_off_topic  # noqa: E402
 from app.services.coach_safety import (  # noqa: E402
     apply_joint_safe_recovery_mode,
+    compose_safety_profile,
     detect_clinical_boundary,
     detect_red_flags,
     flag_clinical_injury,
+    injury_constraints_from_records,
+    readiness_directive,
+    readiness_flags_from_signals,
 )
 
 
@@ -128,6 +134,155 @@ def test_joint_safe_mode_converts_remaining_quality():
         db.close()
 
 
+@pytest.mark.parametrize(
+    "message,needle",
+    [
+        ("I fainted after the intervals", "faint"),
+        ("I have numbness in my left foot", "numb"),
+        ("Woke up with a fever this morning", "fever"),
+        ("Coach I think I have a stress fracture", "stress fracture"),
+        ("I heard an audible pop in my knee", "audible pop"),
+    ],
+)
+def test_red_flag_matrix_catches_emergencies(message, needle):
+    hits = detect_red_flags(message)
+    assert hits
+    assert any(needle in hit.lower() for hit in hits)
+
+
+def test_diagnosis_request_is_clinical_boundary():
+    hit = detect_clinical_boundary("Do I have a tear in my knee from yesterday?")
+    assert hit is not None
+    assert hit["kind"] == "diagnosis_request"
+    assert "diagnosis request" in hit["hits"]
+    assert hit["region"] == "knee"
+
+
+def test_medication_only_message_is_medication_kind():
+    hit = detect_clinical_boundary("Should I take ibuprofen after hard sessions?")
+    assert hit is not None
+    assert hit["kind"] == "medication"
+    assert "medication" in hit["hits"]
+
+
+def test_clinical_template_medication_and_empty_plan_lock():
+    reply = template_clinical_veto(
+        "should I take ibuprofen?",
+        region="knee",
+        kind="medication",
+        plan_changes=[],
+    )
+    text = reply["reply"]
+    assert "Medication is a clinician's call" in text
+    assert "Remaining quality this week is locked" in text
+    assert reply["escalate"] is True
+    assert reply["intent"] == "CLINICAL_VETO"
+
+
+def test_flag_clinical_injury_updates_existing_row():
+    db = _db()
+    try:
+        profile = AthleteProfile(
+            name="Upsert Tester", age=30, weight=68.0, onboarding_completed=True
+        )
+        db.add(profile)
+        db.flush()
+        first = flag_clinical_injury(db, profile.id, "sharp knee pain on stairs", region="knee")
+        second = flag_clinical_injury(
+            db, profile.id, "still sharp knee pain after easy jog", region="knee"
+        )
+        db.commit()
+        assert first.id == second.id
+        assert second.notes == "still sharp knee pain after easy jog"
+        rows = (
+            db.query(AthleteInjury)
+            .filter_by(athlete_profile_id=profile.id, body_region="knee", status="active")
+            .all()
+        )
+        assert len(rows) == 1
+    finally:
+        db.close()
+
+
+def test_injury_constraints_from_records_merge_rules():
+    rows = [
+        SimpleNamespace(
+            body_region="knee",
+            condition="runner's knee",
+            status="active",
+            severity="moderate",
+        ),
+        SimpleNamespace(
+            body_region="achilles",
+            condition="tendinopathy",
+            status="active",
+            severity="severe",
+        ),
+        SimpleNamespace(
+            body_region="shoulder",
+            condition="old impingement",
+            status="resolved",
+            severity="mild",
+        ),
+    ]
+    constraints = injury_constraints_from_records(rows)
+    assert any("knee" in item for item in constraints["active"])
+    assert any("achilles" in item for item in constraints["active"])
+    assert any("shoulder" in item for item in constraints["past"])
+    assert "plyometric" in constraints["avoid_keywords"]
+    assert "intervals" in constraints["avoid_session_types"]
+    assert constraints["has_severe_active"] is True
+
+
+def test_readiness_flags_and_directive_thresholds():
+    flags = readiness_flags_from_signals(
+        recovery_pct=35,
+        sleep_score=50,
+        stress=80,
+        hrv=42,
+        hrv_assessment="Unbalanced",
+        load_ratio=1.6,
+    )
+    assert "low_recovery" in flags
+    assert "poor_sleep" in flags
+    assert "elevated_stress" in flags
+    assert "hrv_unbalanced" in flags
+    assert "high_training_load_ratio" in flags
+
+    rest = readiness_directive(["poor_sleep", "low_recovery"])
+    assert rest["action"] == "rest_or_mobility"
+    assert rest["max_hard_sessions_today"] == 0
+
+    easy = readiness_directive(["elevated_stress"])
+    assert easy["action"] == "downgrade_to_easy"
+
+    ok = readiness_directive(["good_recovery"])
+    assert ok["action"] == "proceed"
+
+
+def test_compose_safety_profile_severe_and_spine_lock():
+    injuries = {
+        "active": ["lower back (disc)"],
+        "past": [],
+        "avoid_keywords": ["deadlift"],
+        "avoid_session_types": [],
+        "prefer": ["plank"],
+        "has_severe_active": True,
+    }
+    profile = compose_safety_profile(
+        days_per_week=5,
+        session_minutes=60,
+        weekly_minutes_budget=300,
+        fitness_level="intermediate",
+        injuries=injuries,
+        readiness_flags=["good_recovery"],
+        load={"acute_minutes": 200, "chronic_minutes": 180, "minutes_acwr": 1.1},
+    )
+    assert profile["max_hard_sessions"] == 0
+    assert profile["spine_lock"] is True
+    assert profile["readiness"]["action"] == "proceed"
+
+
 def run() -> None:
     tests = [
         test_tendon_pain_is_clinical_not_emergency,
@@ -136,6 +291,13 @@ def run() -> None:
         test_clinical_template_refers_and_refuses_meds,
         test_off_topic_template_rebricks_to_training,
         test_joint_safe_mode_converts_remaining_quality,
+        test_diagnosis_request_is_clinical_boundary,
+        test_medication_only_message_is_medication_kind,
+        test_clinical_template_medication_and_empty_plan_lock,
+        test_flag_clinical_injury_updates_existing_row,
+        test_injury_constraints_from_records_merge_rules,
+        test_readiness_flags_and_directive_thresholds,
+        test_compose_safety_profile_severe_and_spine_lock,
     ]
     for test in tests:
         test()
