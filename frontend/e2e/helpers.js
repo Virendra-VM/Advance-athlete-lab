@@ -34,12 +34,21 @@ function json(route, body, status = 200) {
   })
 }
 
+/** Match only the backend API origin — never Vite modules under `/src/api/`. */
+function isBackendApi(url) {
+  return (
+    (url.hostname === '127.0.0.1' || url.hostname === 'localhost') &&
+    url.port === '8000' &&
+    url.pathname.startsWith('/api/')
+  )
+}
+
 /**
  * Intercept backend API calls so e2e does not need Postgres or AI providers.
  * Override specific paths via `handlers` (pathname → fulfill fn or body).
  */
 export async function installApiMocks(page, { user = mockUser(), handlers = {} } = {}) {
-  await page.route('**/api/**', async (route) => {
+  await page.route(isBackendApi, async (route) => {
     const request = route.request()
     const url = new URL(request.url())
     const { pathname } = url
