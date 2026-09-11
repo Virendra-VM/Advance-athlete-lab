@@ -1,0 +1,4240 @@
+{
+  "generated_at": "2026-09-11T14:00:12.402728+00:00",
+  "phase": "E",
+  "routing": {
+    "total": 209,
+    "passed": 209,
+    "failed": 0,
+    "pass_rate": 1.0,
+    "min_pass_rate": 0.98,
+    "regression_pass": true,
+    "failures": [],
+    "cases": [
+      {
+        "case_id": "validate_plan_001",
+        "category": "validate_plan",
+        "message": "Should I use this Fri\u2013Sun plan?",
+        "pass": true,
+        "skill_ok": true,
+        "intent_ok": true,
+        "expected_skill": "validate_plan",
+        "acceptable_skills": [
+          "validate_plan",
+          "general_chat",
+          "adjust_day"
+        ],
+        "expected_intent": "GENERAL_CHAT",
+        "actual_skill": "validate_plan",
+        "actual_intent": "GENERAL_CHAT",
+        "plan_advice_mode": true,
+        "go_deeper_mode": false
+      },
+      {
+        "case_id": "validate_plan_002",
+        "category": "validate_plan",
+        "message": "Should I do this weekend schedule or rest?",
+        "pass": true,
+        "skill_ok": true,
+        "intent_ok": true,
+        "expected_skill": "validate_plan",
+        "acceptable_skills": [
+          "validate_plan",
+          "general_chat",
+          "adjust_day"
+        ],
+        "expected_intent": "GENERAL_CHAT",
+        "actual_skill": "validate_plan",
+        "actual_intent": "GENERAL_CHAT",
+        "plan_advice_mode": true,
+        "go_deeper_mode": false
+      },
+      {
+        "case_id": "validate_plan_003",
+        "category": "validate_plan",
+        "message": "Does this plan make sense for me?",
+        "pass": true,
+        "skill_ok": true,
+        "intent_ok": true,
+        "expected_skill": "validate_plan",
+        "acceptable_skills": [
+          "validate_plan",
+          "general_chat",
+          "adjust_day"
+        ],
+        "expected_intent": "GENERAL_CHAT",
+        "actual_skill": "general_chat",
+        "actual_intent": "GENERAL_CHAT",
+        "plan_advice_mode": false,
+        "go_deeper_mode": false
+      },
+      {
+        "case_id": "validate_plan_004",
+        "category": "validate_plan",
+        "message": "Is this schedule ok with my HRV being low?",
+        "pass": true,
+        "skill_ok": true,
+        "intent_ok": false,
+        "expected_skill": "validate_plan",
+        "acceptable_skills": [
+          "validate_plan",
+          "general_chat",
+          "adjust_day"
+        ],
+        "expected_intent": "GENERAL_CHAT",
+        "actual_skill": "adjust_day",
+        "actual_intent": "DAY_ADJUST",
+        "plan_advice_mode": false,
+        "go_deeper_mode": false
+      },
+      {
+        "case_id": "validate_plan_005",
+        "category": "validate_plan",
+        "message": "Would this work for taper week?",
+        "pass": true,
+        "skill_ok": true,
+        "intent_ok": true,
+        "expected_skill": "validate_plan",
+        "acceptable_skills": [
+          "validate_plan",
+          "general_chat",
+          "adjust_day"
+        ],
+        "expected_intent": "GENERAL_CHAT",
+        "actual_skill": "general_chat",
+        "actual_intent": "GENERAL_CHAT",
+        "plan_advice_mode": false,
+        "go_deeper_mode": false
+      },
+      {
+        "case_id": "validate_plan_006",
+        "category": "validate_plan",
+        "message": "Can I do this stack: easy Fri, long Sat, rest Sun?",
+        "pass": true,
+        "skill_ok": true,
+        "intent_ok": true,
+        "expected_skill": "validate_plan",
+        "acceptable_skills": [
+          "validate_plan",
+          "general_chat",
+          "adjust_day"
+        ],
+        "expected_intent": "GENERAL_CHAT",
+        "actual_skill": "validate_plan",
+        "actual_intent": "GENERAL_CHAT",
+        "plan_advice_mode": true,
+        "go_deeper_mode": false
+      },
+      {
+        "case_id": "validate_plan_007",
+        "category": "validate_plan",
+        "message": "Tell me should I stick with this Fri\u2013Sun idea",
+        "pass": true,
+        "skill_ok": true,
+        "intent_ok": true,
+        "expected_skill": "validate_plan",
+        "acceptable_skills": [
+          "validate_plan",
+          "general_chat",
+          "adjust_day"
+        ],
+        "expected_intent": "GENERAL_CHAT",
+        "actual_skill": "validate_plan",
+        "actual_intent": "GENERAL_CHAT",
+        "plan_advice_mode": true,
+        "go_deeper_mode": false
+      },
+      {
+        "case_id": "validate_plan_008",
+        "category": "validate_plan",
+        "message": "What do you think of my Fri long run + Sat bike plan?",
+        "pass": true,
+        "skill_ok": true,
+        "intent_ok": true,
+        "expected_skill": "validate_plan",
+        "acceptable_skills": [
+          "validate_plan",
+          "general_chat",
+          "adjust_day"
+        ],
+        "expected_intent": "GENERAL_CHAT",
+        "actual_skill": "validate_plan",
+        "actual_intent": "GENERAL_CHAT",
+        "plan_advice_mode": true,
+        "go_deeper_mode": false
+      },
+      {
+        "case_id": "validate_plan_009",
+        "category": "validate_plan",
+        "message": "Good idea to do intervals tomorrow and long run Sunday?",
+        "pass": true,
+        "skill_ok": true,
+        "intent_ok": true,
+        "expected_skill": "validate_plan",
+        "acceptable_skills": [
+          "validate_plan",
+          "general_chat",
+          "adjust_day"
+        ],
+        "expected_intent": "GENERAL_CHAT",
+        "actual_skill": "validate_plan",
+        "actual_intent": "GENERAL_CHAT",
+        "plan_advice_mode": true,
+        "go_deeper_mode": false
+      },
+      {
+        "case_id": "validate_plan_010",
+        "category": "validate_plan",
+        "message": "Ok to do a hard bike session Friday then race Saturday?",
+        "pass": true,
+        "skill_ok": true,
+        "intent_ok": true,
+        "expected_skill": "validate_plan",
+        "acceptable_skills": [
+          "validate_plan",
+          "general_chat",
+          "adjust_day"
+        ],
+        "expected_intent": "GENERAL_CHAT",
+        "actual_skill": "validate_plan",
+        "actual_intent": "GENERAL_CHAT",
+        "plan_advice_mode": true,
+        "go_deeper_mode": false
+      },
+      {
+        "case_id": "validate_plan_011",
+        "category": "validate_plan",
+        "message": "I'm thinking Fri easy, Sat long run 90 min, Sun rest \u2014 thoughts?",
+        "pass": true,
+        "skill_ok": true,
+        "intent_ok": true,
+        "expected_skill": "validate_plan",
+        "acceptable_skills": [
+          "validate_plan",
+          "general_chat",
+          "adjust_day"
+        ],
+        "expected_intent": "GENERAL_CHAT",
+        "actual_skill": "general_chat",
+        "actual_intent": "GENERAL_CHAT",
+        "plan_advice_mode": false,
+        "go_deeper_mode": false
+      },
+      {
+        "case_id": "validate_plan_012",
+        "category": "validate_plan",
+        "message": "My plan is Mon rest Tue tempo Wed easy \u2014 should I go with it?",
+        "pass": true,
+        "skill_ok": true,
+        "intent_ok": true,
+        "expected_skill": "validate_plan",
+        "acceptable_skills": [
+          "validate_plan",
+          "general_chat",
+          "adjust_day"
+        ],
+        "expected_intent": "GENERAL_CHAT",
+        "actual_skill": "validate_plan",
+        "actual_intent": "GENERAL_CHAT",
+        "plan_advice_mode": true,
+        "go_deeper_mode": false
+      },
+      {
+        "case_id": "validate_plan_013",
+        "category": "validate_plan",
+        "message": "Should I go with this DIY week ending in a half marathon?",
+        "pass": true,
+        "skill_ok": true,
+        "intent_ok": true,
+        "expected_skill": "validate_plan",
+        "acceptable_skills": [
+          "validate_plan",
+          "general_chat",
+          "adjust_day"
+        ],
+        "expected_intent": "GENERAL_CHAT",
+        "actual_skill": "general_chat",
+        "actual_intent": "GENERAL_CHAT",
+        "plan_advice_mode": false,
+        "go_deeper_mode": false
+      },
+      {
+        "case_id": "validate_plan_014",
+        "category": "validate_plan",
+        "message": "Would this work: keep volume, drop the second hard day?",
+        "pass": true,
+        "skill_ok": true,
+        "intent_ok": true,
+        "expected_skill": "validate_plan",
+        "acceptable_skills": [
+          "validate_plan",
+          "general_chat",
+          "adjust_day"
+        ],
+        "expected_intent": "GENERAL_CHAT",
+        "actual_skill": "general_chat",
+        "actual_intent": "GENERAL_CHAT",
+        "plan_advice_mode": false,
+        "go_deeper_mode": false
+      },
+      {
+        "case_id": "validate_plan_015",
+        "category": "validate_plan",
+        "message": "Is this plan ok if I missed Tuesday?",
+        "pass": true,
+        "skill_ok": true,
+        "intent_ok": true,
+        "expected_skill": "validate_plan",
+        "acceptable_skills": [
+          "validate_plan",
+          "general_chat",
+          "adjust_day"
+        ],
+        "expected_intent": "GENERAL_CHAT",
+        "actual_skill": "validate_plan",
+        "actual_intent": "GENERAL_CHAT",
+        "plan_advice_mode": true,
+        "go_deeper_mode": false
+      },
+      {
+        "case_id": "validate_plan_016",
+        "category": "validate_plan",
+        "message": "Should I do this or play it safer?",
+        "pass": true,
+        "skill_ok": true,
+        "intent_ok": true,
+        "expected_skill": "validate_plan",
+        "acceptable_skills": [
+          "validate_plan",
+          "general_chat",
+          "adjust_day"
+        ],
+        "expected_intent": "GENERAL_CHAT",
+        "actual_skill": "general_chat",
+        "actual_intent": "GENERAL_CHAT",
+        "plan_advice_mode": false,
+        "go_deeper_mode": false
+      },
+      {
+        "case_id": "validate_plan_017",
+        "category": "validate_plan",
+        "message": "Can I do this plan while traveling Sunday?",
+        "pass": true,
+        "skill_ok": true,
+        "intent_ok": true,
+        "expected_skill": "validate_plan",
+        "acceptable_skills": [
+          "validate_plan",
+          "general_chat",
+          "adjust_day"
+        ],
+        "expected_intent": "GENERAL_CHAT",
+        "actual_skill": "validate_plan",
+        "actual_intent": "GENERAL_CHAT",
+        "plan_advice_mode": "<re.Match object; span=(14, 18), match='plan'>",
+        "go_deeper_mode": false
+      },
+      {
+        "case_id": "validate_plan_018",
+        "category": "validate_plan",
+        "message": "Hello coach So tell me now that's it 3 pm i will do endurance ride at 4pm 1 hr ride and after 30 mins to 60 mins I'll do Upper body + core And tomorrow I'll do Long ride and mobility in evening and on sunday I'll be doing long easy run no matter what, got it. so tell me how can i plan it, as my rest week starts from monday so before that i want to finish the base week perfectly as per my plan so tell me is there any problem in my plan which i told you right now? tell me my plans Pros and cons.",
+        "pass": true,
+        "skill_ok": true,
+        "intent_ok": true,
+        "expected_skill": "validate_plan",
+        "acceptable_skills": [
+          "validate_plan",
+          "general_chat",
+          "adjust_day"
+        ],
+        "expected_intent": "GENERAL_CHAT",
+        "actual_skill": "validate_plan",
+        "actual_intent": "GENERAL_CHAT",
+        "plan_advice_mode": true,
+        "go_deeper_mode": false
+      },
+      {
+        "case_id": "support_chat_001",
+        "category": "support_chat",
+        "message": "I missed two sessions \u2014 what now?",
+        "pass": true,
+        "skill_ok": true,
+        "intent_ok": true,
+        "expected_skill": "support_chat",
+        "acceptable_skills": [
+          "support_chat",
+          "general_chat",
+          "adjust_day"
+        ],
+        "expected_intent": "GENERAL_CHAT",
+        "actual_skill": "support_chat",
+        "actual_intent": "GENERAL_CHAT",
+        "plan_advice_mode": false,
+        "go_deeper_mode": false
+      },
+      {
+        "case_id": "support_chat_002",
+        "category": "support_chat",
+        "message": "I feel guilty about skipping yesterday",
+        "pass": true,
+        "skill_ok": true,
+        "intent_ok": true,
+        "expected_skill": "support_chat",
+        "acceptable_skills": [
+          "support_chat",
+          "general_chat",
+          "adjust_day"
+        ],
+        "expected_intent": "GENERAL_CHAT",
+        "actual_skill": "support_chat",
+        "actual_intent": "GENERAL_CHAT",
+        "plan_advice_mode": false,
+        "go_deeper_mode": false
+      },
+      {
+        "case_id": "support_chat_003",
+        "category": "support_chat",
+        "message": "Life got in the way this week, feeling defeated",
+        "pass": true,
+        "skill_ok": true,
+        "intent_ok": true,
+        "expected_skill": "support_chat",
+        "acceptable_skills": [
+          "support_chat",
+          "general_chat",
+          "adjust_day"
+        ],
+        "expected_intent": "GENERAL_CHAT",
+        "actual_skill": "support_chat",
+        "actual_intent": "GENERAL_CHAT",
+        "plan_advice_mode": false,
+        "go_deeper_mode": false
+      },
+      {
+        "case_id": "support_chat_004",
+        "category": "support_chat",
+        "message": "I failed to hit my workouts \u2014 am I ruined?",
+        "pass": true,
+        "skill_ok": true,
+        "intent_ok": true,
+        "expected_skill": "support_chat",
+        "acceptable_skills": [
+          "support_chat",
+          "general_chat",
+          "adjust_day"
+        ],
+        "expected_intent": "GENERAL_CHAT",
+        "actual_skill": "support_chat",
+        "actual_intent": "GENERAL_CHAT",
+        "plan_advice_mode": false,
+        "go_deeper_mode": false
+      },
+      {
+        "case_id": "support_chat_005",
+        "category": "support_chat",
+        "message": "Rough day, couldn't make the run \u2014 feeling guilty",
+        "pass": true,
+        "skill_ok": true,
+        "intent_ok": true,
+        "expected_skill": "support_chat",
+        "acceptable_skills": [
+          "support_chat",
+          "general_chat",
+          "adjust_day"
+        ],
+        "expected_intent": "GENERAL_CHAT",
+        "actual_skill": "support_chat",
+        "actual_intent": "GENERAL_CHAT",
+        "plan_advice_mode": false,
+        "go_deeper_mode": false
+      },
+      {
+        "case_id": "support_chat_006",
+        "category": "support_chat",
+        "message": "I skipped training for a bike fit \u2014 help me reset",
+        "pass": true,
+        "skill_ok": true,
+        "intent_ok": true,
+        "expected_skill": "support_chat",
+        "acceptable_skills": [
+          "support_chat",
+          "general_chat",
+          "adjust_day"
+        ],
+        "expected_intent": "GENERAL_CHAT",
+        "actual_skill": "support_chat",
+        "actual_intent": "GENERAL_CHAT",
+        "plan_advice_mode": false,
+        "go_deeper_mode": false
+      },
+      {
+        "case_id": "support_chat_007",
+        "category": "support_chat",
+        "message": "Not motivated after a bad week",
+        "pass": true,
+        "skill_ok": true,
+        "intent_ok": true,
+        "expected_skill": "support_chat",
+        "acceptable_skills": [
+          "support_chat",
+          "general_chat",
+          "adjust_day"
+        ],
+        "expected_intent": "GENERAL_CHAT",
+        "actual_skill": "support_chat",
+        "actual_intent": "GENERAL_CHAT",
+        "plan_advice_mode": false,
+        "go_deeper_mode": false
+      },
+      {
+        "case_id": "support_chat_008",
+        "category": "support_chat",
+        "message": "I cut it short today and feel like I failed",
+        "pass": true,
+        "skill_ok": true,
+        "intent_ok": true,
+        "expected_skill": "support_chat",
+        "acceptable_skills": [
+          "support_chat",
+          "general_chat",
+          "adjust_day"
+        ],
+        "expected_intent": "GENERAL_CHAT",
+        "actual_skill": "support_chat",
+        "actual_intent": "GENERAL_CHAT",
+        "plan_advice_mode": false,
+        "go_deeper_mode": false
+      },
+      {
+        "case_id": "support_chat_009",
+        "category": "support_chat",
+        "message": "Overwhelmed with work and missed three runs",
+        "pass": true,
+        "skill_ok": true,
+        "intent_ok": true,
+        "expected_skill": "support_chat",
+        "acceptable_skills": [
+          "support_chat",
+          "general_chat",
+          "adjust_day"
+        ],
+        "expected_intent": "GENERAL_CHAT",
+        "actual_skill": "support_chat",
+        "actual_intent": "GENERAL_CHAT",
+        "plan_advice_mode": false,
+        "go_deeper_mode": false
+      },
+      {
+        "case_id": "support_chat_010",
+        "category": "support_chat",
+        "message": "Traveling by train \u2014 missed Saturday long run, anxious",
+        "pass": true,
+        "skill_ok": true,
+        "intent_ok": true,
+        "expected_skill": "support_chat",
+        "acceptable_skills": [
+          "support_chat",
+          "general_chat",
+          "adjust_day"
+        ],
+        "expected_intent": "GENERAL_CHAT",
+        "actual_skill": "support_chat",
+        "actual_intent": "GENERAL_CHAT",
+        "plan_advice_mode": false,
+        "go_deeper_mode": false
+      },
+      {
+        "case_id": "support_chat_011",
+        "category": "support_chat",
+        "message": "Jet lag and I missed Monday \u2014 how do I recover mentally?",
+        "pass": true,
+        "skill_ok": true,
+        "intent_ok": true,
+        "expected_skill": "support_chat",
+        "acceptable_skills": [
+          "support_chat",
+          "general_chat",
+          "adjust_day"
+        ],
+        "expected_intent": "GENERAL_CHAT",
+        "actual_skill": "support_chat",
+        "actual_intent": "GENERAL_CHAT",
+        "plan_advice_mode": false,
+        "go_deeper_mode": false
+      },
+      {
+        "case_id": "support_chat_012",
+        "category": "support_chat",
+        "message": "Busy week, didn't train much, feeling discouraged",
+        "pass": true,
+        "skill_ok": true,
+        "intent_ok": true,
+        "expected_skill": "support_chat",
+        "acceptable_skills": [
+          "support_chat",
+          "general_chat",
+          "adjust_day"
+        ],
+        "expected_intent": "GENERAL_CHAT",
+        "actual_skill": "support_chat",
+        "actual_intent": "GENERAL_CHAT",
+        "plan_advice_mode": false,
+        "go_deeper_mode": false
+      },
+      {
+        "case_id": "support_chat_013",
+        "category": "support_chat",
+        "message": "I have a cold but it's not terrible \u2014 just off",
+        "pass": true,
+        "skill_ok": true,
+        "intent_ok": true,
+        "expected_skill": "support_chat",
+        "acceptable_skills": [
+          "support_chat",
+          "general_chat",
+          "adjust_day"
+        ],
+        "expected_intent": "GENERAL_CHAT",
+        "actual_skill": "support_chat",
+        "actual_intent": "GENERAL_CHAT",
+        "plan_advice_mode": false,
+        "go_deeper_mode": false
+      },
+      {
+        "case_id": "support_chat_014",
+        "category": "support_chat",
+        "message": "Under the weather and missed two days",
+        "pass": true,
+        "skill_ok": true,
+        "intent_ok": true,
+        "expected_skill": "support_chat",
+        "acceptable_skills": [
+          "support_chat",
+          "general_chat",
+          "adjust_day"
+        ],
+        "expected_intent": "GENERAL_CHAT",
+        "actual_skill": "support_chat",
+        "actual_intent": "GENERAL_CHAT",
+        "plan_advice_mode": false,
+        "go_deeper_mode": false
+      },
+      {
+        "case_id": "support_chat_015",
+        "category": "support_chat",
+        "message": "Burnt out and can't keep up with the plan",
+        "pass": true,
+        "skill_ok": true,
+        "intent_ok": true,
+        "expected_skill": "support_chat",
+        "acceptable_skills": [
+          "support_chat",
+          "general_chat",
+          "adjust_day"
+        ],
+        "expected_intent": "GENERAL_CHAT",
+        "actual_skill": "support_chat",
+        "actual_intent": "GENERAL_CHAT",
+        "plan_advice_mode": false,
+        "go_deeper_mode": false
+      },
+      {
+        "case_id": "support_chat_016",
+        "category": "support_chat",
+        "message": "Lost motivation after missing the long run",
+        "pass": true,
+        "skill_ok": true,
+        "intent_ok": true,
+        "expected_skill": "support_chat",
+        "acceptable_skills": [
+          "support_chat",
+          "general_chat",
+          "adjust_day"
+        ],
+        "expected_intent": "GENERAL_CHAT",
+        "actual_skill": "support_chat",
+        "actual_intent": "GENERAL_CHAT",
+        "plan_advice_mode": false,
+        "go_deeper_mode": false
+      },
+      {
+        "case_id": "support_chat_017",
+        "category": "support_chat",
+        "message": "Stress at work, rough patch \u2014 missed two sessions",
+        "pass": true,
+        "skill_ok": true,
+        "intent_ok": false,
+        "expected_skill": "support_chat",
+        "acceptable_skills": [
+          "support_chat",
+          "general_chat",
+          "adjust_day"
+        ],
+        "expected_intent": "GENERAL_CHAT",
+        "actual_skill": "adjust_day",
+        "actual_intent": "DAY_ADJUST",
+        "plan_advice_mode": false,
+        "go_deeper_mode": false
+      },
+      {
+        "case_id": "support_chat_018",
+        "category": "support_chat",
+        "message": "Missed workouts for travel \u2014 feeling guilty",
+        "pass": true,
+        "skill_ok": true,
+        "intent_ok": true,
+        "expected_skill": "support_chat",
+        "acceptable_skills": [
+          "support_chat",
+          "general_chat",
+          "adjust_day"
+        ],
+        "expected_intent": "GENERAL_CHAT",
+        "actual_skill": "support_chat",
+        "actual_intent": "GENERAL_CHAT",
+        "plan_advice_mode": false,
+        "go_deeper_mode": false
+      },
+      {
+        "case_id": "explain_metric_001",
+        "category": "explain_metric",
+        "message": "Why is my HRV low?",
+        "pass": true,
+        "skill_ok": true,
+        "intent_ok": true,
+        "expected_skill": "explain_metric",
+        "acceptable_skills": [
+          "explain_metric",
+          "general_chat",
+          "adjust_day"
+        ],
+        "expected_intent": null,
+        "actual_skill": "explain_metric",
+        "actual_intent": "SCIENCE_LOOKUP",
+        "plan_advice_mode": false,
+        "go_deeper_mode": false
+      },
+      {
+        "case_id": "explain_metric_002",
+        "category": "explain_metric",
+        "message": "Why has my HRV dropped this week?",
+        "pass": true,
+        "skill_ok": true,
+        "intent_ok": true,
+        "expected_skill": "explain_metric",
+        "acceptable_skills": [
+          "explain_metric",
+          "general_chat",
+          "adjust_day"
+        ],
+        "expected_intent": null,
+        "actual_skill": "explain_metric",
+        "actual_intent": "SCIENCE_LOOKUP",
+        "plan_advice_mode": false,
+        "go_deeper_mode": false
+      },
+      {
+        "case_id": "explain_metric_003",
+        "category": "explain_metric",
+        "message": "What's wrong with my sleep score?",
+        "pass": true,
+        "skill_ok": true,
+        "intent_ok": true,
+        "expected_skill": "explain_metric",
+        "acceptable_skills": [
+          "explain_metric",
+          "general_chat",
+          "adjust_day"
+        ],
+        "expected_intent": null,
+        "actual_skill": "explain_metric",
+        "actual_intent": "SCIENCE_LOOKUP",
+        "plan_advice_mode": false,
+        "go_deeper_mode": false
+      },
+      {
+        "case_id": "explain_metric_004",
+        "category": "explain_metric",
+        "message": "Why is my ACWR so high?",
+        "pass": true,
+        "skill_ok": true,
+        "intent_ok": true,
+        "expected_skill": "explain_metric",
+        "acceptable_skills": [
+          "explain_metric",
+          "general_chat",
+          "adjust_day"
+        ],
+        "expected_intent": null,
+        "actual_skill": "explain_metric",
+        "actual_intent": "SCIENCE_LOOKUP",
+        "plan_advice_mode": false,
+        "go_deeper_mode": false
+      },
+      {
+        "case_id": "explain_metric_005",
+        "category": "explain_metric",
+        "message": "Why is my readiness score low today?",
+        "pass": true,
+        "skill_ok": true,
+        "intent_ok": true,
+        "expected_skill": "explain_metric",
+        "acceptable_skills": [
+          "explain_metric",
+          "general_chat",
+          "adjust_day"
+        ],
+        "expected_intent": null,
+        "actual_skill": "explain_metric",
+        "actual_intent": "SCIENCE_LOOKUP",
+        "plan_advice_mode": false,
+        "go_deeper_mode": false
+      },
+      {
+        "case_id": "explain_metric_006",
+        "category": "explain_metric",
+        "message": "Why is my resting heart rate elevated?",
+        "pass": true,
+        "skill_ok": true,
+        "intent_ok": true,
+        "expected_skill": "explain_metric",
+        "acceptable_skills": [
+          "explain_metric",
+          "general_chat",
+          "adjust_day"
+        ],
+        "expected_intent": null,
+        "actual_skill": "explain_metric",
+        "actual_intent": "SCIENCE_LOOKUP",
+        "plan_advice_mode": false,
+        "go_deeper_mode": false
+      },
+      {
+        "case_id": "explain_metric_007",
+        "category": "explain_metric",
+        "message": "What is ACWR?",
+        "pass": true,
+        "skill_ok": true,
+        "intent_ok": true,
+        "expected_skill": "explain_metric",
+        "acceptable_skills": [
+          "explain_metric",
+          "general_chat",
+          "adjust_day"
+        ],
+        "expected_intent": null,
+        "actual_skill": "explain_metric",
+        "actual_intent": "SCIENCE_LOOKUP",
+        "plan_advice_mode": false,
+        "go_deeper_mode": false
+      },
+      {
+        "case_id": "explain_metric_008",
+        "category": "explain_metric",
+        "message": "Explain HRV in plain language",
+        "pass": true,
+        "skill_ok": true,
+        "intent_ok": true,
+        "expected_skill": "explain_metric",
+        "acceptable_skills": [
+          "explain_metric",
+          "general_chat",
+          "adjust_day"
+        ],
+        "expected_intent": null,
+        "actual_skill": "explain_metric",
+        "actual_intent": "SCIENCE_LOOKUP",
+        "plan_advice_mode": false,
+        "go_deeper_mode": false
+      },
+      {
+        "case_id": "explain_metric_009",
+        "category": "explain_metric",
+        "message": "What does training load ratio mean?",
+        "pass": true,
+        "skill_ok": true,
+        "intent_ok": true,
+        "expected_skill": "explain_metric",
+        "acceptable_skills": [
+          "explain_metric",
+          "general_chat",
+          "adjust_day"
+        ],
+        "expected_intent": null,
+        "actual_skill": "general_chat",
+        "actual_intent": "GENERAL_CHAT",
+        "plan_advice_mode": false,
+        "go_deeper_mode": false
+      },
+      {
+        "case_id": "explain_metric_010",
+        "category": "explain_metric",
+        "message": "Why does ACWR matter for my training this week?",
+        "pass": true,
+        "skill_ok": true,
+        "intent_ok": true,
+        "expected_skill": "explain_metric",
+        "acceptable_skills": [
+          "explain_metric",
+          "general_chat",
+          "adjust_day"
+        ],
+        "expected_intent": null,
+        "actual_skill": "explain_metric",
+        "actual_intent": "SCIENCE_LOOKUP",
+        "plan_advice_mode": false,
+        "go_deeper_mode": false
+      },
+      {
+        "case_id": "explain_metric_011",
+        "category": "explain_metric",
+        "message": "What is polarized training?",
+        "pass": true,
+        "skill_ok": true,
+        "intent_ok": true,
+        "expected_skill": "explain_metric",
+        "acceptable_skills": [
+          "explain_metric",
+          "general_chat",
+          "adjust_day"
+        ],
+        "expected_intent": null,
+        "actual_skill": "explain_metric",
+        "actual_intent": "SCIENCE_LOOKUP",
+        "plan_advice_mode": false,
+        "go_deeper_mode": false
+      },
+      {
+        "case_id": "explain_metric_012",
+        "category": "explain_metric",
+        "message": "Explain lactate threshold simply",
+        "pass": true,
+        "skill_ok": true,
+        "intent_ok": true,
+        "expected_skill": "explain_metric",
+        "acceptable_skills": [
+          "explain_metric",
+          "general_chat",
+          "adjust_day"
+        ],
+        "expected_intent": null,
+        "actual_skill": "explain_metric",
+        "actual_intent": "SCIENCE_LOOKUP",
+        "plan_advice_mode": false,
+        "go_deeper_mode": false
+      },
+      {
+        "case_id": "explain_metric_013",
+        "category": "explain_metric",
+        "message": "What is FTP on the bike?",
+        "pass": true,
+        "skill_ok": true,
+        "intent_ok": true,
+        "expected_skill": "explain_metric",
+        "acceptable_skills": [
+          "explain_metric",
+          "general_chat",
+          "adjust_day"
+        ],
+        "expected_intent": null,
+        "actual_skill": "explain_metric",
+        "actual_intent": "SCIENCE_LOOKUP",
+        "plan_advice_mode": false,
+        "go_deeper_mode": false
+      },
+      {
+        "case_id": "explain_metric_014",
+        "category": "explain_metric",
+        "message": "How does HRV relate to recovery?",
+        "pass": true,
+        "skill_ok": true,
+        "intent_ok": true,
+        "expected_skill": "explain_metric",
+        "acceptable_skills": [
+          "explain_metric",
+          "general_chat",
+          "adjust_day"
+        ],
+        "expected_intent": null,
+        "actual_skill": "explain_metric",
+        "actual_intent": "SCIENCE_LOOKUP",
+        "plan_advice_mode": false,
+        "go_deeper_mode": false
+      },
+      {
+        "case_id": "explain_metric_015",
+        "category": "explain_metric",
+        "message": "What is cardiac drift?",
+        "pass": true,
+        "skill_ok": true,
+        "intent_ok": true,
+        "expected_skill": "explain_metric",
+        "acceptable_skills": [
+          "explain_metric",
+          "general_chat",
+          "adjust_day"
+        ],
+        "expected_intent": null,
+        "actual_skill": "explain_metric",
+        "actual_intent": "SCIENCE_LOOKUP",
+        "plan_advice_mode": false,
+        "go_deeper_mode": false
+      },
+      {
+        "case_id": "explain_metric_016",
+        "category": "explain_metric",
+        "message": "Explain zone 2 training",
+        "pass": true,
+        "skill_ok": true,
+        "intent_ok": true,
+        "expected_skill": "explain_metric",
+        "acceptable_skills": [
+          "explain_metric",
+          "general_chat",
+          "adjust_day"
+        ],
+        "expected_intent": null,
+        "actual_skill": "explain_metric",
+        "actual_intent": "SCIENCE_LOOKUP",
+        "plan_advice_mode": false,
+        "go_deeper_mode": false
+      },
+      {
+        "case_id": "explain_metric_017",
+        "category": "explain_metric",
+        "message": "What is sweet spot training?",
+        "pass": true,
+        "skill_ok": true,
+        "intent_ok": true,
+        "expected_skill": "explain_metric",
+        "acceptable_skills": [
+          "explain_metric",
+          "general_chat",
+          "adjust_day"
+        ],
+        "expected_intent": null,
+        "actual_skill": "explain_metric",
+        "actual_intent": "SCIENCE_LOOKUP",
+        "plan_advice_mode": false,
+        "go_deeper_mode": false
+      },
+      {
+        "case_id": "explain_metric_018",
+        "category": "explain_metric",
+        "message": "Why is my sleep score low after a hard week?",
+        "pass": true,
+        "skill_ok": true,
+        "intent_ok": true,
+        "expected_skill": "explain_metric",
+        "acceptable_skills": [
+          "explain_metric",
+          "general_chat",
+          "adjust_day"
+        ],
+        "expected_intent": null,
+        "actual_skill": "explain_metric",
+        "actual_intent": "SCIENCE_LOOKUP",
+        "plan_advice_mode": false,
+        "go_deeper_mode": false
+      },
+      {
+        "case_id": "explain_metric_019",
+        "category": "explain_metric",
+        "message": "What is TSS?",
+        "pass": true,
+        "skill_ok": true,
+        "intent_ok": true,
+        "expected_skill": "explain_metric",
+        "acceptable_skills": [
+          "explain_metric",
+          "general_chat",
+          "adjust_day"
+        ],
+        "expected_intent": null,
+        "actual_skill": "explain_metric",
+        "actual_intent": "SCIENCE_LOOKUP",
+        "plan_advice_mode": false,
+        "go_deeper_mode": false
+      },
+      {
+        "case_id": "explain_metric_020",
+        "category": "explain_metric",
+        "message": "Explain training stress balance",
+        "pass": true,
+        "skill_ok": true,
+        "intent_ok": true,
+        "expected_skill": "explain_metric",
+        "acceptable_skills": [
+          "explain_metric",
+          "general_chat",
+          "adjust_day"
+        ],
+        "expected_intent": null,
+        "actual_skill": "explain_metric",
+        "actual_intent": "SCIENCE_LOOKUP",
+        "plan_advice_mode": false,
+        "go_deeper_mode": false
+      },
+      {
+        "case_id": "adjust_day_001",
+        "category": "adjust_day",
+        "message": "HRV is low, should I still do intervals today?",
+        "pass": true,
+        "skill_ok": true,
+        "intent_ok": true,
+        "expected_skill": "adjust_day",
+        "acceptable_skills": [
+          "adjust_day",
+          "general_chat",
+          "support_chat",
+          "review_session"
+        ],
+        "expected_intent": "DAY_ADJUST",
+        "actual_skill": "adjust_day",
+        "actual_intent": "DAY_ADJUST",
+        "plan_advice_mode": false,
+        "go_deeper_mode": false
+      },
+      {
+        "case_id": "adjust_day_002",
+        "category": "adjust_day",
+        "message": "Skip today's quality session?",
+        "pass": true,
+        "skill_ok": true,
+        "intent_ok": true,
+        "expected_skill": "adjust_day",
+        "acceptable_skills": [
+          "adjust_day",
+          "general_chat",
+          "support_chat",
+          "review_session"
+        ],
+        "expected_intent": "DAY_ADJUST",
+        "actual_skill": "adjust_day",
+        "actual_intent": "DAY_ADJUST",
+        "plan_advice_mode": false,
+        "go_deeper_mode": false
+      },
+      {
+        "case_id": "adjust_day_003",
+        "category": "adjust_day",
+        "message": "ACWR is high, skip today's quality",
+        "pass": true,
+        "skill_ok": true,
+        "intent_ok": true,
+        "expected_skill": "adjust_day",
+        "acceptable_skills": [
+          "adjust_day",
+          "general_chat",
+          "support_chat",
+          "review_session"
+        ],
+        "expected_intent": "DAY_ADJUST",
+        "actual_skill": "adjust_day",
+        "actual_intent": "DAY_ADJUST",
+        "plan_advice_mode": false,
+        "go_deeper_mode": false
+      },
+      {
+        "case_id": "adjust_day_004",
+        "category": "adjust_day",
+        "message": "Readiness is bad \u2014 swap today for easy?",
+        "pass": true,
+        "skill_ok": true,
+        "intent_ok": true,
+        "expected_skill": "adjust_day",
+        "acceptable_skills": [
+          "adjust_day",
+          "general_chat",
+          "support_chat",
+          "review_session"
+        ],
+        "expected_intent": "DAY_ADJUST",
+        "actual_skill": "adjust_day",
+        "actual_intent": "DAY_ADJUST",
+        "plan_advice_mode": false,
+        "go_deeper_mode": false
+      },
+      {
+        "case_id": "adjust_day_005",
+        "category": "adjust_day",
+        "message": "Stress is high this morning, what should I do today?",
+        "pass": true,
+        "skill_ok": true,
+        "intent_ok": true,
+        "expected_skill": "adjust_day",
+        "acceptable_skills": [
+          "adjust_day",
+          "general_chat",
+          "support_chat",
+          "review_session"
+        ],
+        "expected_intent": "DAY_ADJUST",
+        "actual_skill": "adjust_day",
+        "actual_intent": "DAY_ADJUST",
+        "plan_advice_mode": false,
+        "go_deeper_mode": false
+      },
+      {
+        "case_id": "adjust_day_006",
+        "category": "adjust_day",
+        "message": "Should I rest today instead of the planned tempo?",
+        "pass": true,
+        "skill_ok": true,
+        "intent_ok": false,
+        "expected_skill": "adjust_day",
+        "acceptable_skills": [
+          "adjust_day",
+          "general_chat",
+          "support_chat",
+          "review_session"
+        ],
+        "expected_intent": "DAY_ADJUST",
+        "actual_skill": "general_chat",
+        "actual_intent": "GENERAL_CHAT",
+        "plan_advice_mode": false,
+        "go_deeper_mode": false
+      },
+      {
+        "case_id": "adjust_day_007",
+        "category": "adjust_day",
+        "message": "Feeling flat \u2014 adjust today only",
+        "pass": true,
+        "skill_ok": true,
+        "intent_ok": true,
+        "expected_skill": "adjust_day",
+        "acceptable_skills": [
+          "adjust_day",
+          "general_chat",
+          "support_chat",
+          "review_session"
+        ],
+        "expected_intent": "DAY_ADJUST",
+        "actual_skill": "adjust_day",
+        "actual_intent": "DAY_ADJUST",
+        "plan_advice_mode": false,
+        "go_deeper_mode": false
+      },
+      {
+        "case_id": "adjust_day_008",
+        "category": "adjust_day",
+        "message": "Can I swap today's run for yoga?",
+        "pass": true,
+        "skill_ok": true,
+        "intent_ok": true,
+        "expected_skill": "adjust_day",
+        "acceptable_skills": [
+          "adjust_day",
+          "general_chat",
+          "support_chat",
+          "review_session"
+        ],
+        "expected_intent": "DAY_ADJUST",
+        "actual_skill": "adjust_day",
+        "actual_intent": "DAY_ADJUST",
+        "plan_advice_mode": false,
+        "go_deeper_mode": false
+      },
+      {
+        "case_id": "adjust_day_009",
+        "category": "adjust_day",
+        "message": "Today's workout feels too hard \u2014 easy day instead?",
+        "pass": true,
+        "skill_ok": true,
+        "intent_ok": false,
+        "expected_skill": "adjust_day",
+        "acceptable_skills": [
+          "adjust_day",
+          "general_chat",
+          "support_chat",
+          "review_session"
+        ],
+        "expected_intent": "DAY_ADJUST",
+        "actual_skill": "review_session",
+        "actual_intent": "WORKOUT_AUDIT",
+        "plan_advice_mode": false,
+        "go_deeper_mode": false
+      },
+      {
+        "case_id": "adjust_day_010",
+        "category": "adjust_day",
+        "message": "Low sleep score \u2014 still do the hard session today?",
+        "pass": true,
+        "skill_ok": true,
+        "intent_ok": true,
+        "expected_skill": "adjust_day",
+        "acceptable_skills": [
+          "adjust_day",
+          "general_chat",
+          "support_chat",
+          "review_session"
+        ],
+        "expected_intent": "DAY_ADJUST",
+        "actual_skill": "adjust_day",
+        "actual_intent": "DAY_ADJUST",
+        "plan_advice_mode": false,
+        "go_deeper_mode": false
+      },
+      {
+        "case_id": "adjust_day_011",
+        "category": "adjust_day",
+        "message": "Knee feels tight but not sharp \u2014 modify today?",
+        "pass": true,
+        "skill_ok": true,
+        "intent_ok": false,
+        "expected_skill": "adjust_day",
+        "acceptable_skills": [
+          "adjust_day",
+          "general_chat",
+          "support_chat",
+          "review_session"
+        ],
+        "expected_intent": "DAY_ADJUST",
+        "actual_skill": "general_chat",
+        "actual_intent": "GENERAL_CHAT",
+        "plan_advice_mode": false,
+        "go_deeper_mode": false
+      },
+      {
+        "case_id": "adjust_day_012",
+        "category": "adjust_day",
+        "message": "Should I push through today's intervals?",
+        "pass": true,
+        "skill_ok": true,
+        "intent_ok": false,
+        "expected_skill": "adjust_day",
+        "acceptable_skills": [
+          "adjust_day",
+          "general_chat",
+          "support_chat",
+          "review_session"
+        ],
+        "expected_intent": "DAY_ADJUST",
+        "actual_skill": "general_chat",
+        "actual_intent": "GENERAL_CHAT",
+        "plan_advice_mode": false,
+        "go_deeper_mode": false
+      },
+      {
+        "case_id": "adjust_day_013",
+        "category": "adjust_day",
+        "message": "Replace today's bike with a walk?",
+        "pass": true,
+        "skill_ok": true,
+        "intent_ok": false,
+        "expected_skill": "adjust_day",
+        "acceptable_skills": [
+          "adjust_day",
+          "general_chat",
+          "support_chat",
+          "review_session"
+        ],
+        "expected_intent": "DAY_ADJUST",
+        "actual_skill": "general_chat",
+        "actual_intent": "GENERAL_CHAT",
+        "plan_advice_mode": false,
+        "go_deeper_mode": false
+      },
+      {
+        "case_id": "adjust_day_014",
+        "category": "adjust_day",
+        "message": "Not recovered \u2014 change today not the whole week",
+        "pass": true,
+        "skill_ok": true,
+        "intent_ok": false,
+        "expected_skill": "adjust_day",
+        "acceptable_skills": [
+          "adjust_day",
+          "general_chat",
+          "support_chat",
+          "review_session"
+        ],
+        "expected_intent": "DAY_ADJUST",
+        "actual_skill": "general_chat",
+        "actual_intent": "GENERAL_CHAT",
+        "plan_advice_mode": false,
+        "go_deeper_mode": false
+      },
+      {
+        "case_id": "adjust_day_015",
+        "category": "adjust_day",
+        "message": "How should I adjust today with poor HRV?",
+        "pass": true,
+        "skill_ok": true,
+        "intent_ok": true,
+        "expected_skill": "adjust_day",
+        "acceptable_skills": [
+          "adjust_day",
+          "general_chat",
+          "support_chat",
+          "review_session"
+        ],
+        "expected_intent": "DAY_ADJUST",
+        "actual_skill": "adjust_day",
+        "actual_intent": "DAY_ADJUST",
+        "plan_advice_mode": false,
+        "go_deeper_mode": false
+      },
+      {
+        "case_id": "review_session_001",
+        "category": "review_session",
+        "message": "How was today's session?",
+        "pass": true,
+        "skill_ok": true,
+        "intent_ok": true,
+        "expected_skill": "review_session",
+        "acceptable_skills": [
+          "review_session",
+          "general_chat"
+        ],
+        "expected_intent": "WORKOUT_AUDIT",
+        "actual_skill": "review_session",
+        "actual_intent": "WORKOUT_AUDIT",
+        "plan_advice_mode": false,
+        "go_deeper_mode": false
+      },
+      {
+        "case_id": "review_session_002",
+        "category": "review_session",
+        "message": "Analyse this ride",
+        "pass": true,
+        "skill_ok": true,
+        "intent_ok": true,
+        "expected_skill": "review_session",
+        "acceptable_skills": [
+          "review_session",
+          "general_chat"
+        ],
+        "expected_intent": "WORKOUT_AUDIT",
+        "actual_skill": "review_session",
+        "actual_intent": "WORKOUT_AUDIT",
+        "plan_advice_mode": false,
+        "go_deeper_mode": false
+      },
+      {
+        "case_id": "review_session_003",
+        "category": "review_session",
+        "message": "How was my run this morning?",
+        "pass": true,
+        "skill_ok": true,
+        "intent_ok": true,
+        "expected_skill": "review_session",
+        "acceptable_skills": [
+          "review_session",
+          "general_chat"
+        ],
+        "expected_intent": "WORKOUT_AUDIT",
+        "actual_skill": "review_session",
+        "actual_intent": "WORKOUT_AUDIT",
+        "plan_advice_mode": false,
+        "go_deeper_mode": false
+      },
+      {
+        "case_id": "review_session_004",
+        "category": "review_session",
+        "message": "Autopsy my last ride",
+        "pass": true,
+        "skill_ok": true,
+        "intent_ok": true,
+        "expected_skill": "review_session",
+        "acceptable_skills": [
+          "review_session",
+          "general_chat"
+        ],
+        "expected_intent": "WORKOUT_AUDIT",
+        "actual_skill": "review_session",
+        "actual_intent": "WORKOUT_AUDIT",
+        "plan_advice_mode": false,
+        "go_deeper_mode": false
+      },
+      {
+        "case_id": "review_session_005",
+        "category": "review_session",
+        "message": "How was yoga today?",
+        "pass": true,
+        "skill_ok": true,
+        "intent_ok": true,
+        "expected_skill": "review_session",
+        "acceptable_skills": [
+          "review_session",
+          "general_chat"
+        ],
+        "expected_intent": "WORKOUT_AUDIT",
+        "actual_skill": "review_session",
+        "actual_intent": "WORKOUT_AUDIT",
+        "plan_advice_mode": false,
+        "go_deeper_mode": false
+      },
+      {
+        "case_id": "review_session_006",
+        "category": "review_session",
+        "message": "How was the long run?",
+        "pass": true,
+        "skill_ok": true,
+        "intent_ok": true,
+        "expected_skill": "review_session",
+        "acceptable_skills": [
+          "review_session",
+          "general_chat"
+        ],
+        "expected_intent": "WORKOUT_AUDIT",
+        "actual_skill": "review_session",
+        "actual_intent": "WORKOUT_AUDIT",
+        "plan_advice_mode": false,
+        "go_deeper_mode": false
+      },
+      {
+        "case_id": "review_session_007",
+        "category": "review_session",
+        "message": "Break down today's session",
+        "pass": true,
+        "skill_ok": true,
+        "intent_ok": true,
+        "expected_skill": "review_session",
+        "acceptable_skills": [
+          "review_session",
+          "general_chat"
+        ],
+        "expected_intent": "WORKOUT_AUDIT",
+        "actual_skill": "review_session",
+        "actual_intent": "WORKOUT_AUDIT",
+        "plan_advice_mode": false,
+        "go_deeper_mode": false
+      },
+      {
+        "case_id": "review_session_008",
+        "category": "review_session",
+        "message": "How was my swim?",
+        "pass": true,
+        "skill_ok": true,
+        "intent_ok": true,
+        "expected_skill": "review_session",
+        "acceptable_skills": [
+          "review_session",
+          "general_chat"
+        ],
+        "expected_intent": "WORKOUT_AUDIT",
+        "actual_skill": "review_session",
+        "actual_intent": "WORKOUT_AUDIT",
+        "plan_advice_mode": false,
+        "go_deeper_mode": false
+      },
+      {
+        "case_id": "review_session_009",
+        "category": "review_session",
+        "message": "Rate today's workout",
+        "pass": true,
+        "skill_ok": true,
+        "intent_ok": true,
+        "expected_skill": "review_session",
+        "acceptable_skills": [
+          "review_session",
+          "general_chat"
+        ],
+        "expected_intent": "WORKOUT_AUDIT",
+        "actual_skill": "review_session",
+        "actual_intent": "WORKOUT_AUDIT",
+        "plan_advice_mode": false,
+        "go_deeper_mode": false
+      },
+      {
+        "case_id": "review_session_010",
+        "category": "review_session",
+        "message": "You got it wrong coach \u2014 that wasn't an easy day",
+        "pass": true,
+        "skill_ok": true,
+        "intent_ok": true,
+        "expected_skill": "review_session",
+        "acceptable_skills": [
+          "review_session",
+          "general_chat"
+        ],
+        "expected_intent": "WORKOUT_AUDIT",
+        "actual_skill": "review_session",
+        "actual_intent": "WORKOUT_AUDIT",
+        "plan_advice_mode": false,
+        "go_deeper_mode": false
+      },
+      {
+        "case_id": "review_session_011",
+        "category": "review_session",
+        "message": "How did I do today?",
+        "pass": true,
+        "skill_ok": true,
+        "intent_ok": true,
+        "expected_skill": "review_session",
+        "acceptable_skills": [
+          "review_session",
+          "general_chat"
+        ],
+        "expected_intent": "WORKOUT_AUDIT",
+        "actual_skill": "review_session",
+        "actual_intent": "WORKOUT_AUDIT",
+        "plan_advice_mode": false,
+        "go_deeper_mode": false
+      },
+      {
+        "case_id": "review_session_012",
+        "category": "review_session",
+        "message": "Session review \u2014 how was the ride?",
+        "pass": true,
+        "skill_ok": true,
+        "intent_ok": true,
+        "expected_skill": "review_session",
+        "acceptable_skills": [
+          "review_session",
+          "general_chat"
+        ],
+        "expected_intent": "WORKOUT_AUDIT",
+        "actual_skill": "review_session",
+        "actual_intent": "WORKOUT_AUDIT",
+        "plan_advice_mode": false,
+        "go_deeper_mode": false
+      },
+      {
+        "case_id": "review_session_013",
+        "category": "review_session",
+        "message": "Tell me how today's workout went",
+        "pass": true,
+        "skill_ok": true,
+        "intent_ok": true,
+        "expected_skill": "review_session",
+        "acceptable_skills": [
+          "review_session",
+          "general_chat"
+        ],
+        "expected_intent": "WORKOUT_AUDIT",
+        "actual_skill": "review_session",
+        "actual_intent": "WORKOUT_AUDIT",
+        "plan_advice_mode": false,
+        "go_deeper_mode": false
+      },
+      {
+        "case_id": "review_session_014",
+        "category": "review_session",
+        "message": "Debrief today's run",
+        "pass": true,
+        "skill_ok": true,
+        "intent_ok": true,
+        "expected_skill": "review_session",
+        "acceptable_skills": [
+          "review_session",
+          "general_chat"
+        ],
+        "expected_intent": "WORKOUT_AUDIT",
+        "actual_skill": "review_session",
+        "actual_intent": "WORKOUT_AUDIT",
+        "plan_advice_mode": false,
+        "go_deeper_mode": false
+      },
+      {
+        "case_id": "review_session_015",
+        "category": "review_session",
+        "message": "How was today's bike session?",
+        "pass": true,
+        "skill_ok": true,
+        "intent_ok": true,
+        "expected_skill": "review_session",
+        "acceptable_skills": [
+          "review_session",
+          "general_chat"
+        ],
+        "expected_intent": "WORKOUT_AUDIT",
+        "actual_skill": "review_session",
+        "actual_intent": "WORKOUT_AUDIT",
+        "plan_advice_mode": false,
+        "go_deeper_mode": false
+      },
+      {
+        "case_id": "rebuild_week_001",
+        "category": "rebuild_week",
+        "message": "Plan my week around my lower back",
+        "pass": true,
+        "skill_ok": true,
+        "intent_ok": true,
+        "expected_skill": "rebuild_week",
+        "acceptable_skills": [
+          "rebuild_week",
+          "general_chat"
+        ],
+        "expected_intent": "SCHEDULE_UPDATE",
+        "actual_skill": "rebuild_week",
+        "actual_intent": "SCHEDULE_UPDATE",
+        "plan_advice_mode": false,
+        "go_deeper_mode": false
+      },
+      {
+        "case_id": "rebuild_week_002",
+        "category": "rebuild_week",
+        "message": "How should I adjust this week?",
+        "pass": true,
+        "skill_ok": true,
+        "intent_ok": true,
+        "expected_skill": "rebuild_week",
+        "acceptable_skills": [
+          "rebuild_week",
+          "general_chat"
+        ],
+        "expected_intent": "SCHEDULE_UPDATE",
+        "actual_skill": "rebuild_week",
+        "actual_intent": "SCHEDULE_UPDATE",
+        "plan_advice_mode": false,
+        "go_deeper_mode": false
+      },
+      {
+        "case_id": "rebuild_week_003",
+        "category": "rebuild_week",
+        "message": "Update my schedule for this week",
+        "pass": true,
+        "skill_ok": true,
+        "intent_ok": true,
+        "expected_skill": "rebuild_week",
+        "acceptable_skills": [
+          "rebuild_week",
+          "general_chat"
+        ],
+        "expected_intent": "SCHEDULE_UPDATE",
+        "actual_skill": "rebuild_week",
+        "actual_intent": "SCHEDULE_UPDATE",
+        "plan_advice_mode": false,
+        "go_deeper_mode": false
+      },
+      {
+        "case_id": "rebuild_week_004",
+        "category": "rebuild_week",
+        "message": "Plan my this week again keep the schedule same",
+        "pass": true,
+        "skill_ok": true,
+        "intent_ok": true,
+        "expected_skill": "rebuild_week",
+        "acceptable_skills": [
+          "rebuild_week",
+          "general_chat"
+        ],
+        "expected_intent": "SCHEDULE_UPDATE",
+        "actual_skill": "rebuild_week",
+        "actual_intent": "SCHEDULE_UPDATE",
+        "plan_advice_mode": false,
+        "go_deeper_mode": false
+      },
+      {
+        "case_id": "rebuild_week_005",
+        "category": "rebuild_week",
+        "message": "I want Mon rest Tue bike Wed run Thu easy Fri intervals",
+        "pass": true,
+        "skill_ok": true,
+        "intent_ok": false,
+        "expected_skill": "rebuild_week",
+        "acceptable_skills": [
+          "rebuild_week",
+          "general_chat"
+        ],
+        "expected_intent": "SCHEDULE_UPDATE",
+        "actual_skill": "general_chat",
+        "actual_intent": "GENERAL_CHAT",
+        "plan_advice_mode": false,
+        "go_deeper_mode": false
+      },
+      {
+        "case_id": "rebuild_week_006",
+        "category": "rebuild_week",
+        "message": "Schedule my week with travel on Thursday",
+        "pass": true,
+        "skill_ok": true,
+        "intent_ok": true,
+        "expected_skill": "rebuild_week",
+        "acceptable_skills": [
+          "rebuild_week",
+          "general_chat"
+        ],
+        "expected_intent": "SCHEDULE_UPDATE",
+        "actual_skill": "rebuild_week",
+        "actual_intent": "SCHEDULE_UPDATE",
+        "plan_advice_mode": false,
+        "go_deeper_mode": false
+      },
+      {
+        "case_id": "rebuild_week_007",
+        "category": "rebuild_week",
+        "message": "Plan the week \u2014 5 days, one quality session",
+        "pass": true,
+        "skill_ok": true,
+        "intent_ok": false,
+        "expected_skill": "rebuild_week",
+        "acceptable_skills": [
+          "rebuild_week",
+          "general_chat"
+        ],
+        "expected_intent": "SCHEDULE_UPDATE",
+        "actual_skill": "general_chat",
+        "actual_intent": "GENERAL_CHAT",
+        "plan_advice_mode": false,
+        "go_deeper_mode": false
+      },
+      {
+        "case_id": "rebuild_week_008",
+        "category": "rebuild_week",
+        "message": "Give me a fresh week starting Monday",
+        "pass": true,
+        "skill_ok": true,
+        "intent_ok": false,
+        "expected_skill": "rebuild_week",
+        "acceptable_skills": [
+          "rebuild_week",
+          "general_chat"
+        ],
+        "expected_intent": "SCHEDULE_UPDATE",
+        "actual_skill": "general_chat",
+        "actual_intent": "GENERAL_CHAT",
+        "plan_advice_mode": false,
+        "go_deeper_mode": false
+      },
+      {
+        "case_id": "rebuild_week_009",
+        "category": "rebuild_week",
+        "message": "Plan my week with yoga on Wednesday",
+        "pass": true,
+        "skill_ok": true,
+        "intent_ok": true,
+        "expected_skill": "rebuild_week",
+        "acceptable_skills": [
+          "rebuild_week",
+          "general_chat"
+        ],
+        "expected_intent": "SCHEDULE_UPDATE",
+        "actual_skill": "rebuild_week",
+        "actual_intent": "SCHEDULE_UPDATE",
+        "plan_advice_mode": false,
+        "go_deeper_mode": false
+      },
+      {
+        "case_id": "rebuild_week_010",
+        "category": "rebuild_week",
+        "message": "Adjust this week's plan \u2014 add a long run Sunday",
+        "pass": true,
+        "skill_ok": true,
+        "intent_ok": true,
+        "expected_skill": "rebuild_week",
+        "acceptable_skills": [
+          "rebuild_week",
+          "general_chat"
+        ],
+        "expected_intent": "SCHEDULE_UPDATE",
+        "actual_skill": "rebuild_week",
+        "actual_intent": "SCHEDULE_UPDATE",
+        "plan_advice_mode": false,
+        "go_deeper_mode": false
+      },
+      {
+        "case_id": "rebuild_week_011",
+        "category": "rebuild_week",
+        "message": "Build a recovery week for me",
+        "pass": true,
+        "skill_ok": true,
+        "intent_ok": false,
+        "expected_skill": "rebuild_week",
+        "acceptable_skills": [
+          "rebuild_week",
+          "general_chat"
+        ],
+        "expected_intent": "SCHEDULE_UPDATE",
+        "actual_skill": "general_chat",
+        "actual_intent": "GENERAL_CHAT",
+        "plan_advice_mode": false,
+        "go_deeper_mode": false
+      },
+      {
+        "case_id": "rebuild_week_012",
+        "category": "rebuild_week",
+        "message": "Plan my week around a race on Saturday",
+        "pass": true,
+        "skill_ok": true,
+        "intent_ok": true,
+        "expected_skill": "rebuild_week",
+        "acceptable_skills": [
+          "rebuild_week",
+          "general_chat"
+        ],
+        "expected_intent": "SCHEDULE_UPDATE",
+        "actual_skill": "rebuild_week",
+        "actual_intent": "SCHEDULE_UPDATE",
+        "plan_advice_mode": false,
+        "go_deeper_mode": false
+      },
+      {
+        "case_id": "rebuild_week_013",
+        "category": "rebuild_week",
+        "message": "Schedule update: drop Friday intervals",
+        "pass": true,
+        "skill_ok": true,
+        "intent_ok": true,
+        "expected_skill": "rebuild_week",
+        "acceptable_skills": [
+          "rebuild_week",
+          "general_chat"
+        ],
+        "expected_intent": "SCHEDULE_UPDATE",
+        "actual_skill": "rebuild_week",
+        "actual_intent": "SCHEDULE_UPDATE",
+        "plan_advice_mode": false,
+        "go_deeper_mode": false
+      },
+      {
+        "case_id": "rebuild_week_014",
+        "category": "rebuild_week",
+        "message": "Plan my week with strength twice",
+        "pass": true,
+        "skill_ok": true,
+        "intent_ok": true,
+        "expected_skill": "rebuild_week",
+        "acceptable_skills": [
+          "rebuild_week",
+          "general_chat"
+        ],
+        "expected_intent": "SCHEDULE_UPDATE",
+        "actual_skill": "rebuild_week",
+        "actual_intent": "SCHEDULE_UPDATE",
+        "plan_advice_mode": false,
+        "go_deeper_mode": false
+      },
+      {
+        "case_id": "rebuild_week_015",
+        "category": "rebuild_week",
+        "message": "Replan with my new FTP and LTHR",
+        "pass": true,
+        "skill_ok": true,
+        "intent_ok": false,
+        "expected_skill": "rebuild_week",
+        "acceptable_skills": [
+          "rebuild_week",
+          "general_chat"
+        ],
+        "expected_intent": "SCHEDULE_UPDATE",
+        "actual_skill": "general_chat",
+        "actual_intent": "GENERAL_CHAT",
+        "plan_advice_mode": false,
+        "go_deeper_mode": false
+      },
+      {
+        "case_id": "rebuild_week_016",
+        "category": "rebuild_week",
+        "message": "Plan my week",
+        "pass": true,
+        "skill_ok": true,
+        "intent_ok": true,
+        "expected_skill": "rebuild_week",
+        "acceptable_skills": [
+          "rebuild_week",
+          "general_chat"
+        ],
+        "expected_intent": "SCHEDULE_UPDATE",
+        "actual_skill": "rebuild_week",
+        "actual_intent": "SCHEDULE_UPDATE",
+        "plan_advice_mode": false,
+        "go_deeper_mode": false
+      },
+      {
+        "case_id": "rebuild_week_017",
+        "category": "rebuild_week",
+        "message": "Build my training week",
+        "pass": true,
+        "skill_ok": true,
+        "intent_ok": false,
+        "expected_skill": "rebuild_week",
+        "acceptable_skills": [
+          "rebuild_week",
+          "general_chat"
+        ],
+        "expected_intent": "SCHEDULE_UPDATE",
+        "actual_skill": "general_chat",
+        "actual_intent": "GENERAL_CHAT",
+        "plan_advice_mode": false,
+        "go_deeper_mode": false
+      },
+      {
+        "case_id": "rebuild_week_018",
+        "category": "rebuild_week",
+        "message": "Update this week's calendar",
+        "pass": true,
+        "skill_ok": true,
+        "intent_ok": false,
+        "expected_skill": "rebuild_week",
+        "acceptable_skills": [
+          "rebuild_week",
+          "general_chat"
+        ],
+        "expected_intent": "SCHEDULE_UPDATE",
+        "actual_skill": "general_chat",
+        "actual_intent": "GENERAL_CHAT",
+        "plan_advice_mode": false,
+        "go_deeper_mode": false
+      },
+      {
+        "case_id": "week_debrief_001",
+        "category": "week_debrief",
+        "message": "How did I do this week?",
+        "pass": true,
+        "skill_ok": true,
+        "intent_ok": true,
+        "expected_skill": "week_debrief",
+        "acceptable_skills": [
+          "week_debrief",
+          "general_chat"
+        ],
+        "expected_intent": "WEEK_REVIEW",
+        "actual_skill": "week_debrief",
+        "actual_intent": "WEEK_REVIEW",
+        "plan_advice_mode": false,
+        "go_deeper_mode": false
+      },
+      {
+        "case_id": "week_debrief_002",
+        "category": "week_debrief",
+        "message": "How was my week?",
+        "pass": true,
+        "skill_ok": true,
+        "intent_ok": true,
+        "expected_skill": "week_debrief",
+        "acceptable_skills": [
+          "week_debrief",
+          "general_chat"
+        ],
+        "expected_intent": "WEEK_REVIEW",
+        "actual_skill": "week_debrief",
+        "actual_intent": "WEEK_REVIEW",
+        "plan_advice_mode": false,
+        "go_deeper_mode": false
+      },
+      {
+        "case_id": "week_debrief_003",
+        "category": "week_debrief",
+        "message": "Recap last week",
+        "pass": true,
+        "skill_ok": true,
+        "intent_ok": true,
+        "expected_skill": "week_debrief",
+        "acceptable_skills": [
+          "week_debrief",
+          "general_chat"
+        ],
+        "expected_intent": "WEEK_REVIEW",
+        "actual_skill": "week_debrief",
+        "actual_intent": "WEEK_REVIEW",
+        "plan_advice_mode": false,
+        "go_deeper_mode": false
+      },
+      {
+        "case_id": "week_debrief_004",
+        "category": "week_debrief",
+        "message": "Grade my week",
+        "pass": true,
+        "skill_ok": true,
+        "intent_ok": true,
+        "expected_skill": "week_debrief",
+        "acceptable_skills": [
+          "week_debrief",
+          "general_chat"
+        ],
+        "expected_intent": "WEEK_REVIEW",
+        "actual_skill": "week_debrief",
+        "actual_intent": "WEEK_REVIEW",
+        "plan_advice_mode": false,
+        "go_deeper_mode": false
+      },
+      {
+        "case_id": "week_debrief_005",
+        "category": "week_debrief",
+        "message": "Look at my week",
+        "pass": true,
+        "skill_ok": true,
+        "intent_ok": true,
+        "expected_skill": "week_debrief",
+        "acceptable_skills": [
+          "week_debrief",
+          "general_chat"
+        ],
+        "expected_intent": "WEEK_REVIEW",
+        "actual_skill": "week_debrief",
+        "actual_intent": "WEEK_REVIEW",
+        "plan_advice_mode": false,
+        "go_deeper_mode": false
+      },
+      {
+        "case_id": "week_debrief_006",
+        "category": "week_debrief",
+        "message": "Week in review \u2014 how did it go?",
+        "pass": true,
+        "skill_ok": true,
+        "intent_ok": true,
+        "expected_skill": "week_debrief",
+        "acceptable_skills": [
+          "week_debrief",
+          "general_chat"
+        ],
+        "expected_intent": "WEEK_REVIEW",
+        "actual_skill": "week_debrief",
+        "actual_intent": "WEEK_REVIEW",
+        "plan_advice_mode": false,
+        "go_deeper_mode": false
+      },
+      {
+        "case_id": "week_debrief_007",
+        "category": "week_debrief",
+        "message": "Done with the week \u2014 debrief me",
+        "pass": true,
+        "skill_ok": true,
+        "intent_ok": true,
+        "expected_skill": "week_debrief",
+        "acceptable_skills": [
+          "week_debrief",
+          "general_chat"
+        ],
+        "expected_intent": "WEEK_REVIEW",
+        "actual_skill": "week_debrief",
+        "actual_intent": "WEEK_REVIEW",
+        "plan_advice_mode": false,
+        "go_deeper_mode": false
+      },
+      {
+        "case_id": "week_debrief_008",
+        "category": "week_debrief",
+        "message": "Review my week coach",
+        "pass": true,
+        "skill_ok": true,
+        "intent_ok": true,
+        "expected_skill": "week_debrief",
+        "acceptable_skills": [
+          "week_debrief",
+          "general_chat"
+        ],
+        "expected_intent": "WEEK_REVIEW",
+        "actual_skill": "week_debrief",
+        "actual_intent": "WEEK_REVIEW",
+        "plan_advice_mode": false,
+        "go_deeper_mode": false
+      },
+      {
+        "case_id": "week_debrief_009",
+        "category": "week_debrief",
+        "message": "How did training go this week?",
+        "pass": true,
+        "skill_ok": true,
+        "intent_ok": true,
+        "expected_skill": "week_debrief",
+        "acceptable_skills": [
+          "week_debrief",
+          "general_chat"
+        ],
+        "expected_intent": "WEEK_REVIEW",
+        "actual_skill": "week_debrief",
+        "actual_intent": "WEEK_REVIEW",
+        "plan_advice_mode": false,
+        "go_deeper_mode": false
+      },
+      {
+        "case_id": "week_debrief_010",
+        "category": "week_debrief",
+        "message": "Summarize my week",
+        "pass": true,
+        "skill_ok": true,
+        "intent_ok": false,
+        "expected_skill": "week_debrief",
+        "acceptable_skills": [
+          "week_debrief",
+          "general_chat"
+        ],
+        "expected_intent": "WEEK_REVIEW",
+        "actual_skill": "general_chat",
+        "actual_intent": "GENERAL_CHAT",
+        "plan_advice_mode": false,
+        "go_deeper_mode": false
+      },
+      {
+        "case_id": "week_debrief_011",
+        "category": "week_debrief",
+        "message": "Take a look at my week",
+        "pass": true,
+        "skill_ok": true,
+        "intent_ok": true,
+        "expected_skill": "week_debrief",
+        "acceptable_skills": [
+          "week_debrief",
+          "general_chat"
+        ],
+        "expected_intent": "WEEK_REVIEW",
+        "actual_skill": "week_debrief",
+        "actual_intent": "WEEK_REVIEW",
+        "plan_advice_mode": false,
+        "go_deeper_mode": false
+      },
+      {
+        "case_id": "week_debrief_012",
+        "category": "week_debrief",
+        "message": "Weekly debrief please",
+        "pass": true,
+        "skill_ok": true,
+        "intent_ok": false,
+        "expected_skill": "week_debrief",
+        "acceptable_skills": [
+          "week_debrief",
+          "general_chat"
+        ],
+        "expected_intent": "WEEK_REVIEW",
+        "actual_skill": "general_chat",
+        "actual_intent": "GENERAL_CHAT",
+        "plan_advice_mode": false,
+        "go_deeper_mode": false
+      },
+      {
+        "case_id": "week_debrief_013",
+        "category": "week_debrief",
+        "message": "How was last week overall?",
+        "pass": true,
+        "skill_ok": true,
+        "intent_ok": true,
+        "expected_skill": "week_debrief",
+        "acceptable_skills": [
+          "week_debrief",
+          "general_chat"
+        ],
+        "expected_intent": "WEEK_REVIEW",
+        "actual_skill": "week_debrief",
+        "actual_intent": "WEEK_REVIEW",
+        "plan_advice_mode": false,
+        "go_deeper_mode": false
+      },
+      {
+        "case_id": "week_debrief_014",
+        "category": "week_debrief",
+        "message": "Recap the week \u2014 wins and misses",
+        "pass": true,
+        "skill_ok": true,
+        "intent_ok": true,
+        "expected_skill": "week_debrief",
+        "acceptable_skills": [
+          "week_debrief",
+          "general_chat"
+        ],
+        "expected_intent": "WEEK_REVIEW",
+        "actual_skill": "week_debrief",
+        "actual_intent": "WEEK_REVIEW",
+        "plan_advice_mode": false,
+        "go_deeper_mode": false
+      },
+      {
+        "case_id": "week_debrief_015",
+        "category": "week_debrief",
+        "message": "Finished the week \u2014 how did I do?",
+        "pass": true,
+        "skill_ok": true,
+        "intent_ok": true,
+        "expected_skill": "week_debrief",
+        "acceptable_skills": [
+          "week_debrief",
+          "general_chat"
+        ],
+        "expected_intent": "WEEK_REVIEW",
+        "actual_skill": "week_debrief",
+        "actual_intent": "WEEK_REVIEW",
+        "plan_advice_mode": false,
+        "go_deeper_mode": false
+      },
+      {
+        "case_id": "week_plan_review_001",
+        "category": "week_plan_review",
+        "message": "Review my proposed week before I commit",
+        "pass": true,
+        "skill_ok": true,
+        "intent_ok": false,
+        "expected_skill": "week_plan_review",
+        "acceptable_skills": [
+          "week_plan_review",
+          "general_chat",
+          "rebuild_week",
+          "week_debrief",
+          "explain_metric"
+        ],
+        "expected_intent": "WEEK_PLAN_REVIEW",
+        "actual_skill": "general_chat",
+        "actual_intent": "GENERAL_CHAT",
+        "plan_advice_mode": false,
+        "go_deeper_mode": false
+      },
+      {
+        "case_id": "week_plan_review_002",
+        "category": "week_plan_review",
+        "message": "Does this week structure look right before I save?",
+        "pass": true,
+        "skill_ok": true,
+        "intent_ok": false,
+        "expected_skill": "week_plan_review",
+        "acceptable_skills": [
+          "week_plan_review",
+          "general_chat",
+          "rebuild_week",
+          "week_debrief",
+          "explain_metric"
+        ],
+        "expected_intent": "WEEK_PLAN_REVIEW",
+        "actual_skill": "general_chat",
+        "actual_intent": "GENERAL_CHAT",
+        "plan_advice_mode": false,
+        "go_deeper_mode": false
+      },
+      {
+        "case_id": "week_plan_review_003",
+        "category": "week_plan_review",
+        "message": "Feedback on my week plan draft",
+        "pass": true,
+        "skill_ok": true,
+        "intent_ok": false,
+        "expected_skill": "week_plan_review",
+        "acceptable_skills": [
+          "week_plan_review",
+          "general_chat",
+          "rebuild_week",
+          "week_debrief",
+          "explain_metric"
+        ],
+        "expected_intent": "WEEK_PLAN_REVIEW",
+        "actual_skill": "rebuild_week",
+        "actual_intent": "SCHEDULE_UPDATE",
+        "plan_advice_mode": false,
+        "go_deeper_mode": false
+      },
+      {
+        "case_id": "week_plan_review_004",
+        "category": "week_plan_review",
+        "message": "Check my week outline before scheduling",
+        "pass": true,
+        "skill_ok": true,
+        "intent_ok": false,
+        "expected_skill": "week_plan_review",
+        "acceptable_skills": [
+          "week_plan_review",
+          "general_chat",
+          "rebuild_week",
+          "week_debrief",
+          "explain_metric"
+        ],
+        "expected_intent": "WEEK_PLAN_REVIEW",
+        "actual_skill": "general_chat",
+        "actual_intent": "GENERAL_CHAT",
+        "plan_advice_mode": false,
+        "go_deeper_mode": false
+      },
+      {
+        "case_id": "week_plan_review_005",
+        "category": "week_plan_review",
+        "message": "Peer review my training week idea",
+        "pass": true,
+        "skill_ok": true,
+        "intent_ok": false,
+        "expected_skill": "week_plan_review",
+        "acceptable_skills": [
+          "week_plan_review",
+          "general_chat",
+          "rebuild_week",
+          "week_debrief",
+          "explain_metric"
+        ],
+        "expected_intent": "WEEK_PLAN_REVIEW",
+        "actual_skill": "explain_metric",
+        "actual_intent": "SCIENCE_LOOKUP",
+        "plan_advice_mode": false,
+        "go_deeper_mode": false
+      },
+      {
+        "case_id": "week_plan_review_006",
+        "category": "week_plan_review",
+        "message": "Review-only: is this week balanced?",
+        "pass": true,
+        "skill_ok": true,
+        "intent_ok": false,
+        "expected_skill": "week_plan_review",
+        "acceptable_skills": [
+          "week_plan_review",
+          "general_chat",
+          "rebuild_week",
+          "week_debrief",
+          "explain_metric"
+        ],
+        "expected_intent": "WEEK_PLAN_REVIEW",
+        "actual_skill": "week_debrief",
+        "actual_intent": "WEEK_REVIEW",
+        "plan_advice_mode": false,
+        "go_deeper_mode": false
+      },
+      {
+        "case_id": "week_plan_review_007",
+        "category": "week_plan_review",
+        "message": "Look at my week plan \u2014 no save yet",
+        "pass": true,
+        "skill_ok": true,
+        "intent_ok": false,
+        "expected_skill": "week_plan_review",
+        "acceptable_skills": [
+          "week_plan_review",
+          "general_chat",
+          "rebuild_week",
+          "week_debrief",
+          "explain_metric"
+        ],
+        "expected_intent": "WEEK_PLAN_REVIEW",
+        "actual_skill": "week_debrief",
+        "actual_intent": "WEEK_REVIEW",
+        "plan_advice_mode": false,
+        "go_deeper_mode": false
+      },
+      {
+        "case_id": "week_plan_review_008",
+        "category": "week_plan_review",
+        "message": "Sanity check my week before I commit",
+        "pass": true,
+        "skill_ok": true,
+        "intent_ok": false,
+        "expected_skill": "week_plan_review",
+        "acceptable_skills": [
+          "week_plan_review",
+          "general_chat",
+          "rebuild_week",
+          "week_debrief",
+          "explain_metric"
+        ],
+        "expected_intent": "WEEK_PLAN_REVIEW",
+        "actual_skill": "general_chat",
+        "actual_intent": "GENERAL_CHAT",
+        "plan_advice_mode": false,
+        "go_deeper_mode": false
+      },
+      {
+        "case_id": "week_plan_review_009",
+        "category": "week_plan_review",
+        "message": "Week plan review \u2014 too much intensity?",
+        "pass": true,
+        "skill_ok": true,
+        "intent_ok": false,
+        "expected_skill": "week_plan_review",
+        "acceptable_skills": [
+          "week_plan_review",
+          "general_chat",
+          "rebuild_week",
+          "week_debrief",
+          "explain_metric"
+        ],
+        "expected_intent": "WEEK_PLAN_REVIEW",
+        "actual_skill": "rebuild_week",
+        "actual_intent": "SCHEDULE_UPDATE",
+        "plan_advice_mode": false,
+        "go_deeper_mode": false
+      },
+      {
+        "case_id": "week_plan_review_010",
+        "category": "week_plan_review",
+        "message": "Review my season week sketch",
+        "pass": true,
+        "skill_ok": true,
+        "intent_ok": false,
+        "expected_skill": "week_plan_review",
+        "acceptable_skills": [
+          "week_plan_review",
+          "general_chat",
+          "rebuild_week",
+          "week_debrief",
+          "explain_metric"
+        ],
+        "expected_intent": "WEEK_PLAN_REVIEW",
+        "actual_skill": "general_chat",
+        "actual_intent": "GENERAL_CHAT",
+        "plan_advice_mode": false,
+        "go_deeper_mode": false
+      },
+      {
+        "case_id": "go_deeper_001",
+        "category": "go_deeper",
+        "message": "Explain why in plain language \u2014 max 3 bullets, one watch number, no week table",
+        "pass": true,
+        "skill_ok": true,
+        "intent_ok": true,
+        "expected_skill": "go_deeper",
+        "acceptable_skills": [
+          "go_deeper",
+          "general_chat",
+          "explain_metric"
+        ],
+        "expected_intent": "GENERAL_CHAT",
+        "actual_skill": "go_deeper",
+        "actual_intent": "GENERAL_CHAT",
+        "plan_advice_mode": false,
+        "go_deeper_mode": true
+      },
+      {
+        "case_id": "go_deeper_002",
+        "category": "go_deeper",
+        "message": "Quick follow-up only: why that watch number? No week table",
+        "pass": true,
+        "skill_ok": true,
+        "intent_ok": true,
+        "expected_skill": "go_deeper",
+        "acceptable_skills": [
+          "go_deeper",
+          "general_chat",
+          "explain_metric"
+        ],
+        "expected_intent": "GENERAL_CHAT",
+        "actual_skill": "go_deeper",
+        "actual_intent": "GENERAL_CHAT",
+        "plan_advice_mode": false,
+        "go_deeper_mode": true
+      },
+      {
+        "case_id": "go_deeper_003",
+        "category": "go_deeper",
+        "message": "Go deeper on that answer \u2014 plain language, max 3 bullets",
+        "pass": true,
+        "skill_ok": true,
+        "intent_ok": true,
+        "expected_skill": "go_deeper",
+        "acceptable_skills": [
+          "go_deeper",
+          "general_chat",
+          "explain_metric"
+        ],
+        "expected_intent": "GENERAL_CHAT",
+        "actual_skill": "general_chat",
+        "actual_intent": "GENERAL_CHAT",
+        "plan_advice_mode": false,
+        "go_deeper_mode": false
+      },
+      {
+        "case_id": "go_deeper_004",
+        "category": "go_deeper",
+        "message": "Explain why you said that \u2014 quick follow-up only, watch number",
+        "pass": true,
+        "skill_ok": true,
+        "intent_ok": true,
+        "expected_skill": "go_deeper",
+        "acceptable_skills": [
+          "go_deeper",
+          "general_chat",
+          "explain_metric"
+        ],
+        "expected_intent": "GENERAL_CHAT",
+        "actual_skill": "go_deeper",
+        "actual_intent": "GENERAL_CHAT",
+        "plan_advice_mode": false,
+        "go_deeper_mode": true
+      },
+      {
+        "case_id": "go_deeper_005",
+        "category": "go_deeper",
+        "message": "Follow up: why easy days matter here \u2014 no lecture",
+        "pass": true,
+        "skill_ok": true,
+        "intent_ok": true,
+        "expected_skill": "go_deeper",
+        "acceptable_skills": [
+          "go_deeper",
+          "general_chat",
+          "explain_metric"
+        ],
+        "expected_intent": "GENERAL_CHAT",
+        "actual_skill": "general_chat",
+        "actual_intent": "GENERAL_CHAT",
+        "plan_advice_mode": false,
+        "go_deeper_mode": false
+      },
+      {
+        "case_id": "go_deeper_006",
+        "category": "go_deeper",
+        "message": "Quick follow-up only on your last point \u2014 max 3 bullets",
+        "pass": true,
+        "skill_ok": true,
+        "intent_ok": true,
+        "expected_skill": "go_deeper",
+        "acceptable_skills": [
+          "go_deeper",
+          "general_chat",
+          "explain_metric"
+        ],
+        "expected_intent": "GENERAL_CHAT",
+        "actual_skill": "go_deeper",
+        "actual_intent": "GENERAL_CHAT",
+        "plan_advice_mode": false,
+        "go_deeper_mode": true
+      },
+      {
+        "case_id": "go_deeper_007",
+        "category": "go_deeper",
+        "message": "Plain language why \u2014 one watch number, no week table",
+        "pass": true,
+        "skill_ok": true,
+        "intent_ok": true,
+        "expected_skill": "go_deeper",
+        "acceptable_skills": [
+          "go_deeper",
+          "general_chat",
+          "explain_metric"
+        ],
+        "expected_intent": "GENERAL_CHAT",
+        "actual_skill": "general_chat",
+        "actual_intent": "GENERAL_CHAT",
+        "plan_advice_mode": false,
+        "go_deeper_mode": false
+      },
+      {
+        "case_id": "go_deeper_008",
+        "category": "go_deeper",
+        "message": "Explain why briefly \u2014 follow-up only",
+        "pass": true,
+        "skill_ok": true,
+        "intent_ok": false,
+        "expected_skill": "go_deeper",
+        "acceptable_skills": [
+          "go_deeper",
+          "general_chat",
+          "explain_metric"
+        ],
+        "expected_intent": "GENERAL_CHAT",
+        "actual_skill": "explain_metric",
+        "actual_intent": "SCIENCE_LOOKUP",
+        "plan_advice_mode": false,
+        "go_deeper_mode": false
+      },
+      {
+        "case_id": "general_chat_001",
+        "category": "general_chat",
+        "message": "How easy should my easy sessions feel?",
+        "pass": true,
+        "skill_ok": true,
+        "intent_ok": true,
+        "expected_skill": "general_chat",
+        "acceptable_skills": [
+          "general_chat",
+          "explain_metric",
+          "rebuild_week"
+        ],
+        "expected_intent": "GENERAL_CHAT",
+        "actual_skill": "general_chat",
+        "actual_intent": "GENERAL_CHAT",
+        "plan_advice_mode": false,
+        "go_deeper_mode": false
+      },
+      {
+        "case_id": "general_chat_002",
+        "category": "general_chat",
+        "message": "Tips for pacing a half marathon?",
+        "pass": true,
+        "skill_ok": true,
+        "intent_ok": true,
+        "expected_skill": "general_chat",
+        "acceptable_skills": [
+          "general_chat",
+          "explain_metric",
+          "rebuild_week"
+        ],
+        "expected_intent": "GENERAL_CHAT",
+        "actual_skill": "general_chat",
+        "actual_intent": "GENERAL_CHAT",
+        "plan_advice_mode": false,
+        "go_deeper_mode": false
+      },
+      {
+        "case_id": "general_chat_003",
+        "category": "general_chat",
+        "message": "How should I fuel before a long run?",
+        "pass": true,
+        "skill_ok": true,
+        "intent_ok": true,
+        "expected_skill": "general_chat",
+        "acceptable_skills": [
+          "general_chat",
+          "explain_metric",
+          "rebuild_week"
+        ],
+        "expected_intent": "GENERAL_CHAT",
+        "actual_skill": "general_chat",
+        "actual_intent": "GENERAL_CHAT",
+        "plan_advice_mode": false,
+        "go_deeper_mode": false
+      },
+      {
+        "case_id": "general_chat_004",
+        "category": "general_chat",
+        "message": "Should I run doubles this block?",
+        "pass": true,
+        "skill_ok": true,
+        "intent_ok": true,
+        "expected_skill": "general_chat",
+        "acceptable_skills": [
+          "general_chat",
+          "explain_metric",
+          "rebuild_week"
+        ],
+        "expected_intent": "GENERAL_CHAT",
+        "actual_skill": "general_chat",
+        "actual_intent": "GENERAL_CHAT",
+        "plan_advice_mode": false,
+        "go_deeper_mode": false
+      },
+      {
+        "case_id": "general_chat_005",
+        "category": "general_chat",
+        "message": "How do I build consistency?",
+        "pass": true,
+        "skill_ok": true,
+        "intent_ok": true,
+        "expected_skill": "general_chat",
+        "acceptable_skills": [
+          "general_chat",
+          "explain_metric",
+          "rebuild_week"
+        ],
+        "expected_intent": "GENERAL_CHAT",
+        "actual_skill": "general_chat",
+        "actual_intent": "GENERAL_CHAT",
+        "plan_advice_mode": false,
+        "go_deeper_mode": false
+      },
+      {
+        "case_id": "general_chat_006",
+        "category": "general_chat",
+        "message": "What's a good warm-up before intervals?",
+        "pass": true,
+        "skill_ok": true,
+        "intent_ok": false,
+        "expected_skill": "general_chat",
+        "acceptable_skills": [
+          "general_chat",
+          "explain_metric",
+          "rebuild_week"
+        ],
+        "expected_intent": "GENERAL_CHAT",
+        "actual_skill": "explain_metric",
+        "actual_intent": "SCIENCE_LOOKUP",
+        "plan_advice_mode": false,
+        "go_deeper_mode": false
+      },
+      {
+        "case_id": "general_chat_007",
+        "category": "general_chat",
+        "message": "How long should my long run be?",
+        "pass": true,
+        "skill_ok": true,
+        "intent_ok": true,
+        "expected_skill": "general_chat",
+        "acceptable_skills": [
+          "general_chat",
+          "explain_metric",
+          "rebuild_week"
+        ],
+        "expected_intent": "GENERAL_CHAT",
+        "actual_skill": "general_chat",
+        "actual_intent": "GENERAL_CHAT",
+        "plan_advice_mode": false,
+        "go_deeper_mode": false
+      },
+      {
+        "case_id": "general_chat_008",
+        "category": "general_chat",
+        "message": "When should I add a second hard day?",
+        "pass": true,
+        "skill_ok": true,
+        "intent_ok": true,
+        "expected_skill": "general_chat",
+        "acceptable_skills": [
+          "general_chat",
+          "explain_metric",
+          "rebuild_week"
+        ],
+        "expected_intent": "GENERAL_CHAT",
+        "actual_skill": "general_chat",
+        "actual_intent": "GENERAL_CHAT",
+        "plan_advice_mode": false,
+        "go_deeper_mode": false
+      },
+      {
+        "case_id": "general_chat_009",
+        "category": "general_chat",
+        "message": "How do I handle heat in summer training?",
+        "pass": true,
+        "skill_ok": true,
+        "intent_ok": true,
+        "expected_skill": "general_chat",
+        "acceptable_skills": [
+          "general_chat",
+          "explain_metric",
+          "rebuild_week"
+        ],
+        "expected_intent": "GENERAL_CHAT",
+        "actual_skill": "general_chat",
+        "actual_intent": "GENERAL_CHAT",
+        "plan_advice_mode": false,
+        "go_deeper_mode": false
+      },
+      {
+        "case_id": "general_chat_010",
+        "category": "general_chat",
+        "message": "Best way to recover after a hard week?",
+        "pass": true,
+        "skill_ok": true,
+        "intent_ok": true,
+        "expected_skill": "general_chat",
+        "acceptable_skills": [
+          "general_chat",
+          "explain_metric",
+          "rebuild_week"
+        ],
+        "expected_intent": "GENERAL_CHAT",
+        "actual_skill": "general_chat",
+        "actual_intent": "GENERAL_CHAT",
+        "plan_advice_mode": false,
+        "go_deeper_mode": false
+      },
+      {
+        "case_id": "general_chat_011",
+        "category": "general_chat",
+        "message": "How should I structure rest days?",
+        "pass": true,
+        "skill_ok": true,
+        "intent_ok": false,
+        "expected_skill": "general_chat",
+        "acceptable_skills": [
+          "general_chat",
+          "explain_metric",
+          "rebuild_week"
+        ],
+        "expected_intent": "GENERAL_CHAT",
+        "actual_skill": "rebuild_week",
+        "actual_intent": "SCHEDULE_UPDATE",
+        "plan_advice_mode": false,
+        "go_deeper_mode": false
+      },
+      {
+        "case_id": "general_chat_012",
+        "category": "general_chat",
+        "message": "Advice for first-time marathon training?",
+        "pass": true,
+        "skill_ok": true,
+        "intent_ok": true,
+        "expected_skill": "general_chat",
+        "acceptable_skills": [
+          "general_chat",
+          "explain_metric",
+          "rebuild_week"
+        ],
+        "expected_intent": "GENERAL_CHAT",
+        "actual_skill": "general_chat",
+        "actual_intent": "GENERAL_CHAT",
+        "plan_advice_mode": false,
+        "go_deeper_mode": false
+      },
+      {
+        "case_id": "general_chat_013",
+        "category": "general_chat",
+        "message": "How hard should threshold feel?",
+        "pass": true,
+        "skill_ok": true,
+        "intent_ok": true,
+        "expected_skill": "general_chat",
+        "acceptable_skills": [
+          "general_chat",
+          "explain_metric",
+          "rebuild_week"
+        ],
+        "expected_intent": "GENERAL_CHAT",
+        "actual_skill": "general_chat",
+        "actual_intent": "GENERAL_CHAT",
+        "plan_advice_mode": false,
+        "go_deeper_mode": false
+      },
+      {
+        "case_id": "general_chat_014",
+        "category": "general_chat",
+        "message": "Should I cross-train on rest days?",
+        "pass": true,
+        "skill_ok": true,
+        "intent_ok": false,
+        "expected_skill": "general_chat",
+        "acceptable_skills": [
+          "general_chat",
+          "explain_metric",
+          "rebuild_week"
+        ],
+        "expected_intent": "GENERAL_CHAT",
+        "actual_skill": "rebuild_week",
+        "actual_intent": "SCHEDULE_UPDATE",
+        "plan_advice_mode": false,
+        "go_deeper_mode": false
+      },
+      {
+        "case_id": "general_chat_015",
+        "category": "general_chat",
+        "message": "How to progress weekly mileage safely?",
+        "pass": true,
+        "skill_ok": true,
+        "intent_ok": true,
+        "expected_skill": "general_chat",
+        "acceptable_skills": [
+          "general_chat",
+          "explain_metric",
+          "rebuild_week"
+        ],
+        "expected_intent": "GENERAL_CHAT",
+        "actual_skill": "general_chat",
+        "actual_intent": "GENERAL_CHAT",
+        "plan_advice_mode": false,
+        "go_deeper_mode": false
+      },
+      {
+        "case_id": "general_chat_016",
+        "category": "general_chat",
+        "message": "What should I focus on this month?",
+        "pass": true,
+        "skill_ok": true,
+        "intent_ok": true,
+        "expected_skill": "general_chat",
+        "acceptable_skills": [
+          "general_chat",
+          "explain_metric",
+          "rebuild_week"
+        ],
+        "expected_intent": "GENERAL_CHAT",
+        "actual_skill": "general_chat",
+        "actual_intent": "GENERAL_CHAT",
+        "plan_advice_mode": false,
+        "go_deeper_mode": false
+      },
+      {
+        "case_id": "general_chat_017",
+        "category": "general_chat",
+        "message": "How do I know if I'm overtraining?",
+        "pass": true,
+        "skill_ok": true,
+        "intent_ok": true,
+        "expected_skill": "general_chat",
+        "acceptable_skills": [
+          "general_chat",
+          "explain_metric",
+          "rebuild_week"
+        ],
+        "expected_intent": "GENERAL_CHAT",
+        "actual_skill": "general_chat",
+        "actual_intent": "GENERAL_CHAT",
+        "plan_advice_mode": false,
+        "go_deeper_mode": false
+      },
+      {
+        "case_id": "general_chat_018",
+        "category": "general_chat",
+        "message": "Tips for running in the rain?",
+        "pass": true,
+        "skill_ok": true,
+        "intent_ok": true,
+        "expected_skill": "general_chat",
+        "acceptable_skills": [
+          "general_chat",
+          "explain_metric",
+          "rebuild_week"
+        ],
+        "expected_intent": "GENERAL_CHAT",
+        "actual_skill": "general_chat",
+        "actual_intent": "GENERAL_CHAT",
+        "plan_advice_mode": false,
+        "go_deeper_mode": false
+      },
+      {
+        "case_id": "general_chat_019",
+        "category": "general_chat",
+        "message": "How should I breathe on easy runs?",
+        "pass": true,
+        "skill_ok": true,
+        "intent_ok": true,
+        "expected_skill": "general_chat",
+        "acceptable_skills": [
+          "general_chat",
+          "explain_metric",
+          "rebuild_week"
+        ],
+        "expected_intent": "GENERAL_CHAT",
+        "actual_skill": "general_chat",
+        "actual_intent": "GENERAL_CHAT",
+        "plan_advice_mode": false,
+        "go_deeper_mode": false
+      },
+      {
+        "case_id": "general_chat_020",
+        "category": "general_chat",
+        "message": "What cadence should I aim for?",
+        "pass": true,
+        "skill_ok": true,
+        "intent_ok": true,
+        "expected_skill": "general_chat",
+        "acceptable_skills": [
+          "general_chat",
+          "explain_metric",
+          "rebuild_week"
+        ],
+        "expected_intent": "GENERAL_CHAT",
+        "actual_skill": "general_chat",
+        "actual_intent": "GENERAL_CHAT",
+        "plan_advice_mode": false,
+        "go_deeper_mode": false
+      },
+      {
+        "case_id": "clinical_001",
+        "category": "clinical",
+        "message": "Sharp pain in my knee when I run",
+        "pass": true,
+        "skill_ok": true,
+        "intent_ok": true,
+        "expected_skill": "clinical",
+        "acceptable_skills": [
+          "clinical",
+          "general_chat",
+          "adjust_day"
+        ],
+        "expected_intent": "CLINICAL_VETO",
+        "actual_skill": "clinical",
+        "actual_intent": "CLINICAL_VETO",
+        "plan_advice_mode": false,
+        "go_deeper_mode": false
+      },
+      {
+        "case_id": "clinical_002",
+        "category": "clinical",
+        "message": "Achilles tendon hurts after yesterday",
+        "pass": true,
+        "skill_ok": true,
+        "intent_ok": false,
+        "expected_skill": "clinical",
+        "acceptable_skills": [
+          "clinical",
+          "general_chat",
+          "adjust_day"
+        ],
+        "expected_intent": "CLINICAL_VETO",
+        "actual_skill": "general_chat",
+        "actual_intent": "GENERAL_CHAT",
+        "plan_advice_mode": false,
+        "go_deeper_mode": false
+      },
+      {
+        "case_id": "clinical_003",
+        "category": "clinical",
+        "message": "Chest pain during intervals",
+        "pass": true,
+        "skill_ok": true,
+        "intent_ok": false,
+        "expected_skill": "clinical",
+        "acceptable_skills": [
+          "clinical",
+          "general_chat",
+          "adjust_day"
+        ],
+        "expected_intent": "CLINICAL_VETO",
+        "actual_skill": "general_chat",
+        "actual_intent": "GENERAL_CHAT",
+        "plan_advice_mode": false,
+        "go_deeper_mode": false
+      },
+      {
+        "case_id": "clinical_004",
+        "category": "clinical",
+        "message": "I think I tore something in my calf",
+        "pass": true,
+        "skill_ok": true,
+        "intent_ok": false,
+        "expected_skill": "clinical",
+        "acceptable_skills": [
+          "clinical",
+          "general_chat",
+          "adjust_day"
+        ],
+        "expected_intent": "CLINICAL_VETO",
+        "actual_skill": "general_chat",
+        "actual_intent": "GENERAL_CHAT",
+        "plan_advice_mode": false,
+        "go_deeper_mode": false
+      },
+      {
+        "case_id": "clinical_005",
+        "category": "clinical",
+        "message": "Stabbing pain in my hip",
+        "pass": true,
+        "skill_ok": true,
+        "intent_ok": true,
+        "expected_skill": "clinical",
+        "acceptable_skills": [
+          "clinical",
+          "general_chat",
+          "adjust_day"
+        ],
+        "expected_intent": "CLINICAL_VETO",
+        "actual_skill": "clinical",
+        "actual_intent": "CLINICAL_VETO",
+        "plan_advice_mode": false,
+        "go_deeper_mode": false
+      },
+      {
+        "case_id": "clinical_006",
+        "category": "clinical",
+        "message": "Doctor said stress fracture \u2014 can I train?",
+        "pass": true,
+        "skill_ok": true,
+        "intent_ok": false,
+        "expected_skill": "clinical",
+        "acceptable_skills": [
+          "clinical",
+          "general_chat",
+          "adjust_day"
+        ],
+        "expected_intent": "CLINICAL_VETO",
+        "actual_skill": "adjust_day",
+        "actual_intent": "DAY_ADJUST",
+        "plan_advice_mode": false,
+        "go_deeper_mode": false
+      },
+      {
+        "case_id": "clinical_007",
+        "category": "clinical",
+        "message": "Sharp shin pain \u2014 should I run tomorrow?",
+        "pass": true,
+        "skill_ok": true,
+        "intent_ok": true,
+        "expected_skill": "clinical",
+        "acceptable_skills": [
+          "clinical",
+          "general_chat",
+          "adjust_day"
+        ],
+        "expected_intent": "CLINICAL_VETO",
+        "actual_skill": "clinical",
+        "actual_intent": "CLINICAL_VETO",
+        "plan_advice_mode": false,
+        "go_deeper_mode": false
+      },
+      {
+        "case_id": "clinical_008",
+        "category": "clinical",
+        "message": "My back spasms when I deadlift",
+        "pass": true,
+        "skill_ok": true,
+        "intent_ok": false,
+        "expected_skill": "clinical",
+        "acceptable_skills": [
+          "clinical",
+          "general_chat",
+          "adjust_day"
+        ],
+        "expected_intent": "CLINICAL_VETO",
+        "actual_skill": "general_chat",
+        "actual_intent": "GENERAL_CHAT",
+        "plan_advice_mode": false,
+        "go_deeper_mode": false
+      },
+      {
+        "case_id": "clinical_009",
+        "category": "clinical",
+        "message": "Numbness in my foot after long runs",
+        "pass": true,
+        "skill_ok": true,
+        "intent_ok": false,
+        "expected_skill": "clinical",
+        "acceptable_skills": [
+          "clinical",
+          "general_chat",
+          "adjust_day"
+        ],
+        "expected_intent": "CLINICAL_VETO",
+        "actual_skill": "general_chat",
+        "actual_intent": "GENERAL_CHAT",
+        "plan_advice_mode": false,
+        "go_deeper_mode": false
+      },
+      {
+        "case_id": "clinical_010",
+        "category": "clinical",
+        "message": "ACL recovery \u2014 when can I run?",
+        "pass": true,
+        "skill_ok": true,
+        "intent_ok": false,
+        "expected_skill": "clinical",
+        "acceptable_skills": [
+          "clinical",
+          "general_chat",
+          "adjust_day"
+        ],
+        "expected_intent": "CLINICAL_VETO",
+        "actual_skill": "general_chat",
+        "actual_intent": "GENERAL_CHAT",
+        "plan_advice_mode": false,
+        "go_deeper_mode": false
+      },
+      {
+        "case_id": "clinical_011",
+        "category": "clinical",
+        "message": "Painful pop in my knee",
+        "pass": true,
+        "skill_ok": true,
+        "intent_ok": false,
+        "expected_skill": "clinical",
+        "acceptable_skills": [
+          "clinical",
+          "general_chat",
+          "adjust_day"
+        ],
+        "expected_intent": "CLINICAL_VETO",
+        "actual_skill": "general_chat",
+        "actual_intent": "GENERAL_CHAT",
+        "plan_advice_mode": false,
+        "go_deeper_mode": false
+      },
+      {
+        "case_id": "clinical_012",
+        "category": "clinical",
+        "message": "Diagnosed with plantar fasciitis \u2014 plan?",
+        "pass": true,
+        "skill_ok": true,
+        "intent_ok": false,
+        "expected_skill": "clinical",
+        "acceptable_skills": [
+          "clinical",
+          "general_chat",
+          "adjust_day"
+        ],
+        "expected_intent": "CLINICAL_VETO",
+        "actual_skill": "general_chat",
+        "actual_intent": "GENERAL_CHAT",
+        "plan_advice_mode": false,
+        "go_deeper_mode": false
+      },
+      {
+        "case_id": "off_topic_001",
+        "category": "off_topic",
+        "message": "What's the weather tomorrow?",
+        "pass": true,
+        "skill_ok": true,
+        "intent_ok": false,
+        "expected_skill": "off_topic",
+        "acceptable_skills": [
+          "off_topic",
+          "general_chat",
+          "explain_metric"
+        ],
+        "expected_intent": "OFF_TOPIC",
+        "actual_skill": "explain_metric",
+        "actual_intent": "SCIENCE_LOOKUP",
+        "plan_advice_mode": false,
+        "go_deeper_mode": false
+      },
+      {
+        "case_id": "off_topic_002",
+        "category": "off_topic",
+        "message": "Write me a Python script",
+        "pass": true,
+        "skill_ok": true,
+        "intent_ok": false,
+        "expected_skill": "off_topic",
+        "acceptable_skills": [
+          "off_topic",
+          "general_chat",
+          "explain_metric"
+        ],
+        "expected_intent": "OFF_TOPIC",
+        "actual_skill": "general_chat",
+        "actual_intent": "GENERAL_CHAT",
+        "plan_advice_mode": false,
+        "go_deeper_mode": false
+      },
+      {
+        "case_id": "off_topic_003",
+        "category": "off_topic",
+        "message": "Who won the election?",
+        "pass": true,
+        "skill_ok": true,
+        "intent_ok": true,
+        "expected_skill": "off_topic",
+        "acceptable_skills": [
+          "off_topic",
+          "general_chat",
+          "explain_metric"
+        ],
+        "expected_intent": "OFF_TOPIC",
+        "actual_skill": "off_topic",
+        "actual_intent": "OFF_TOPIC",
+        "plan_advice_mode": false,
+        "go_deeper_mode": false
+      },
+      {
+        "case_id": "off_topic_004",
+        "category": "off_topic",
+        "message": "Recommend a restaurant nearby",
+        "pass": true,
+        "skill_ok": true,
+        "intent_ok": false,
+        "expected_skill": "off_topic",
+        "acceptable_skills": [
+          "off_topic",
+          "general_chat",
+          "explain_metric"
+        ],
+        "expected_intent": "OFF_TOPIC",
+        "actual_skill": "general_chat",
+        "actual_intent": "GENERAL_CHAT",
+        "plan_advice_mode": false,
+        "go_deeper_mode": false
+      },
+      {
+        "case_id": "off_topic_005",
+        "category": "off_topic",
+        "message": "Help with my taxes",
+        "pass": true,
+        "skill_ok": true,
+        "intent_ok": false,
+        "expected_skill": "off_topic",
+        "acceptable_skills": [
+          "off_topic",
+          "general_chat",
+          "explain_metric"
+        ],
+        "expected_intent": "OFF_TOPIC",
+        "actual_skill": "general_chat",
+        "actual_intent": "GENERAL_CHAT",
+        "plan_advice_mode": false,
+        "go_deeper_mode": false
+      },
+      {
+        "case_id": "off_topic_006",
+        "category": "off_topic",
+        "message": "What's the capital of France?",
+        "pass": true,
+        "skill_ok": true,
+        "intent_ok": false,
+        "expected_skill": "off_topic",
+        "acceptable_skills": [
+          "off_topic",
+          "general_chat",
+          "explain_metric"
+        ],
+        "expected_intent": "OFF_TOPIC",
+        "actual_skill": "explain_metric",
+        "actual_intent": "SCIENCE_LOOKUP",
+        "plan_advice_mode": false,
+        "go_deeper_mode": false
+      },
+      {
+        "case_id": "off_topic_007",
+        "category": "off_topic",
+        "message": "Tell me a joke about cats",
+        "pass": true,
+        "skill_ok": true,
+        "intent_ok": false,
+        "expected_skill": "off_topic",
+        "acceptable_skills": [
+          "off_topic",
+          "general_chat",
+          "explain_metric"
+        ],
+        "expected_intent": "OFF_TOPIC",
+        "actual_skill": "general_chat",
+        "actual_intent": "GENERAL_CHAT",
+        "plan_advice_mode": false,
+        "go_deeper_mode": false
+      },
+      {
+        "case_id": "off_topic_008",
+        "category": "off_topic",
+        "message": "Book me a flight",
+        "pass": true,
+        "skill_ok": true,
+        "intent_ok": false,
+        "expected_skill": "off_topic",
+        "acceptable_skills": [
+          "off_topic",
+          "general_chat",
+          "explain_metric"
+        ],
+        "expected_intent": "OFF_TOPIC",
+        "actual_skill": "general_chat",
+        "actual_intent": "GENERAL_CHAT",
+        "plan_advice_mode": false,
+        "go_deeper_mode": false
+      },
+      {
+        "case_id": "off_topic_009",
+        "category": "off_topic",
+        "message": "How do I fix my WiFi?",
+        "pass": true,
+        "skill_ok": true,
+        "intent_ok": false,
+        "expected_skill": "off_topic",
+        "acceptable_skills": [
+          "off_topic",
+          "general_chat",
+          "explain_metric"
+        ],
+        "expected_intent": "OFF_TOPIC",
+        "actual_skill": "general_chat",
+        "actual_intent": "GENERAL_CHAT",
+        "plan_advice_mode": false,
+        "go_deeper_mode": false
+      },
+      {
+        "case_id": "off_topic_010",
+        "category": "off_topic",
+        "message": "What's the stock price of Apple?",
+        "pass": true,
+        "skill_ok": true,
+        "intent_ok": true,
+        "expected_skill": "off_topic",
+        "acceptable_skills": [
+          "off_topic",
+          "general_chat",
+          "explain_metric"
+        ],
+        "expected_intent": "OFF_TOPIC",
+        "actual_skill": "off_topic",
+        "actual_intent": "OFF_TOPIC",
+        "plan_advice_mode": false,
+        "go_deeper_mode": false
+      },
+      {
+        "case_id": "taper_race_001",
+        "category": "taper_race",
+        "message": "How should I taper this week before my race?",
+        "pass": true,
+        "skill_ok": true,
+        "intent_ok": true,
+        "expected_skill": "general_chat",
+        "acceptable_skills": [
+          "general_chat",
+          "rebuild_week",
+          "explain_metric"
+        ],
+        "expected_intent": "GENERAL_CHAT",
+        "actual_skill": "general_chat",
+        "actual_intent": "GENERAL_CHAT",
+        "plan_advice_mode": false,
+        "go_deeper_mode": false
+      },
+      {
+        "case_id": "taper_race_002",
+        "category": "taper_race",
+        "message": "Race week \u2014 drop volume or intensity?",
+        "pass": true,
+        "skill_ok": true,
+        "intent_ok": true,
+        "expected_skill": "general_chat",
+        "acceptable_skills": [
+          "general_chat",
+          "rebuild_week",
+          "explain_metric"
+        ],
+        "expected_intent": "GENERAL_CHAT",
+        "actual_skill": "general_chat",
+        "actual_intent": "GENERAL_CHAT",
+        "plan_advice_mode": false,
+        "go_deeper_mode": false
+      },
+      {
+        "case_id": "taper_race_003",
+        "category": "taper_race",
+        "message": "Three days out from a half \u2014 what should I do?",
+        "pass": true,
+        "skill_ok": true,
+        "intent_ok": true,
+        "expected_skill": "general_chat",
+        "acceptable_skills": [
+          "general_chat",
+          "rebuild_week",
+          "explain_metric"
+        ],
+        "expected_intent": "GENERAL_CHAT",
+        "actual_skill": "general_chat",
+        "actual_intent": "GENERAL_CHAT",
+        "plan_advice_mode": false,
+        "go_deeper_mode": false
+      },
+      {
+        "case_id": "taper_race_004",
+        "category": "taper_race",
+        "message": "Pre-race nerves \u2014 normal?",
+        "pass": true,
+        "skill_ok": true,
+        "intent_ok": true,
+        "expected_skill": "general_chat",
+        "acceptable_skills": [
+          "general_chat",
+          "rebuild_week",
+          "explain_metric"
+        ],
+        "expected_intent": "GENERAL_CHAT",
+        "actual_skill": "general_chat",
+        "actual_intent": "GENERAL_CHAT",
+        "plan_advice_mode": false,
+        "go_deeper_mode": false
+      },
+      {
+        "case_id": "taper_race_005",
+        "category": "taper_race",
+        "message": "Should I run the day before a 5K?",
+        "pass": true,
+        "skill_ok": true,
+        "intent_ok": true,
+        "expected_skill": "general_chat",
+        "acceptable_skills": [
+          "general_chat",
+          "rebuild_week",
+          "explain_metric"
+        ],
+        "expected_intent": "GENERAL_CHAT",
+        "actual_skill": "general_chat",
+        "actual_intent": "GENERAL_CHAT",
+        "plan_advice_mode": false,
+        "go_deeper_mode": false
+      },
+      {
+        "case_id": "taper_race_006",
+        "category": "taper_race",
+        "message": "Marathon week plan \u2014 how much to cut?",
+        "pass": true,
+        "skill_ok": true,
+        "intent_ok": false,
+        "expected_skill": "general_chat",
+        "acceptable_skills": [
+          "general_chat",
+          "rebuild_week",
+          "explain_metric"
+        ],
+        "expected_intent": "GENERAL_CHAT",
+        "actual_skill": "rebuild_week",
+        "actual_intent": "SCHEDULE_UPDATE",
+        "plan_advice_mode": false,
+        "go_deeper_mode": false
+      },
+      {
+        "case_id": "taper_race_007",
+        "category": "taper_race",
+        "message": "Taper madness \u2014 is this normal?",
+        "pass": true,
+        "skill_ok": true,
+        "intent_ok": true,
+        "expected_skill": "general_chat",
+        "acceptable_skills": [
+          "general_chat",
+          "rebuild_week",
+          "explain_metric"
+        ],
+        "expected_intent": "GENERAL_CHAT",
+        "actual_skill": "general_chat",
+        "actual_intent": "GENERAL_CHAT",
+        "plan_advice_mode": false,
+        "go_deeper_mode": false
+      },
+      {
+        "case_id": "taper_race_008",
+        "category": "taper_race",
+        "message": "Race morning routine tips?",
+        "pass": true,
+        "skill_ok": true,
+        "intent_ok": true,
+        "expected_skill": "general_chat",
+        "acceptable_skills": [
+          "general_chat",
+          "rebuild_week",
+          "explain_metric"
+        ],
+        "expected_intent": "GENERAL_CHAT",
+        "actual_skill": "general_chat",
+        "actual_intent": "GENERAL_CHAT",
+        "plan_advice_mode": false,
+        "go_deeper_mode": false
+      },
+      {
+        "case_id": "taper_race_009",
+        "category": "taper_race",
+        "message": "How fresh should I feel on race day?",
+        "pass": true,
+        "skill_ok": true,
+        "intent_ok": true,
+        "expected_skill": "general_chat",
+        "acceptable_skills": [
+          "general_chat",
+          "rebuild_week",
+          "explain_metric"
+        ],
+        "expected_intent": "GENERAL_CHAT",
+        "actual_skill": "general_chat",
+        "actual_intent": "GENERAL_CHAT",
+        "plan_advice_mode": false,
+        "go_deeper_mode": false
+      },
+      {
+        "case_id": "taper_race_010",
+        "category": "taper_race",
+        "message": "Can I do a short shakeout run Friday before Sunday race?",
+        "pass": true,
+        "skill_ok": true,
+        "intent_ok": false,
+        "expected_skill": "general_chat",
+        "acceptable_skills": [
+          "general_chat",
+          "rebuild_week",
+          "explain_metric"
+        ],
+        "expected_intent": "GENERAL_CHAT",
+        "actual_skill": "rebuild_week",
+        "actual_intent": "SCHEDULE_UPDATE",
+        "plan_advice_mode": false,
+        "go_deeper_mode": false
+      },
+      {
+        "case_id": "taper_race_011",
+        "category": "taper_race",
+        "message": "Peak week vs taper \u2014 what's the difference?",
+        "pass": true,
+        "skill_ok": true,
+        "intent_ok": false,
+        "expected_skill": "general_chat",
+        "acceptable_skills": [
+          "general_chat",
+          "rebuild_week",
+          "explain_metric"
+        ],
+        "expected_intent": "GENERAL_CHAT",
+        "actual_skill": "explain_metric",
+        "actual_intent": "SCIENCE_LOOKUP",
+        "plan_advice_mode": false,
+        "go_deeper_mode": false
+      },
+      {
+        "case_id": "taper_race_012",
+        "category": "taper_race",
+        "message": "Should I carb load two days out?",
+        "pass": true,
+        "skill_ok": true,
+        "intent_ok": true,
+        "expected_skill": "general_chat",
+        "acceptable_skills": [
+          "general_chat",
+          "rebuild_week",
+          "explain_metric"
+        ],
+        "expected_intent": "GENERAL_CHAT",
+        "actual_skill": "general_chat",
+        "actual_intent": "GENERAL_CHAT",
+        "plan_advice_mode": false,
+        "go_deeper_mode": false
+      },
+      {
+        "case_id": "taper_race_013",
+        "category": "taper_race",
+        "message": "Race week sleep is bad \u2014 am I screwed?",
+        "pass": true,
+        "skill_ok": true,
+        "intent_ok": true,
+        "expected_skill": "general_chat",
+        "acceptable_skills": [
+          "general_chat",
+          "rebuild_week",
+          "explain_metric"
+        ],
+        "expected_intent": "GENERAL_CHAT",
+        "actual_skill": "general_chat",
+        "actual_intent": "GENERAL_CHAT",
+        "plan_advice_mode": false,
+        "go_deeper_mode": false
+      },
+      {
+        "case_id": "taper_race_014",
+        "category": "taper_race",
+        "message": "Strides during taper week?",
+        "pass": true,
+        "skill_ok": true,
+        "intent_ok": true,
+        "expected_skill": "general_chat",
+        "acceptable_skills": [
+          "general_chat",
+          "rebuild_week",
+          "explain_metric"
+        ],
+        "expected_intent": "GENERAL_CHAT",
+        "actual_skill": "general_chat",
+        "actual_intent": "GENERAL_CHAT",
+        "plan_advice_mode": false,
+        "go_deeper_mode": false
+      },
+      {
+        "case_id": "taper_race_015",
+        "category": "taper_race",
+        "message": "How to handle a B-race mid block?",
+        "pass": true,
+        "skill_ok": true,
+        "intent_ok": true,
+        "expected_skill": "general_chat",
+        "acceptable_skills": [
+          "general_chat",
+          "rebuild_week",
+          "explain_metric"
+        ],
+        "expected_intent": "GENERAL_CHAT",
+        "actual_skill": "general_chat",
+        "actual_intent": "GENERAL_CHAT",
+        "plan_advice_mode": false,
+        "go_deeper_mode": false
+      },
+      {
+        "case_id": "travel_001",
+        "category": "travel",
+        "message": "Traveling next week \u2014 missed two runs, stressed",
+        "pass": true,
+        "skill_ok": true,
+        "intent_ok": false,
+        "expected_skill": "support_chat",
+        "acceptable_skills": [
+          "support_chat",
+          "general_chat",
+          "adjust_day",
+          "rebuild_week"
+        ],
+        "expected_intent": "GENERAL_CHAT",
+        "actual_skill": "adjust_day",
+        "actual_intent": "DAY_ADJUST",
+        "plan_advice_mode": false,
+        "go_deeper_mode": false
+      },
+      {
+        "case_id": "travel_002",
+        "category": "travel",
+        "message": "Airport day \u2014 how do I salvage training?",
+        "pass": true,
+        "skill_ok": true,
+        "intent_ok": true,
+        "expected_skill": "support_chat",
+        "acceptable_skills": [
+          "support_chat",
+          "general_chat",
+          "adjust_day",
+          "rebuild_week"
+        ],
+        "expected_intent": "GENERAL_CHAT",
+        "actual_skill": "general_chat",
+        "actual_intent": "GENERAL_CHAT",
+        "plan_advice_mode": false,
+        "go_deeper_mode": false
+      },
+      {
+        "case_id": "travel_003",
+        "category": "travel",
+        "message": "Time zone change ruined my sleep and I missed Monday",
+        "pass": true,
+        "skill_ok": true,
+        "intent_ok": true,
+        "expected_skill": "support_chat",
+        "acceptable_skills": [
+          "support_chat",
+          "general_chat",
+          "adjust_day",
+          "rebuild_week"
+        ],
+        "expected_intent": "GENERAL_CHAT",
+        "actual_skill": "support_chat",
+        "actual_intent": "GENERAL_CHAT",
+        "plan_advice_mode": false,
+        "go_deeper_mode": false
+      },
+      {
+        "case_id": "travel_004",
+        "category": "travel",
+        "message": "Hotel gym only \u2014 rough week ahead",
+        "pass": true,
+        "skill_ok": true,
+        "intent_ok": true,
+        "expected_skill": "support_chat",
+        "acceptable_skills": [
+          "support_chat",
+          "general_chat",
+          "adjust_day",
+          "rebuild_week"
+        ],
+        "expected_intent": "GENERAL_CHAT",
+        "actual_skill": "general_chat",
+        "actual_intent": "GENERAL_CHAT",
+        "plan_advice_mode": false,
+        "go_deeper_mode": false
+      },
+      {
+        "case_id": "travel_005",
+        "category": "travel",
+        "message": "Train ride all day Sunday \u2014 missed long run, anxious",
+        "pass": true,
+        "skill_ok": true,
+        "intent_ok": true,
+        "expected_skill": "support_chat",
+        "acceptable_skills": [
+          "support_chat",
+          "general_chat",
+          "adjust_day",
+          "rebuild_week"
+        ],
+        "expected_intent": "GENERAL_CHAT",
+        "actual_skill": "support_chat",
+        "actual_intent": "GENERAL_CHAT",
+        "plan_advice_mode": false,
+        "go_deeper_mode": false
+      },
+      {
+        "case_id": "travel_006",
+        "category": "travel",
+        "message": "Business trip \u2014 busy and couldn't train",
+        "pass": true,
+        "skill_ok": true,
+        "intent_ok": true,
+        "expected_skill": "support_chat",
+        "acceptable_skills": [
+          "support_chat",
+          "general_chat",
+          "adjust_day",
+          "rebuild_week"
+        ],
+        "expected_intent": "GENERAL_CHAT",
+        "actual_skill": "support_chat",
+        "actual_intent": "GENERAL_CHAT",
+        "plan_advice_mode": false,
+        "go_deeper_mode": false
+      },
+      {
+        "case_id": "travel_007",
+        "category": "travel",
+        "message": "Packing for travel \u2014 nervous about missing workouts",
+        "pass": true,
+        "skill_ok": true,
+        "intent_ok": true,
+        "expected_skill": "support_chat",
+        "acceptable_skills": [
+          "support_chat",
+          "general_chat",
+          "adjust_day",
+          "rebuild_week"
+        ],
+        "expected_intent": "GENERAL_CHAT",
+        "actual_skill": "general_chat",
+        "actual_intent": "GENERAL_CHAT",
+        "plan_advice_mode": false,
+        "go_deeper_mode": false
+      },
+      {
+        "case_id": "travel_008",
+        "category": "travel",
+        "message": "Jet lag and missed sessions \u2014 help",
+        "pass": true,
+        "skill_ok": true,
+        "intent_ok": true,
+        "expected_skill": "support_chat",
+        "acceptable_skills": [
+          "support_chat",
+          "general_chat",
+          "adjust_day",
+          "rebuild_week"
+        ],
+        "expected_intent": "GENERAL_CHAT",
+        "actual_skill": "support_chat",
+        "actual_intent": "GENERAL_CHAT",
+        "plan_advice_mode": false,
+        "go_deeper_mode": false
+      },
+      {
+        "case_id": "travel_009",
+        "category": "travel",
+        "message": "Travel fatigue \u2014 missed three days",
+        "pass": true,
+        "skill_ok": true,
+        "intent_ok": true,
+        "expected_skill": "support_chat",
+        "acceptable_skills": [
+          "support_chat",
+          "general_chat",
+          "adjust_day",
+          "rebuild_week"
+        ],
+        "expected_intent": "GENERAL_CHAT",
+        "actual_skill": "support_chat",
+        "actual_intent": "GENERAL_CHAT",
+        "plan_advice_mode": false,
+        "go_deeper_mode": false
+      },
+      {
+        "case_id": "travel_010",
+        "category": "travel",
+        "message": "Away from home \u2014 stressed about falling behind",
+        "pass": true,
+        "skill_ok": true,
+        "intent_ok": false,
+        "expected_skill": "support_chat",
+        "acceptable_skills": [
+          "support_chat",
+          "general_chat",
+          "adjust_day",
+          "rebuild_week"
+        ],
+        "expected_intent": "GENERAL_CHAT",
+        "actual_skill": "adjust_day",
+        "actual_intent": "DAY_ADJUST",
+        "plan_advice_mode": false,
+        "go_deeper_mode": false
+      },
+      {
+        "case_id": "travel_011",
+        "category": "travel",
+        "message": "Conference week \u2014 rough schedule, missed training",
+        "pass": true,
+        "skill_ok": true,
+        "intent_ok": false,
+        "expected_skill": "support_chat",
+        "acceptable_skills": [
+          "support_chat",
+          "general_chat",
+          "adjust_day",
+          "rebuild_week"
+        ],
+        "expected_intent": "GENERAL_CHAT",
+        "actual_skill": "rebuild_week",
+        "actual_intent": "SCHEDULE_UPDATE",
+        "plan_advice_mode": false,
+        "go_deeper_mode": false
+      },
+      {
+        "case_id": "travel_012",
+        "category": "travel",
+        "message": "Vacation without bike \u2014 feeling guilty",
+        "pass": true,
+        "skill_ok": true,
+        "intent_ok": true,
+        "expected_skill": "support_chat",
+        "acceptable_skills": [
+          "support_chat",
+          "general_chat",
+          "adjust_day",
+          "rebuild_week"
+        ],
+        "expected_intent": "GENERAL_CHAT",
+        "actual_skill": "support_chat",
+        "actual_intent": "GENERAL_CHAT",
+        "plan_advice_mode": false,
+        "go_deeper_mode": false
+      },
+      {
+        "case_id": "travel_013",
+        "category": "travel",
+        "message": "Long flight then race \u2014 bad combo?",
+        "pass": true,
+        "skill_ok": true,
+        "intent_ok": true,
+        "expected_skill": "support_chat",
+        "acceptable_skills": [
+          "support_chat",
+          "general_chat",
+          "adjust_day",
+          "rebuild_week"
+        ],
+        "expected_intent": "GENERAL_CHAT",
+        "actual_skill": "general_chat",
+        "actual_intent": "GENERAL_CHAT",
+        "plan_advice_mode": false,
+        "go_deeper_mode": false
+      },
+      {
+        "case_id": "travel_014",
+        "category": "travel",
+        "message": "Travel stress and missed quality session",
+        "pass": true,
+        "skill_ok": true,
+        "intent_ok": false,
+        "expected_skill": "support_chat",
+        "acceptable_skills": [
+          "support_chat",
+          "general_chat",
+          "adjust_day",
+          "rebuild_week"
+        ],
+        "expected_intent": "GENERAL_CHAT",
+        "actual_skill": "adjust_day",
+        "actual_intent": "DAY_ADJUST",
+        "plan_advice_mode": false,
+        "go_deeper_mode": false
+      },
+      {
+        "case_id": "travel_015",
+        "category": "travel",
+        "message": "Can only run on treadmill while traveling \u2014 missed outdoor long run",
+        "pass": true,
+        "skill_ok": true,
+        "intent_ok": true,
+        "expected_skill": "support_chat",
+        "acceptable_skills": [
+          "support_chat",
+          "general_chat",
+          "adjust_day",
+          "rebuild_week"
+        ],
+        "expected_intent": "GENERAL_CHAT",
+        "actual_skill": "support_chat",
+        "actual_intent": "GENERAL_CHAT",
+        "plan_advice_mode": false,
+        "go_deeper_mode": false
+      }
+    ]
+  },
+  "grounding": {
+    "total": 1,
+    "passed": 1,
+    "failed": 0,
+    "pass_rate": 1.0,
+    "min_pass_rate": 1.0,
+    "regression_pass": true,
+    "failures": [],
+    "cases": [
+      {
+        "case_id": "weekend_plan_no_memory_bleed",
+        "description": "Fri\u2013Sun stack before rest week \u2014 must not invent bike fit/travel/Kolhapur",
+        "pass": true,
+        "score": 1.0,
+        "detail": "grounded",
+        "reply_preview": "I've looked at what you're proposing against the rest of your week \u2014 and I appreciate you thinking it through before stacking sessions.\n\nLooking at your proposed plan for the next few days, you've got the **right instincts** \u2014 but let's mak"
+      }
+    ]
+  },
+  "quality": {
+    "cases": 4,
+    "overall_avg": 0.98,
+    "min_avg_score": 0.65,
+    "regression_pass": true,
+    "rows": [
+      {
+        "case_id": "replan_same_schedule",
+        "category": null,
+        "score": {
+          "total": 0.97,
+          "dimensions": {
+            "empathy": {
+              "score": 0.85,
+              "detail": "supportive=yes"
+            },
+            "ui_hygiene": {
+              "score": 1.0,
+              "detail": "ui_leaks=0"
+            },
+            "skill_adherence": {
+              "score": 1.0,
+              "detail": "skill_not_set"
+            },
+            "science_grounding": {
+              "score": 1.0,
+              "detail": "science_terms=5"
+            },
+            "phase7_composite": {
+              "score": 1.0,
+              "detail": "phase7_total=1.0"
+            }
+          },
+          "phase7": {
+            "total": 1.0,
+            "dimensions": {
+              "diversity": {
+                "score": 1.0,
+                "detail": "not measured"
+              },
+              "intent_adherence": {
+                "score": 1.0,
+                "detail": "what_changed=y, zone_mentions=y, no_weekly_translations=y, triplet_cap=y, no_formal_triplet_labels=y"
+              },
+              "plain_language": {
+                "score": 1.0,
+                "detail": "fk_grade=5.39, banned_headers=0, words=106"
+              },
+              "athlete_panel": {
+                "score": 1.0,
+                "detail": "would_read=yes, words=106, headers=6"
+              }
+            },
+            "would_read_whole_message": true
+          },
+          "would_read_whole_message": true,
+          "auto_flag": false
+        },
+        "pass": true
+      },
+      {
+        "case_id": "adjust_week_full",
+        "category": null,
+        "score": {
+          "total": 0.948,
+          "dimensions": {
+            "empathy": {
+              "score": 0.85,
+              "detail": "supportive=yes"
+            },
+            "ui_hygiene": {
+              "score": 1.0,
+              "detail": "ui_leaks=0"
+            },
+            "skill_adherence": {
+              "score": 1.0,
+              "detail": "skill_not_set"
+            },
+            "science_grounding": {
+              "score": 0.85,
+              "detail": "science_terms=2"
+            },
+            "phase7_composite": {
+              "score": 1.0,
+              "detail": "phase7_total=1.0"
+            }
+          },
+          "phase7": {
+            "total": 1.0,
+            "dimensions": {
+              "diversity": {
+                "score": 1.0,
+                "detail": "not measured"
+              },
+              "intent_adherence": {
+                "score": 1.0,
+                "detail": "no_weekly_translations=y, triplet_cap=y"
+              },
+              "plain_language": {
+                "score": 1.0,
+                "detail": "fk_grade=4.95, banned_headers=0, words=81"
+              },
+              "athlete_panel": {
+                "score": 1.0,
+                "detail": "would_read=yes, words=81, headers=5"
+              }
+            },
+            "would_read_whole_message": true
+          },
+          "would_read_whole_message": true,
+          "auto_flag": false
+        },
+        "pass": true
+      },
+      {
+        "case_id": "why_acwr",
+        "category": null,
+        "score": {
+          "total": 1.0,
+          "dimensions": {
+            "empathy": {
+              "score": 1.0,
+              "detail": "supportive=neutral"
+            },
+            "ui_hygiene": {
+              "score": 1.0,
+              "detail": "ui_leaks=0"
+            },
+            "skill_adherence": {
+              "score": 1.0,
+              "detail": "skill_not_set"
+            },
+            "science_grounding": {
+              "score": 1.0,
+              "detail": "science_terms=5"
+            },
+            "phase7_composite": {
+              "score": 1.0,
+              "detail": "phase7_total=1.0"
+            }
+          },
+          "phase7": {
+            "total": 1.0,
+            "dimensions": {
+              "diversity": {
+                "score": 1.0,
+                "detail": "not measured"
+              },
+              "intent_adherence": {
+                "score": 1.0,
+                "detail": "triplet_cap=y"
+              },
+              "plain_language": {
+                "score": 1.0,
+                "detail": "fk_grade=5.91, banned_headers=0, words=119"
+              },
+              "athlete_panel": {
+                "score": 1.0,
+                "detail": "would_read=yes, words=119, headers=1"
+              }
+            },
+            "would_read_whole_message": true
+          },
+          "would_read_whole_message": true,
+          "auto_flag": false
+        },
+        "pass": true
+      },
+      {
+        "case_id": "general_pace",
+        "category": null,
+        "score": {
+          "total": 1.0,
+          "dimensions": {
+            "empathy": {
+              "score": 1.0,
+              "detail": "supportive=neutral"
+            },
+            "ui_hygiene": {
+              "score": 1.0,
+              "detail": "ui_leaks=0"
+            },
+            "skill_adherence": {
+              "score": 1.0,
+              "detail": "skill_not_set"
+            },
+            "science_grounding": {
+              "score": 1.0,
+              "detail": "science_terms=3"
+            },
+            "phase7_composite": {
+              "score": 1.0,
+              "detail": "phase7_total=1.0"
+            }
+          },
+          "phase7": {
+            "total": 1.0,
+            "dimensions": {
+              "diversity": {
+                "score": 1.0,
+                "detail": "not measured"
+              },
+              "intent_adherence": {
+                "score": 1.0,
+                "detail": "no_weekly_translations=y, triplet_cap=y"
+              },
+              "plain_language": {
+                "score": 1.0,
+                "detail": "fk_grade=6.72, banned_headers=0, words=82"
+              },
+              "athlete_panel": {
+                "score": 1.0,
+                "detail": "would_read=yes, words=82, headers=1"
+              }
+            },
+            "would_read_whole_message": true
+          },
+          "would_read_whole_message": true,
+          "auto_flag": false
+        },
+        "pass": true
+      }
+    ]
+  },
+  "summary": {
+    "routing_pass_rate": 1.0,
+    "routing_regression_pass": true,
+    "grounding_pass_rate": 1.0,
+    "grounding_regression_pass": true,
+    "quality_avg": 0.98,
+    "quality_regression_pass": true,
+    "deploy_gate_pass": true
+  }
+}

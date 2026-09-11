@@ -273,34 +273,106 @@ def load_active_memories(db: Session, profile_id: int) -> list[CoachMemory]:
     return active
 
 
-def format_memory_prompt_block(memories: list[CoachMemory]) -> str:
+_EPISODIC_TRAVEL_RE = re.compile(
+    r"\b(travel(?:ing)?|train ride|by train|on the train|airport|jet lag|kolhapur)\b",
+    re.I,
+)
+
+
+def episodic_memory_relevant(row: CoachMemory, message: str) -> bool:
+    """Only inject episodic memory when the athlete's current message relates to it."""
+    text = message or ""
+    lower = text.lower()
+    content_lower = (row.content or "").lower()
+    category = (row.category or "").lower()
+
+    if "bike fit" in content_lower or category == "life_event":
+        return "bike fit" in lower
+    if category == "travel" or "travel" in content_lower:
+        if _EPISODIC_TRAVEL_RE.search(text):
+            return True
+        for token in re.findall(r"[a-z]{4,}", content_lower):
+            if token in {"travel", "athlete", "mentioned", "protect", "freshness", "logistics"}:
+                continue
+            if token in lower:
+                return True
+        return False
+    if category == "missed_session" or MISSED_OR_ROUGH_RE.search(row.content or ""):
+        return bool(MISSED_OR_ROUGH_RE.search(text))
+    return False
+
+
+def stable_memory_relevant(row: CoachMemory, message: str) -> bool:
+    """Stable facts are usually relevant; drop travel-only planning notes when not asked."""
+    if row.category != "planning":
+        return True
+    notes = row.content or ""
+    if _EPISODIC_TRAVEL_RE.search(notes) and not _EPISODIC_TRAVEL_RE.search(message or ""):
+        return False
+    return True
+
+
+def filter_memories_for_message(
+    memories: list[CoachMemory],
+    message: str,
+) -> list[CoachMemory]:
+    filtered: list[CoachMemory] = []
+    for row in memories:
+        if row.memory_type == MEMORY_EPISODIC:
+            if episodic_memory_relevant(row, message):
+                filtered.append(row)
+        elif row.memory_type == MEMORY_STABLE:
+            if stable_memory_relevant(row, message):
+                filtered.append(row)
+    return filtered
+
+
+def format_memory_prompt_block(
+    memories: list[CoachMemory],
+    *,
+    message: str | None = None,
+) -> str:
     if not memories:
         return ""
-    stable = [row for row in memories if row.memory_type == MEMORY_STABLE]
-    episodic = [row for row in memories if row.memory_type == MEMORY_EPISODIC]
+    scoped = filter_memories_for_message(memories, message or "") if message else memories
+    if not scoped:
+        return (
+            "COACH MEMORY\n"
+            "No cross-session facts apply to this specific message. "
+            "Do not mention bike fit, travel, missed sessions, or old context unless the athlete raises them now."
+        )
+    stable = [row for row in scoped if row.memory_type == MEMORY_STABLE]
+    episodic = [row for row in scoped if row.memory_type == MEMORY_EPISODIC]
     lines = [
-        "COACH MEMORY (cross-session — reference naturally; do not recite as a bullet list)",
+        "COACH MEMORY (background only — do not introduce these topics unless the athlete's "
+        "CURRENT message is about them)",
     ]
     if stable:
         lines.append("Stable facts:")
         for row in stable[:8]:
             lines.append(f"- {row.summary}: {row.content[:220]}")
     if episodic:
-        lines.append("Recent context:")
+        lines.append("Recent context (this turn only — already relevant to their message):")
         for row in episodic[:6]:
             lines.append(f"- {row.summary}: {row.content[:220]}")
     lines.append(
-        "Weave memory into empathy and advice. Never open with a memory dump or dashboard syntax."
+        "Use memory only when it directly helps answer what they asked right now. "
+        "Never open with bike fit, travel, guilt, or missed sessions unless they said so in THIS message."
     )
     return "\n".join(lines)
 
 
-def build_memory_bundle(db: Session, profile: AthleteProfile) -> dict:
+def build_memory_bundle(
+    db: Session,
+    profile: AthleteProfile,
+    *,
+    message: str | None = None,
+) -> dict:
     sync_stable_memories(db, profile)
     memories = load_active_memories(db, profile.id)
     return {
         "memories": memories,
-        "prompt_block": format_memory_prompt_block(memories),
+        "prompt_block": format_memory_prompt_block(memories, message=message),
         "count": len(memories),
     }
 

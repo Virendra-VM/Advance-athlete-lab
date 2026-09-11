@@ -35,6 +35,7 @@ SKILL_WEEK_PLAN_REVIEW = "week_plan_review"
 SKILL_ADJUST_DAY = "adjust_day"
 SKILL_EXPLAIN_METRIC = "explain_metric"
 SKILL_VALIDATE_PLAN = "validate_plan"
+SKILL_APPLY_PLAN = "apply_plan"
 SKILL_GO_DEEPER = "go_deeper"
 SKILL_SUPPORT_CHAT = "support_chat"
 SKILL_GENERAL_CHAT = "general_chat"
@@ -49,6 +50,7 @@ ALL_SKILLS = (
     SKILL_ADJUST_DAY,
     SKILL_EXPLAIN_METRIC,
     SKILL_VALIDATE_PLAN,
+    SKILL_APPLY_PLAN,
     SKILL_GO_DEEPER,
     SKILL_SUPPORT_CHAT,
     SKILL_GENERAL_CHAT,
@@ -134,9 +136,17 @@ def resolve_coach_skill(
     message: str,
     *,
     plan_advice_mode: bool = False,
+    apply_advisory_mode: bool = False,
     go_deeper_mode: bool = False,
 ) -> CoachSkillResolution:
     """Map intent + message shape to a coach skill."""
+    if apply_advisory_mode:
+        return CoachSkillResolution(
+            skill=SKILL_APPLY_PLAN,
+            intent=GENERAL_CHAT,
+            uses_elite_coach=True,
+            uses_advisory_polish=True,
+        )
     if plan_advice_mode:
         return CoachSkillResolution(
             skill=SKILL_VALIDATE_PLAN,
@@ -210,6 +220,8 @@ Teach the concept in plain English. Tie one answer to THEIR numbers in ATHLETE S
 Warm coach tone — not a textbook.""",
         SKILL_VALIDATE_PLAN: """SKILL: validate_plan
 Elite Coach plan advice — empathy, day blocks with Coach's Rule, The Bottom Line.""",
+        SKILL_APPLY_PLAN: """SKILL: apply_plan
+Patch ONLY the days from prior plan advice. WHAT CHANGED bullets — no week table.""",
         SKILL_GO_DEEPER: """SKILL: go_deeper
 Brief warm follow-up. One watch number. No week table.""",
         SKILL_SUPPORT_CHAT: """SKILL: support_chat

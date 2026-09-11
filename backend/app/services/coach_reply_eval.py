@@ -105,6 +105,12 @@ VALIDATE_PLAN_MARKERS_RE = re.compile(
     re.I,
 )
 
+DEFAULT_MEMORY_BLEED_PATTERNS = (
+    re.compile(r"\bbike fit\b", re.I),
+    re.compile(r"\bkolhapur\b", re.I),
+    re.compile(r"\b(by train|on the train|train ride|traveling by train)\b", re.I),
+)
+
 
 @dataclass
 class CoachEvalExpectation:
@@ -124,6 +130,15 @@ class CoachEvalCase:
     description: str
     expectation: CoachEvalExpectation = field(default_factory=CoachEvalExpectation)
     diversity_runs: int = 0
+
+
+@dataclass(frozen=True)
+class GroundingEvalCase:
+    case_id: str
+    message: str
+    description: str
+    forbidden_patterns: tuple[str, ...] = ()
+    required_patterns: tuple[str, ...] = ()
 
 
 def count_section_headers(text: str) -> int:
@@ -292,6 +307,28 @@ def score_athlete_panel(
     headers = count_section_headers(text)
     detail = f"would_read={'yes' if readable else 'no'}, words={words}, headers={headers}"
     return (1.0 if readable else 0.0), detail
+
+
+def score_message_grounding(
+    text: str,
+    *,
+    forbidden_patterns: tuple[str, ...] | list[str] | None = None,
+    required_patterns: tuple[str, ...] | list[str] | None = None,
+) -> tuple[float, str]:
+    """Penalize replies that mention topics the athlete did not raise this turn."""
+    blob = text or ""
+    forbidden = forbidden_patterns or ()
+    compiled = [re.compile(pattern, re.I) for pattern in forbidden]
+    hits = [pattern.pattern for pattern in compiled if pattern.search(blob)]
+    if hits:
+        return 0.0, f"forbidden_mentions={hits}"
+
+    required = required_patterns or ()
+    missing = [pat for pat in required if not re.search(pat, blob, re.I)]
+    if missing:
+        score = max(0.0, 1.0 - len(missing) * 0.25)
+        return round(score, 3), f"missing_required={missing}"
+    return 1.0, "grounded"
 
 
 def score_ui_hygiene(text: str) -> tuple[float, str]:

@@ -225,6 +225,7 @@ def ingest_document(db: Session, document: dict) -> dict:
 def ingest_corpus(db: Session, corpus_dir: Path | str = CORPUS_DIR) -> list[dict]:
     reports = [ingest_document(db, document) for document in load_corpus_files(corpus_dir)]
     db.commit()
+    clear_corpus_cache()
     return reports
 
 
@@ -247,17 +248,47 @@ def _expand_query_tags(tokens: list[str]) -> set[str]:
     return tags
 
 
-_CORPUS_CACHE: dict[int, tuple[list, dict]] = {}
+_CorpusChunk = dict
+_CorpusSource = dict
+_CORPUS_CACHE: dict[int, tuple[list[_CorpusChunk], dict[int, _CorpusSource]]] = {}
 
 
-def _cached_corpus(db: Session) -> tuple[list, dict]:
+def _chunk_snapshot(chunk: ScienceChunk) -> _CorpusChunk:
+    """Plain dict — safe to cache across SQLAlchemy sessions."""
+    return {
+        "id": chunk.id,
+        "source_id": chunk.source_id,
+        "heading": chunk.heading,
+        "body": chunk.body,
+        "audience": chunk.audience,
+        "topic_tags": chunk.topic_tags,
+        "sport_tags": chunk.sport_tags,
+    }
+
+
+def _source_snapshot(source: ScienceSource) -> _CorpusSource:
+    return {
+        "id": source.id,
+        "slug": source.slug,
+        "title": source.title,
+        "authors": source.authors,
+        "year": source.year,
+        "publisher": source.publisher,
+        "license": source.license,
+        "url": source.url,
+    }
+
+
+def _cached_corpus(db: Session) -> tuple[list[_CorpusChunk], dict[int, _CorpusSource]]:
     """Load chunks + sources once per process — RAG was reloading the full corpus every chat turn."""
     key = id(db.get_bind())
     cached = _CORPUS_CACHE.get(key)
     if cached is not None:
         return cached
-    chunks = db.query(ScienceChunk).all()
-    sources = {source.id: source for source in db.query(ScienceSource).all()}
+    chunks = [_chunk_snapshot(row) for row in db.query(ScienceChunk).all()]
+    sources = {
+        source.id: _source_snapshot(source) for source in db.query(ScienceSource).all()
+    }
     _CORPUS_CACHE[key] = (chunks, sources)
     return chunks, sources
 
@@ -286,7 +317,10 @@ def retrieve_science(
     documents = []
     for chunk in chunks:
         text = " ".join(
-            filter(None, [chunk.heading, chunk.body, chunk.topic_tags, chunk.sport_tags])
+            filter(
+                None,
+                [chunk["heading"], chunk["body"], chunk["topic_tags"], chunk["sport_tags"]],
+            )
         )
         documents.append((chunk, Counter(_tokenize(text))))
 
@@ -308,8 +342,8 @@ def retrieve_science(
             idf = math.log(1 + (total_docs - doc_frequency[token] + 0.5) / (doc_frequency[token] + 0.5))
             score += idf * (freq * (k1 + 1)) / (freq + k1 * (1 - b + b * length / avg_length))
 
-        chunk_topics = set(_split_tags(chunk.topic_tags))
-        chunk_sports = set(_split_tags(chunk.sport_tags))
+        chunk_topics = set(_split_tags(chunk["topic_tags"]))
+        chunk_sports = set(_split_tags(chunk["sport_tags"]))
 
         topic_overlap = len(wanted_topics & chunk_topics)
         score += 1.6 * topic_overlap
@@ -317,7 +351,7 @@ def retrieve_science(
         if wanted_sports:
             if wanted_sports & chunk_sports:
                 score += 1.2
-            elif "general" in chunk_sports or chunk.audience == "shared":
+            elif "general" in chunk_sports or chunk.get("audience") == "shared":
                 score += 0.4
 
         # Safety guidance stays reachable even for vague questions.
@@ -331,24 +365,24 @@ def retrieve_science(
 
     results = []
     for score, chunk in scored[:k]:
-        source = sources.get(chunk.source_id)
+        source = sources.get(chunk["source_id"])
         results.append(
             {
-                "chunk_id": chunk.id,
+                "chunk_id": chunk["id"],
                 "score": round(score, 3),
-                "heading": chunk.heading,
-                "body": chunk.body,
-                "audience": chunk.audience,
-                "sport_tags": _split_tags(chunk.sport_tags),
-                "topic_tags": _split_tags(chunk.topic_tags),
+                "heading": chunk["heading"],
+                "body": chunk["body"],
+                "audience": chunk.get("audience"),
+                "sport_tags": _split_tags(chunk["sport_tags"]),
+                "topic_tags": _split_tags(chunk["topic_tags"]),
                 "citation": {
-                    "slug": source.slug if source else None,
-                    "title": source.title if source else None,
-                    "authors": source.authors if source else None,
-                    "year": source.year if source else None,
-                    "publisher": source.publisher if source else None,
-                    "license": source.license if source else None,
-                    "url": source.url if source else None,
+                    "slug": source.get("slug") if source else None,
+                    "title": source.get("title") if source else None,
+                    "authors": source.get("authors") if source else None,
+                    "year": source.get("year") if source else None,
+                    "publisher": source.get("publisher") if source else None,
+                    "license": source.get("license") if source else None,
+                    "url": source.get("url") if source else None,
                 },
             }
         )

@@ -20,11 +20,15 @@ if str(BACKEND_ROOT) not in sys.path:
     sys.path.insert(0, str(BACKEND_ROOT))
 
 from app.services.coach_quality_eval import (  # noqa: E402
+    run_grounding_regression,
     run_quality_regression,
     run_routing_regression,
 )
 from scripts.ai_eval.coach_conversation_cases import COACH_CONVERSATION_CASES  # noqa: E402
-from scripts.ai_eval.coach_golden_bank import GOLDEN_ROUTING_CASES  # noqa: E402
+from scripts.ai_eval.coach_golden_bank import (  # noqa: E402
+    GOLDEN_ROUTING_CASES,
+    GROUNDING_EVAL_CASES,
+)
 from scripts.ai_eval.coach_reply_generator import generate_deterministic_reply  # noqa: E402
 
 RESULTS_DIR = Path(__file__).resolve().parent / "results"
@@ -36,11 +40,13 @@ def run_phase_e_eval(*, dry_run: bool = False) -> dict:
             "dry_run": True,
             "phase": "E",
             "routing_cases": len(GOLDEN_ROUTING_CASES),
+            "grounding_cases": len(GROUNDING_EVAL_CASES),
             "quality_cases": len(COACH_CONVERSATION_CASES),
             "golden_categories": sorted({case.category for case in GOLDEN_ROUTING_CASES}),
         }
 
     routing = run_routing_regression(GOLDEN_ROUTING_CASES)
+    grounding = run_grounding_regression(GROUNDING_EVAL_CASES)
     reply_cases: list[tuple] = []
     for case in COACH_CONVERSATION_CASES:
         reply = generate_deterministic_reply(case)
@@ -51,13 +57,20 @@ def run_phase_e_eval(*, dry_run: bool = False) -> dict:
         "generated_at": datetime.now(timezone.utc).isoformat(),
         "phase": "E",
         "routing": routing,
+        "grounding": grounding,
         "quality": quality,
         "summary": {
             "routing_pass_rate": routing["pass_rate"],
             "routing_regression_pass": routing["regression_pass"],
+            "grounding_pass_rate": grounding["pass_rate"],
+            "grounding_regression_pass": grounding["regression_pass"],
             "quality_avg": quality["overall_avg"],
             "quality_regression_pass": quality["regression_pass"],
-            "deploy_gate_pass": routing["regression_pass"] and quality["regression_pass"],
+            "deploy_gate_pass": (
+                routing["regression_pass"]
+                and grounding["regression_pass"]
+                and quality["regression_pass"]
+            ),
         },
     }
 
@@ -65,6 +78,7 @@ def run_phase_e_eval(*, dry_run: bool = False) -> dict:
 def _print_summary(report: dict) -> None:
     if report.get("dry_run"):
         print(f"Dry run — Phase E: {report['routing_cases']} routing cases")
+        print(f"  grounding cases: {report['grounding_cases']}")
         print(f"  quality subset: {report['quality_cases']} Phase 7 cases + golden picks")
         print(f"  categories: {', '.join(report['golden_categories'])}")
         return
@@ -72,6 +86,10 @@ def _print_summary(report: dict) -> None:
     summary = report["summary"]
     print("\nPhase E coach quality regression")
     print(f"  routing: {summary['routing_pass_rate']:.1%} pass ({report['routing']['passed']}/{report['routing']['total']})")
+    print(
+        f"  grounding: {summary['grounding_pass_rate']:.1%} pass "
+        f"({report['grounding']['passed']}/{report['grounding']['total']})"
+    )
     print(f"  quality avg: {summary['quality_avg']:.3f}")
     print(f"  deploy gate: {'PASS' if summary['deploy_gate_pass'] else 'FAIL'}")
     if report["routing"]["failures"]:
