@@ -15,9 +15,12 @@ if str(BACKEND_ROOT) not in sys.path:
 from app.database import Base  # noqa: E402
 from app.services.ai_coach import template_science_lookup  # noqa: E402
 from app.services.science_kb import (  # noqa: E402
+    citation_slugs,
     format_science_for_prompt,
     grounded_hits,
     ingest_corpus,
+    normalize_sport,
+    retrieval_is_grounded,
     retrieve_science,
 )
 
@@ -145,6 +148,29 @@ def test_ungrounded_template_refuses_fake_papers():
     assert reply["citations"] == []
 
 
+def test_normalize_sport_aliases():
+    assert normalize_sport("bike") == "ride"
+    assert normalize_sport("Running") == "run"
+    assert normalize_sport(None) is None
+
+
+def test_citation_slugs_and_retrieval_grounding_helpers():
+    db = _db()
+    try:
+        ingest_corpus(db)
+        hits = retrieve_science(db, "What is ACWR and why does it matter?", k=6)
+        assert retrieval_is_grounded(hits) is True
+        slugs = citation_slugs(hits)
+        assert slugs
+        assert len(slugs) == len(set(slugs))
+
+        nonsense = retrieve_science(db, "ketogenic quantum crystals for curling", k=6)
+        assert retrieval_is_grounded(nonsense) is False
+        assert grounded_hits(nonsense) == []
+    finally:
+        db.close()
+
+
 def run() -> None:
     tests = [
         test_acwr_query_is_grounded,
@@ -152,6 +178,8 @@ def run() -> None:
         test_key_physiology_topics_are_grounded,
         test_nonsense_query_is_not_grounded,
         test_ungrounded_template_refuses_fake_papers,
+        test_normalize_sport_aliases,
+        test_citation_slugs_and_retrieval_grounding_helpers,
     ]
     for test in tests:
         test()
