@@ -458,6 +458,19 @@ QUALITY_REPLY_CASE_IDS = frozenset(
 
 WEEKEND_BASE_WEEK_MESSAGE = _VALIDATE_PLAN[-1].message
 
+APPLY_REMAINING_WEEK_MESSAGE = (
+    "So update my remaining week as per new plan that we just discuussed right now."
+)
+
+NO_PROS_PLAN_MESSAGE = (
+    "Hello coach So tell me now that's it 3 pm i will do endurance ride at 4pm 1 hr ride "
+    "and after 30 mins to 60 mins I'll do Upper body + core And tomorrow I'll do Long ride "
+    "and mobility in evening and on sunday I'll be doing long easy run no matter what, got it. "
+    "so tell me how can i plan it, as my rest week starts from monday so before that i want to "
+    "finish the base week perfectly as per my plan so tell me is there any problem in my plan "
+    "which i told you right now?"
+)
+
 GROUNDING_EVAL_CASES: list[GroundingEvalCase] = [
     GroundingEvalCase(
         case_id="weekend_plan_no_memory_bleed",
@@ -474,5 +487,12 @@ GROUNDING_EVAL_CASES: list[GroundingEvalCase] = [
             r"(pros|cons|bottom line)",
             r"(friday|saturday|sunday|rest week|recovery week|deload)",
         ),
+    ),
+    GroundingEvalCase(
+        case_id="weekend_plan_no_pros_unless_asked",
+        message=NO_PROS_PLAN_MESSAGE,
+        description="Plan validation without pros/cons ask — template must not include Pros/Cons",
+        forbidden_patterns=(r"\*\*Pros\*\*", r"\*\*Cons\*\*"),
+        required_patterns=(r"coach's rule", r"bottom line"),
     ),
 ]

@@ -7,6 +7,7 @@ conversation, not a REVISED WEEK table dump.
 from __future__ import annotations
 
 import re
+from datetime import date, timedelta
 from typing import Any
 
 WEEKDAY_RE = re.compile(
@@ -157,6 +158,87 @@ def finalize_advisory_reply(reply: dict) -> dict:
     return reply
 
 
+def _wants_pros_cons(message: str) -> bool:
+    return bool(re.search(r"\bpros?(?:\s*(?:and|&|/)\s*cons?)?\b", message or "", re.I))
+
+
+PROS_SECTION_RE = re.compile(
+    r"\n\*\*Pros\*\*[\s\S]*?(?=\n\*\*(?:Cons|The Bottom Line)|\nThe Bottom Line:|\Z)",
+    re.I,
+)
+CONS_SECTION_RE = re.compile(
+    r"\n\*\*Cons\*\*[\s\S]*?(?=\n\*\*The Bottom Line|\nThe Bottom Line:|\Z)",
+    re.I,
+)
+MEMORY_BLEED_PATTERNS: tuple[tuple[str, re.Pattern[str]], ...] = (
+    ("bike fit", re.compile(r"\bbike fit\b", re.I)),
+    ("kolhapur", re.compile(r"\bkolhapur\b", re.I)),
+    (
+        "train",
+        re.compile(r"\b(by train|on the train|train ride|train-travel|train day|traveling by train)\b", re.I),
+    ),
+    ("travel", re.compile(r"\b(travel(?:ing)? to|destination)\b", re.I)),
+)
+
+
+def strip_pros_cons_unless_requested(text: str, message: str) -> str:
+    """Hard gate — no Pros/Cons block unless the athlete asked for it."""
+    if _wants_pros_cons(message):
+        return text
+    cleaned = PROS_SECTION_RE.sub("", text or "")
+    cleaned = CONS_SECTION_RE.sub("", cleaned)
+    cleaned = re.sub(r"\n{3,}", "\n\n", cleaned).strip()
+    return cleaned
+
+
+def scrub_memory_bleed(
+    text: str,
+    message: str,
+    *,
+    thread_text: str = "",
+) -> str:
+    """Drop lines that mention stale topics not present in the current turn or advisory thread."""
+    allowed = f"{message or ''}\n{thread_text or ''}".lower()
+    if "long easy run" in allowed:
+        threshold_ok = "threshold" in allowed
+    else:
+        threshold_ok = True
+
+    kept: list[str] = []
+    for line in (text or "").splitlines():
+        lower_line = line.lower()
+        drop = False
+        if not threshold_ok and re.search(r"\bthreshold\b", lower_line):
+            drop = True
+        for label, pattern in MEMORY_BLEED_PATTERNS:
+            if label in allowed:
+                continue
+            if pattern.search(lower_line):
+                drop = True
+                break
+        if not drop:
+            kept.append(line)
+    return re.sub(r"\n{3,}", "\n\n", "\n".join(kept)).strip()
+
+
+def pros_cons_guardrail_block(message: str) -> str:
+    if _wants_pros_cons(message):
+        return "Include explicit **Pros** and **Cons** sections — the athlete asked for trade-offs."
+    return (
+        "HARD BAN: Do NOT include Pros, Cons, or trade-off sections — "
+        "the athlete did NOT ask for pros/cons in this message."
+    )
+
+
+def finalize_plan_advice_reply(reply: dict, message: str) -> dict:
+    """Polish + enforce pros/cons gate + scrub memory bleed for plan-advice replies."""
+    text = polish_advisory_reply(reply.get("reply") or "")
+    text = strip_pros_cons_unless_requested(text, message)
+    text = scrub_memory_bleed(text, message)
+    reply["reply"] = text
+    return reply
+
+
 def _hard_session_summary(plan: dict | None, clock: dict | None) -> str | None:
     if not plan:
         return None
@@ -237,10 +319,6 @@ def _collaborative_transition(message: str, *, travel_dest: str | None) -> str:
 
 def _day_block(day_label: str, summary: str, rule: str) -> str:
     return f"**{day_label}:** {summary}\n**Coach's Rule:** {rule}"
-
-
-def _wants_pros_cons(message: str) -> bool:
-    return bool(re.search(r"\bpros and cons\b", message or "", re.I))
 
 
 def _rest_week_soon(message: str) -> bool:
@@ -424,12 +502,264 @@ def template_go_deeper_brief(
     }
 
 
+APPLY_ADVISORY_FOLLOWUP_RE = re.compile(
+    r"(?:"
+    r"change my plan as per|update my plan as per|update my remaining week|"
+    r"update (?:my )?(?:remaining )?week as per|apply (?:those|the|this) (?:changes|updates|plan)|"
+    r"as per (?:what we|this|the new|new plan)|as we just discussed|just discussed|discussed right now|"
+    r"make those updates|go ahead (?:and|with)|"
+    r"update (?:it|the plan|my remaining week) as (?:we|you) (?:said|discussed)|"
+    r"put that (?:plan|in)|use that plan|do that plan|yes update|"
+    r"change my plan as per this|new plan that we just"
+    r")",
+    re.I,
+)
+
+
+def _looks_like_apply_request(message: str) -> bool:
+    """Broad apply intent — catches phrasing the strict regex may miss."""
+    if APPLY_ADVISORY_FOLLOWUP_RE.search(message or ""):
+        return True
+    text = (message or "").lower()
+    wants_update = bool(re.search(r"\b(update|change|apply|put)\b", text))
+    refers_back = bool(
+        re.search(
+            r"\b(remaining week|as per|as we discussed|just discussed|new plan|what we|discuussed)\b",
+            text,
+        )
+    )
+    return wants_update and refers_back
+
+ADVISORY_REPLY_MARKERS = ("Coach's Rule:", "The Bottom Line:")
+
+
+def recent_advisory_thread(history: list[dict] | None) -> dict[str, str] | None:
+    """Find the last plan-advice exchange before the current apply message."""
+    if not history or len(history) < 2:
+        return None
+    prior = list(history[:-1])
+    for index in range(len(prior) - 1, -1, -1):
+        entry = prior[index]
+        if entry.get("role") != "assistant":
+            continue
+        content = entry.get("content") or ""
+        if not any(marker in content for marker in ADVISORY_REPLY_MARKERS):
+            continue
+        plan_message = ""
+        for back in range(index - 1, -1, -1):
+            if prior[back].get("role") == "user":
+                plan_message = prior[back].get("content") or ""
+                break
+        return {
+            "advice_reply": content,
+            "plan_message": plan_message,
+        }
+    return None
+
+
+def is_apply_advisory_followup(
+    message: str,
+    history: list[dict] | None = None,
+) -> bool:
+    """Athlete accepted prior plan advice — patch discussed days, not full rebuild."""
+    if not _looks_like_apply_request(message):
+        return False
+    return recent_advisory_thread(history) is not None
+
+
+def _weekday_dates(clock: dict) -> dict[str, date]:
+    week_start = clock["week_start"]
+    return {
+        (week_start + timedelta(days=offset)).strftime("%A").lower(): week_start + timedelta(days=offset)
+        for offset in range(7)
+    }
+
+
+def _advisory_target_dates(clock: dict, combined_text: str) -> dict[str, date]:
+    """Map friday/saturday/sunday labels to calendar dates from the thread."""
+    today = clock["today"]
+    lower = (combined_text or "").lower()
+    weekday_map = _weekday_dates(clock)
+    dates: dict[str, date] = {}
+
+    if re.search(r"\bfriday\b|\btoday\b|4pm|endurance ride|1 hr ride", lower):
+        if re.search(r"\btoday\b|that'?s it 3 pm|4pm", lower):
+            dates["friday"] = today
+        else:
+            dates["friday"] = weekday_map.get("friday", today)
+    if re.search(r"\bsaturday\b|\btomorrow\b", lower):
+        dates["saturday"] = (
+            today + timedelta(days=1)
+            if "tomorrow" in lower
+            else weekday_map.get("saturday", today + timedelta(days=1))
+        )
+    if "sunday" in lower:
+        dates["sunday"] = weekday_map.get("sunday", today + timedelta(days=2))
+    return dates
+
+
+def build_advisory_workouts_from_thread(
+    thread: dict[str, str],
+    clock: dict,
+    *,
+    context: dict | None = None,
+    safety: dict | None = None,
+) -> list[dict]:
+    """Build concrete workouts for the days discussed in the advisory thread."""
+    _ = safety
+    combined = f"{thread.get('plan_message') or ''}\n{thread.get('advice_reply') or ''}"
+    lower = combined.lower()
+    easy_band = _easy_watts(context)
+    dates = _advisory_target_dates(clock, combined)
+    workouts: list[dict] = []
+
+    friday = dates.get("friday")
+    if friday and re.search(r"\b(endurance ride|1 hr ride|hour ride|upper body|upper/core|core)\b", lower):
+        if re.search(r"\b(endurance ride|1 hr ride|hour ride|ride)\b", lower):
+            workouts.append(
+                {
+                    "date": friday.isoformat(),
+                    "sport": "Cycling",
+                    "title": "Endurance ride (Z2)",
+                    "session_type": "endurance",
+                    "duration_min": 60,
+                    "intensity": "Easy / conversational",
+                    "description": f"60 min easy aerobic around {easy_band}.",
+                    "structure": [],
+                }
+            )
+        if re.search(r"\b(upper body|upper/core|core)\b", lower):
+            workouts.append(
+                {
+                    "date": friday.isoformat(),
+                    "sport": "Strength",
+                    "title": "Upper body + core",
+                    "session_type": "strength",
+                    "duration_min": 45,
+                    "intensity": "Moderate (RPE 6–7)",
+                    "description": "Support work after the ride — not a second hard hit.",
+                    "structure": [],
+                }
+            )
+
+    saturday = dates.get("saturday")
+    if saturday and re.search(r"\b(long ride|long easy ride)\b", lower):
+        workouts.append(
+            {
+                "date": saturday.isoformat(),
+                "sport": "Cycling",
+                "title": "Long easy ride",
+                "session_type": "endurance",
+                "duration_min": 90,
+                "intensity": "Easy / conversational",
+                "description": "Conversational pace — cap duration so Sunday stays honest.",
+                "structure": [],
+            }
+        )
+        if "mobility" in lower:
+            workouts.append(
+                {
+                    "date": saturday.isoformat(),
+                    "sport": "Mobility",
+                    "title": "Evening mobility",
+                    "session_type": "mobility",
+                    "duration_min": 25,
+                    "intensity": "Recovery",
+                    "description": "Light mobility only — no extra strength or intervals.",
+                    "structure": [],
+                }
+            )
+
+    sunday = dates.get("sunday")
+    if sunday and re.search(r"\blong easy run\b", lower):
+        workouts.append(
+            {
+                "date": sunday.isoformat(),
+                "sport": "Running",
+                "title": "Long easy run",
+                "session_type": "easy",
+                "duration_min": 60,
+                "intensity": "Easy / conversational",
+                "description": "Talk-pace only — absorb day before rest week.",
+                "structure": [],
+            }
+        )
+    return workouts
+
+
+def template_apply_advisory_plan(
+    message: str,
+    safety: dict,
+    *,
+    thread: dict[str, str],
+    clock: dict,
+    context: dict | None = None,
+    patched_workouts: list[dict] | None = None,
+) -> dict[str, Any]:
+    """Confirm a targeted calendar patch — no PRIMED/REVISED WEEK dump."""
+    _ = message
+    load = (safety or {}).get("load") or {}
+    acwr = load.get("minutes_acwr")
+    workouts = patched_workouts or build_advisory_workouts_from_thread(
+        thread,
+        clock,
+        context=context,
+        safety=safety,
+    )
+    acwr_bit = f"**{acwr:.2f}**" if isinstance(acwr, (int, float)) else "steady"
+
+    change_lines: list[str] = []
+    for workout in workouts:
+        iso = str(workout.get("date") or "")[:10]
+        try:
+            label = date.fromisoformat(iso).strftime("%a %d %b")
+        except ValueError:
+            label = iso
+        change_lines.append(
+            f"- **{label}:** {workout.get('title')} — {workout.get('duration_min')} min · {workout.get('intensity')}"
+        )
+
+    body = "\n\n".join(
+        [
+            "Done — I updated **only the days we just discussed**. No full-week rebuild, no random library swap.",
+            "",
+            "**WHAT CHANGED**",
+            "\n".join(change_lines) if change_lines else "- (No open days needed a change.)",
+            "",
+            "**Coach's Rule:** Keep Friday's ride easy, Saturday long but honest, and Sunday's run truly conversational.",
+            "",
+            f"**The Bottom Line:** Your calendar now matches what we agreed. ACWR at {acwr_bit} — "
+            "land Monday's rest week fresh, not cooked.",
+        ]
+    )
+    return {
+        "reply": polish_advisory_reply(body),
+        "citations": ["aal-safety-and-load"],
+        "escalate": False,
+        "escalation_reason": None,
+        "intent": "GENERAL_CHAT",
+    }
+
+
+def apply_advisory_prompt_block(thread: dict[str, str]) -> str:
+    advice = (thread.get("advice_reply") or "")[:1400]
+    return f"""ADVISORY APPLY MODE (hard fail if violated):
+- The athlete accepted your prior plan advice. Update ONLY the days you already discussed.
+- Do NOT output PRIMED/ACCUMULATE, TODAY'S CALL, LOCKER ROOM DIRECTIVE, or a full REVISED WEEK table.
+- Reply with: short confirmation → **WHAT CHANGED** bullets per updated day → **Coach's Rule:** → **The Bottom Line:**
+- Do NOT invent bike fit, travel, trains, or destinations unless they appear in PRIOR ADVICE below.
+- Do NOT swap in threshold intervals or library templates that contradict the prior advice.
+
+PRIOR ADVICE (source of truth):
+{advice}"""
+
+
 ADVISORY_CHAT_RULES = """ADVISORY MODE — enforce ELITE COACH PERSONA layout (hard fail if violated):
 1. Brief empathy ONLY if the athlete mentioned stress, missed sessions, bike fit, or travel in THIS message.
    Otherwise open with a direct, warm read on the plan they just described — no invented backstory.
 2. Collaborative transition ("right instincts — let's tweak…").
 3. Cover each day they proposed — each with **Coach's Rule:** and zone numbers where useful.
-4. **Pros** and **Cons** (or clear trade-offs) when they asked for them.
+4. **Pros** and **Cons** ONLY when CURRENT-TURN PROS/CONS says to include them — otherwise skip entirely.
 5. **The Bottom Line:** — 1–2 sentences tied to their plan and load (ACWR/HRV only if in ATHLETE STATE).
 GROUNDING: Do NOT mention bike fit, trains, travel, destinations, or guilt about missed work unless
 the athlete said those words in the CURRENT message.
@@ -462,7 +792,10 @@ def grounding_guardrail_block(message: str) -> str:
 def advisory_prompt_block(message: str | None = None) -> str:
     block = ADVISORY_CHAT_RULES
     if message:
-        block = f"{block}\n\n{grounding_guardrail_block(message)}"
+        block = (
+            f"{block}\n\n{pros_cons_guardrail_block(message)}\n\n"
+            f"{grounding_guardrail_block(message)}"
+        )
     return block
 
 

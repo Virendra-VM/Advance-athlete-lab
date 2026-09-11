@@ -316,7 +316,7 @@ Otherwise jump straight to a warm, direct read on the plan they described.]
 
 [Each day they proposed — session summary + **Coach's Rule:** with zones/RPE]
 
-[Pros and Cons — when they asked for trade-offs]
+[Pros and Cons — ONLY if the athlete message contains "pros and cons" or "pros/cons". Otherwise OMIT entirely.]
 
 **The Bottom Line:** [1–2 sentences: their plan + load/readiness from ATHLETE STATE]
 
@@ -340,7 +340,8 @@ def advisory_system_prompt() -> str:
 
 def advisory_task() -> str:
     return """Give your honest opinion on the DIY plan they proposed in THIS message.
-Use the ELITE COACH PERSONA layout: opening (only if relevant) → transition → each proposed day with Coach's Rule → Pros/Cons if asked → The Bottom Line.
+Use the ELITE COACH PERSONA layout: opening (only if relevant) → transition → each proposed day with Coach's Rule → The Bottom Line.
+Include Pros/Cons ONLY when CURRENT-TURN PROS/CONS explicitly requires it — never by default.
 Reference ONLY what they said in the current message — not bike fit, travel, or missed sessions unless they raised it now.
 Use saved week as quiet context — no week table. Weave FTP/LTHR zones into Coach's Rule lines."""
 
@@ -349,6 +350,13 @@ def go_deeper_advisory_task() -> str:
     return """Brief warm follow-up — why this week's shape works for THEM.
 One short paragraph OR 3 bullets. One watch number. End with one encouraging sentence.
 No week table. No PRIMED/ACCUMULATE headers."""
+
+
+def apply_advisory_task() -> str:
+    return """The athlete accepted your prior plan advice and wants the calendar updated.
+Apply ONLY the Fri–Sun (or discussed) shape from PRIOR ADVICE — not a library rebuild.
+Reply: confirmation → **WHAT CHANGED** → **Coach's Rule:** → **The Bottom Line:**
+Hard ban: PRIMED/ACCUMULATE, TODAY'S CALL, REVISED WEEK, threshold swaps that contradict prior advice."""
 
 
 SCIENCE_FORMAT_RULES = """OUTPUT FORMAT — hard fail if you violate any of these:

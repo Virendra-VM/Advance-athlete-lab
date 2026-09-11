@@ -12,6 +12,7 @@ from app.services.coach_intent import (
     classify_chat_intent,
 )
 from app.services.coach_skills import (
+    SKILL_APPLY_PLAN,
     SKILL_ADJUST_DAY,
     SKILL_EXPLAIN_METRIC,
     SKILL_GENERAL_CHAT,
@@ -72,6 +73,16 @@ def test_go_deeper_skill():
         go_deeper_mode=True,
     )
     assert resolution.skill == SKILL_GO_DEEPER
+
+
+def test_apply_advisory_skill():
+    resolution = resolve_coach_skill(
+        GENERAL_CHAT,
+        "so change my plan as per this new updates",
+        apply_advisory_mode=True,
+    )
+    assert resolution.skill == SKILL_APPLY_PLAN
+    assert resolution.uses_advisory_polish is True
 
 
 def test_support_chat_detection():

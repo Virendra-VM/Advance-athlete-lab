@@ -7,7 +7,7 @@ from typing import Any
 
 from app.services.coach_advisory import is_go_deeper_followup, is_plan_advice_message
 from app.services.coach_intent import classify_chat_intent
-from app.services.coach_advisory import template_plan_advice
+from app.services.coach_advisory import finalize_plan_advice_reply, template_plan_advice
 from app.services.coach_reply_eval import (
     CoachEvalExpectation,
     score_message_grounding,
@@ -103,13 +103,16 @@ def evaluate_reply_quality(
 
 
 def evaluate_grounding_case(case) -> dict[str, Any]:
-    reply_payload = template_plan_advice(
+    reply_payload = finalize_plan_advice_reply(
+        template_plan_advice(
+            case.message,
+            {"load": {"minutes_acwr": 0.95}},
+            context={
+                "physiology": {"ftp_watts": 232, "lthr_bpm": 168},
+                "coros": {"latest_health": {"hrv": 63}},
+            },
+        ),
         case.message,
-        {"load": {"minutes_acwr": 0.95}},
-        context={
-            "physiology": {"ftp_watts": 232, "lthr_bpm": 168},
-            "coros": {"latest_health": {"hrv": 63}},
-        },
     )
     reply = reply_payload.get("reply") or ""
     score, detail = score_message_grounding(

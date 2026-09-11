@@ -74,6 +74,7 @@ from app.services.ai_coach import (
     BASE_SYSTEM_PROMPT as SYSTEM_PROMPT,
     advisory_system_prompt,
     advisory_task,
+    apply_advisory_task,
     go_deeper_advisory_task,
     athlete_state_block,
     autopsy_task_for_packet,
@@ -147,12 +148,19 @@ from app.services.coach_schedule_mode import (
 )
 from app.services.coach_advisory import (
     advisory_prompt_block,
+    apply_advisory_prompt_block,
+    build_advisory_workouts_from_thread,
     finalize_advisory_reply,
+    finalize_plan_advice_reply,
     go_deeper_prompt_block,
+    is_apply_advisory_followup,
     is_go_deeper_followup,
     is_plan_advice_message,
     polish_advisory_reply,
+    recent_advisory_thread,
+    scrub_memory_bleed,
     strip_schedule_sections,
+    template_apply_advisory_plan,
     template_go_deeper_brief,
     template_plan_advice,
 )
@@ -1659,6 +1667,201 @@ def persist_today_adjustment(
     return payload
 
 
+def persist_advisory_days_patch(
+    db: Session,
+    profile: AthleteProfile,
+    *,
+    workouts: list[dict],
+    clock: dict,
+    safety: dict,
+    hits: list[dict] | None,
+    provider: str,
+    model: str,
+) -> dict:
+    """Replace only the discussed days — leave the rest of the week untouched."""
+    week_start = clock["week_start"]
+    target_dates = {
+        parsed
+        for parsed in (_workout_date(item.get("date")) for item in workouts)
+        if parsed is not None
+    }
+    if not target_dates:
+        payload = get_active_plan(db, profile.id, week_start) or {}
+        payload["disclaimer"] = safety.get("disclaimer")
+        payload["generation_notes"] = ["No advisory day patches were needed."]
+        return payload
+
+    record = (
+        db.query(TrainingPlan)
+        .filter(
+            TrainingPlan.athlete_profile_id == profile.id,
+            TrainingPlan.week_start == week_start,
+            TrainingPlan.status == "active",
+        )
+        .order_by(TrainingPlan.id.desc())
+        .first()
+    )
+    physiology = physiology_from_profile(profile)
+    enriched = [
+        enrich_workout(dict(item), safety, physiology=physiology)
+        for item in workouts
+        if _workout_date(item.get("date")) in target_dates
+    ]
+
+    if record is None:
+        draft = {
+            "title": f"Week of {week_start.isoformat()}",
+            "summary": "Targeted advisory patch for discussed days only.",
+            "focus": "Advisory apply",
+            "week_start": week_start.isoformat(),
+            "workouts": enriched,
+        }
+        validation = validate_plan(draft, safety)
+        plan_id = _persist_plan(
+            db,
+            profile,
+            enrich_plan(validation["plan"], safety, physiology=physiology),
+            week_start,
+            provider,
+            model,
+            validation["issues"],
+            citation_slugs(hits or []) if provider != "rules" else [],
+            safety=safety,
+            physiology=physiology,
+        )
+        payload = get_active_plan(db, profile.id, week_start) or {}
+        payload["disclaimer"] = safety.get("disclaimer")
+        payload["generation_notes"] = ["Updated discussed days only — no full-week rebuild."]
+        payload["plan_id"] = plan_id
+        return payload
+
+    for target_date in target_dates:
+        open_rows = (
+            db.query(PlannedWorkout)
+            .filter(
+                PlannedWorkout.training_plan_id == record.id,
+                PlannedWorkout.workout_date == target_date,
+                PlannedWorkout.completed_activity_id.is_(None),
+            )
+            .all()
+        )
+        for row in open_rows:
+            db.delete(row)
+    db.flush()
+
+    for workout in enriched:
+        workout_date = _workout_date(workout.get("date"))
+        if workout_date is None:
+            continue
+        db.add(
+            PlannedWorkout(
+                training_plan_id=record.id,
+                athlete_profile_id=profile.id,
+                workout_date=workout_date,
+                sport=workout.get("sport"),
+                title=workout.get("title"),
+                session_type=workout.get("session_type"),
+                duration_min=workout.get("duration_min"),
+                distance_m=workout.get("distance_m"),
+                intensity=workout.get("intensity"),
+                description=workout.get("description"),
+                structure_json=json.dumps(workout.get("structure") or []),
+                library_template_id=workout.get("library_template_id"),
+                library_version=workout.get("library_version"),
+            )
+        )
+    notes = [
+        {
+            "level": "info",
+            "code": "advisory_days_patch",
+            "message": "Only the discussed days were updated from prior plan advice.",
+        }
+    ]
+    record.safety_notes = json.dumps(notes)
+    db.commit()
+    payload = get_active_plan(db, profile.id, week_start) or {}
+    payload["disclaimer"] = safety.get("disclaimer")
+    payload["safety_issues"] = notes
+    payload["generation_notes"] = ["Updated discussed days only — other days were left as planned."]
+    return payload
+
+
+def _complete_apply_advisory_chat(
+    db: Session,
+    profile: AthleteProfile,
+    message: str,
+    *,
+    advisory_thread: dict[str, str],
+    clock: dict,
+    context: dict,
+    safety: dict,
+    coach_skill: str,
+) -> dict:
+    """Deterministic apply path — patch calendar and return WHAT CHANGED (no LLM)."""
+    patched = build_advisory_workouts_from_thread(
+        advisory_thread,
+        clock,
+        context=context,
+        safety=safety,
+    )
+    reply = template_apply_advisory_plan(
+        message,
+        safety,
+        thread=advisory_thread,
+        clock=clock,
+        context=context,
+        patched_workouts=patched,
+    )
+    thread_text = (
+        f"{advisory_thread.get('plan_message') or ''}\n{advisory_thread.get('advice_reply') or ''}"
+    )
+    reply["reply"] = scrub_memory_bleed(
+        reply.get("reply") or "",
+        message,
+        thread_text=thread_text,
+    )
+    reply["intent"] = GENERAL_CHAT
+    reply["skill"] = coach_skill
+
+    applied_plan = None
+    try:
+        applied_plan = persist_advisory_days_patch(
+            db,
+            profile,
+            workouts=patched,
+            clock=clock,
+            safety=safety,
+            hits=[],
+            provider="rules",
+            model="apply-advisory-v1",
+        )
+        reply["plan_id"] = applied_plan.get("plan_id")
+    except Exception as exc:  # noqa: BLE001 — chat must still return
+        logger.warning("Could not persist advisory day patch: %s", exc)
+
+    assistant_message_id = _store_assistant_message(db, profile.id, reply, "rules")
+    _maybe_auto_flag_coach_reply(
+        db,
+        profile.id,
+        assistant_message_id,
+        reply.get("reply") or "",
+        skill=coach_skill,
+    )
+    if applied_plan:
+        invalidate_coach_context_cache(profile.id)
+
+    return {
+        "provider": "rules",
+        "model": "apply-advisory-v1",
+        "reply": reply,
+        "citations": reply.get("citations") or ["aal-safety-and-load"],
+        "history": chat_history(db, profile.id),
+        "disclaimer": safety["disclaimer"],
+        "plan": applied_plan,
+        "proactive_prompts": list_proactive_prompts(db, profile.id),
+    }
+
+
 def extract_week_plan_from_chat(
     *,
     raw: dict | None,
@@ -2851,7 +3054,14 @@ def coach_chat(
             "disclaimer": safety["disclaimer"],
         }
 
-    if intent:
+    history_for_routing = chat_history(db, profile.id, limit=12)
+    apply_advisory_mode = is_apply_advisory_followup(message, history_for_routing)
+    advisory_thread = recent_advisory_thread(history_for_routing) if apply_advisory_mode else None
+
+    if apply_advisory_mode:
+        resolved_intent = GENERAL_CHAT
+        decision_source = "apply_advisory_followup"
+    elif intent:
         resolved_intent = normalize_intent(intent)
         decision_source = "caller"
     else:
@@ -2880,9 +3090,12 @@ def coach_chat(
     ):
         intent = GENERAL_CHAT
 
-    plan_advice_mode = is_plan_advice_message(message)
+    plan_advice_mode = is_plan_advice_message(message) and not apply_advisory_mode
     go_deeper_mode = is_go_deeper_followup(message)
-    if plan_advice_mode or go_deeper_mode:
+    if apply_advisory_mode:
+        intent = GENERAL_CHAT
+        persist_plan = True
+    elif plan_advice_mode or go_deeper_mode:
         intent = GENERAL_CHAT
         persist_plan = False
     elif intent == SCHEDULE_UPDATE and plan_advice_mode:
@@ -2893,6 +3106,7 @@ def coach_chat(
         intent,
         message,
         plan_advice_mode=plan_advice_mode,
+        apply_advisory_mode=apply_advisory_mode,
         go_deeper_mode=go_deeper_mode,
     )
     coach_skill = skill_resolution.skill
@@ -2961,8 +3175,21 @@ def coach_chat(
             "disclaimer": safety["disclaimer"],
         }
 
-    history = chat_history(db, profile.id, limit=12)
+    history = history_for_routing
     current_plan = get_active_plan(db, profile.id, clock["week_start"])
+
+    if apply_advisory_mode and advisory_thread:
+        return _complete_apply_advisory_chat(
+            db,
+            profile,
+            message,
+            advisory_thread=advisory_thread,
+            clock=clock,
+            context=context,
+            safety=safety,
+            coach_skill=coach_skill,
+        )
+
     session_packet = None
     week_packet = None
     review_plan = current_plan
@@ -3037,7 +3264,7 @@ def coach_chat(
         science_grounded = bool(strong)
         hits = strong if science_grounded else []
     else:
-        rag_k = 2 if (plan_advice_mode or go_deeper_mode) else 5
+        rag_k = 2 if (plan_advice_mode or go_deeper_mode or apply_advisory_mode) else 5
         hits = _retrieve(db, _chat_retrieval_query(message), profile, k=rag_k)
         strong = grounded_hits(hits)
         if intent == GENERAL_CHAT:
@@ -3177,6 +3404,15 @@ Never more than two consecutive sentences per bullet.
 
 {skill_prompt_block(coach_skill)}
 """
+    elif apply_advisory_mode and advisory_thread:
+        extra_block = f"""
+{athlete_state_block(context, safety)}
+
+CURRENT WEEK PLAN (reference only — patch discussed days only)
+{_plan_digest(current_plan, clock)}
+
+{apply_advisory_prompt_block(advisory_thread)}
+"""
     elif plan_advice_mode:
         extra_block = f"""
 {athlete_state_block(context, safety)}
@@ -3255,6 +3491,10 @@ BAN 🟢 TODAY'S CALL, 🗓️ REVISED WEEK, PRIMED/ACCUMULATE, and week tables.
         task = science_task(grounded=science_grounded)
         chat_schema = SCIENCE_SCHEMA
         system_prompt = science_system_prompt()
+    elif apply_advisory_mode:
+        task = apply_advisory_task()
+        chat_schema = CHAT_SCHEMA
+        system_prompt = advisory_system_prompt()
     elif plan_advice_mode:
         task = advisory_task()
         chat_schema = CHAT_SCHEMA
@@ -3311,7 +3551,7 @@ Respond with JSON matching exactly this shape:
 {chat_schema}"""
 
     variety_steering = ""
-    if intent in {SCHEDULE_UPDATE, GENERAL_CHAT} and not plan_advice_mode and not go_deeper_mode:
+    if intent in {SCHEDULE_UPDATE, GENERAL_CHAT} and not plan_advice_mode and not go_deeper_mode and not apply_advisory_mode:
         variety_steering = variety_prompt_block(history)
     if variety_steering:
         user_prompt = f"{user_prompt}\n\n{variety_steering}"
@@ -3337,7 +3577,9 @@ Respond with JSON matching exactly this shape:
             )
         if intent == GENERAL_CHAT and skill_resolution.uses_advisory_polish:
             finalized = finalize_advisory_reply(candidate)
-            if not (plan_advice_mode or go_deeper_mode):
+            if plan_advice_mode:
+                return finalize_plan_advice_reply(finalized, message)
+            if not go_deeper_mode:
                 finalized = finalize_general_chat_reply(
                     finalized, voice, context=context, safety=safety
                 )
@@ -3376,7 +3618,7 @@ Respond with JSON matching exactly this shape:
 
     result = None
     if not (intent == SCIENCE_LOOKUP and not science_grounded):
-        if go_deeper_mode:
+        if go_deeper_mode or apply_advisory_mode:
             result = None
         elif intent in {SCHEDULE_UPDATE, GENERAL_CHAT} and (
             intent != SCHEDULE_UPDATE or proposed_plan is not None
@@ -3397,6 +3639,7 @@ Respond with JSON matching exactly this shape:
         skip_variety_retry = (
             plan_advice_mode
             or go_deeper_mode
+            or apply_advisory_mode
             or skill_resolution.uses_advisory_polish
         )
         if (
@@ -3492,13 +3735,32 @@ Respond with JSON matching exactly this shape:
                 grounded=science_grounded,
                 context=context,
             )
-        elif plan_advice_mode:
-            reply = template_plan_advice(
+        elif apply_advisory_mode and advisory_thread:
+            patched = build_advisory_workouts_from_thread(
+                advisory_thread,
+                clock,
+                context=context,
+                safety=safety,
+            )
+            reply = template_apply_advisory_plan(
                 message,
                 safety,
-                current_plan=current_plan,
-                context=context,
+                thread=advisory_thread,
                 clock=clock,
+                context=context,
+                patched_workouts=patched,
+            )
+            provider_name, model_name = "rules", "apply-advisory-v1"
+        elif plan_advice_mode:
+            reply = finalize_plan_advice_reply(
+                template_plan_advice(
+                    message,
+                    safety,
+                    current_plan=current_plan,
+                    context=context,
+                    clock=clock,
+                ),
+                message,
             )
             provider_name, model_name = "rules", "plan-advice-v1"
         elif go_deeper_mode:
@@ -3549,6 +3811,27 @@ Respond with JSON matching exactly this shape:
             reply["plan_id"] = applied_plan.get("plan_id")
         except Exception as exc:  # noqa: BLE001 — chat must still return
             logger.warning("Could not persist today-only adjustment: %s", exc)
+    elif apply_advisory_mode and persist_plan and advisory_thread:
+        try:
+            patched = build_advisory_workouts_from_thread(
+                advisory_thread,
+                clock,
+                context=context,
+                safety=safety,
+            )
+            applied_plan = persist_advisory_days_patch(
+                db,
+                profile,
+                workouts=patched,
+                clock=clock,
+                safety=safety,
+                hits=hits,
+                provider=provider_name,
+                model=model_name,
+            )
+            reply["plan_id"] = applied_plan.get("plan_id")
+        except Exception as exc:  # noqa: BLE001 — chat must still return
+            logger.warning("Could not persist advisory day patch: %s", exc)
     elif intent == SCHEDULE_UPDATE and persist_plan:
         plan_data = extract_week_plan_from_chat(
             raw=raw_payload or reply,
