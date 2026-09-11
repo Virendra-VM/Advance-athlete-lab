@@ -8,6 +8,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 
+from app.services.coach_reply_eval import GroundingEvalCase
 from app.services.coach_intent import (
     CLINICAL_VETO,
     DAY_ADJUST,
@@ -90,6 +91,14 @@ _VALIDATE_PLAN = _cases(
         "Is this plan ok if I missed Tuesday?",
         "Should I do this or play it safer?",
         "Can I do this plan while traveling Sunday?",
+        (
+            "Hello coach So tell me now that's it 3 pm i will do endurance ride at 4pm 1 hr ride "
+            "and after 30 mins to 60 mins I'll do Upper body + core And tomorrow I'll do Long ride "
+            "and mobility in evening and on sunday I'll be doing long easy run no matter what, got it. "
+            "so tell me how can i plan it, as my rest week starts from monday so before that i want to "
+            "finish the base week perfectly as per my plan so tell me is there any problem in my plan "
+            "which i told you right now? tell me my plans Pros and cons."
+        ),
     ],
     acceptable_skills=(SKILL_VALIDATE_PLAN, SKILL_GENERAL_CHAT, SKILL_ADJUST_DAY),
 )
@@ -439,9 +448,31 @@ GOLDEN_ROUTING_CASES: list[GoldenRoutingCase] = (
 QUALITY_REPLY_CASE_IDS = frozenset(
     {
         "validate_plan_001",
+        "validate_plan_018",
         "support_chat_001",
         "explain_metric_010",
         "rebuild_week_001",
         "general_chat_001",
     }
 )
+
+WEEKEND_BASE_WEEK_MESSAGE = _VALIDATE_PLAN[-1].message
+
+GROUNDING_EVAL_CASES: list[GroundingEvalCase] = [
+    GroundingEvalCase(
+        case_id="weekend_plan_no_memory_bleed",
+        message=WEEKEND_BASE_WEEK_MESSAGE,
+        description="Fri–Sun stack before rest week — must not invent bike fit/travel/Kolhapur",
+        forbidden_patterns=(
+            r"\bbike fit\b",
+            r"\bkolhapur\b",
+            r"\b(by train|on the train|train ride|traveling by train)\b",
+            r"\btake a deep breath\b.*\bbike fit\b",
+        ),
+        required_patterns=(
+            r"coach's rule",
+            r"(pros|cons|bottom line)",
+            r"(friday|saturday|sunday|rest week|recovery week|deload)",
+        ),
+    ),
+]

@@ -24,7 +24,9 @@ from app.services.coach_review import (
 )
 from app.services.coach_quality_eval import run_routing_regression
 from scripts.ai_eval.coach_golden_bank import GOLDEN_ROUTING_CASES
+from scripts.ai_eval.coach_golden_bank import GROUNDING_EVAL_CASES
 from scripts.ai_eval.run_coach_quality_eval import run_phase_e_eval
+from app.services.coach_reply_eval import score_message_grounding
 
 
 @pytest.fixture()
@@ -49,6 +51,21 @@ def _profile(db) -> AthleteProfile:
 
 def test_golden_bank_has_200_plus_cases():
     assert len(GOLDEN_ROUTING_CASES) >= 200
+
+
+def test_grounding_eval_bank_present():
+    assert len(GROUNDING_EVAL_CASES) >= 1
+    assert "Pros and cons" in GROUNDING_EVAL_CASES[0].message
+
+
+def test_sample_bad_reply_fails_grounding_bank():
+    case = GROUNDING_EVAL_CASES[0]
+    bad = "Yesterday's bike fit was fine. Travel to Kolhapur by train. Coach's Rule: easy."
+    score, _ = score_message_grounding(
+        bad,
+        forbidden_patterns=case.forbidden_patterns,
+    )
+    assert score == 0.0
 
 
 def test_routing_regression_passes():

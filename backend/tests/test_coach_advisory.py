@@ -9,6 +9,7 @@ from app.services.coach_advisory import (
     strip_schedule_sections,
     template_plan_advice,
 )
+from scripts.ai_eval.coach_golden_bank import WEEKEND_BASE_WEEK_MESSAGE
 from app.services.coach_intent import GENERAL_CHAT, SCHEDULE_UPDATE, classify_chat_intent
 
 
@@ -28,6 +29,26 @@ GO_DEEPER = (
 
 def test_plan_advice_message_detected():
     assert is_plan_advice_message(USER_MESSAGE) is True
+
+
+def test_weekend_base_week_message_detected_as_plan_advice():
+    assert is_plan_advice_message(WEEKEND_BASE_WEEK_MESSAGE) is True
+
+
+def test_template_plan_advice_weekend_no_memory_bleed():
+    reply = template_plan_advice(
+        WEEKEND_BASE_WEEK_MESSAGE,
+        {"load": {"minutes_acwr": 0.95}},
+        context={"physiology": {"ftp_watts": 232}, "coros": {"latest_health": {"hrv": 63}}},
+    )
+    text = reply["reply"].lower()
+    assert "bike fit" not in text
+    assert "kolhapur" not in text
+    assert "on the train" not in text
+    assert "pros:" in text
+    assert "cons:" in text
+    assert "long easy run" in text
+    assert "rest week" in text
 
 
 def test_plan_advice_routes_to_general_chat_not_schedule():

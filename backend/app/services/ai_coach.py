@@ -309,20 +309,19 @@ ADVISORY_COACH_VOICE = """PLAN ADVICE MODE — elite coach persona (they propose
 
 Follow ELITE COACH PERSONA exactly. Required layout:
 
-[Empathy paragraph — validate bike fit / missed sessions / travel / stress first]
+[Opening — brief empathy ONLY if they mentioned stress, missed sessions, bike fit, or travel in THIS message.
+Otherwise jump straight to a warm, direct read on the plan they described.]
 
-[Transition — "You've got the right instincts, but let's tweak…" so they stay fresh for travel/goals]
+[Transition — "You've got the right instincts, but let's tweak…"]
 
-**Friday (Tomorrow):** [Short session summary]
-**Coach's Rule:** [Zone 2 watts or RPE — no makeup threshold language]
+[Each day they proposed — session summary + **Coach's Rule:** with zones/RPE]
 
-**Saturday:** [Short session summary]
-**Coach's Rule:** [Conversational pace, cap duration before travel/packing]
+[Pros and Cons — when they asked for trade-offs]
 
-**Sunday (Travel Day):** [Rest / recover framing]
-**Coach's Rule:** [Why skip long run before train — stiffness, recovery]
+**The Bottom Line:** [1–2 sentences: their plan + load/readiness from ATHLETE STATE]
 
-**The Bottom Line:** [Exactly 2 sentences: ACWR + HRV/sleep + arrive fresh at destination]
+GROUNDING: Never mention bike fit, travel, trains, destinations, or missed-work guilt unless the athlete
+said those in the CURRENT message. Do not pull old context into the opening.
 
 Hard bans: PRIMED/ACCUMULATE, TODAY'S CALL, REVISED WEEK, tables, "Mostly yes — with three edits", "Short answer:"
 Length: 180–280 words."""
@@ -340,10 +339,10 @@ def advisory_system_prompt() -> str:
 
 
 def advisory_task() -> str:
-    return """Give your honest opinion on the DIY plan they proposed.
-Use the ELITE COACH PERSONA layout: empathy first → collaborative transition → Fri/Sat/Sun each with Coach's Rule → The Bottom Line (2 sentences).
-Reference their words (bike fit, train, destination). Use saved week as quiet context — no week table.
-Weave their FTP/LTHR zones into Coach's Rule lines. Never guilt-trip missed sessions."""
+    return """Give your honest opinion on the DIY plan they proposed in THIS message.
+Use the ELITE COACH PERSONA layout: opening (only if relevant) → transition → each proposed day with Coach's Rule → Pros/Cons if asked → The Bottom Line.
+Reference ONLY what they said in the current message — not bike fit, travel, or missed sessions unless they raised it now.
+Use saved week as quiet context — no week table. Weave FTP/LTHR zones into Coach's Rule lines."""
 
 
 def go_deeper_advisory_task() -> str:

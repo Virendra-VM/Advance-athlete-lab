@@ -94,6 +94,31 @@ def test_key_physiology_topics_are_grounded():
         db.close()
 
 
+def test_corpus_cache_survives_session_close():
+    """Regression: cached RAG must not keep detached ORM instances."""
+    from app.services.science_kb import clear_corpus_cache
+
+    clear_corpus_cache()
+    engine = create_engine("sqlite:///:memory:")
+    Base.metadata.create_all(bind=engine)
+    Session = sessionmaker(bind=engine)
+    db1 = Session()
+    try:
+        ingest_corpus(db1)
+        retrieve_science(db1, "What is ACWR?", k=3)
+    finally:
+        db1.close()
+
+    db2 = Session()
+    try:
+        hits = retrieve_science(db2, "What is HRV?", k=3)
+        assert hits
+        assert hits[0]["heading"]
+    finally:
+        db2.close()
+        clear_corpus_cache()
+
+
 def test_nonsense_query_is_not_grounded():
     db = _db()
     try:

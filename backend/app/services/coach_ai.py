@@ -2907,7 +2907,7 @@ def coach_chat(
     )
     if activity_id:
         consume_proactive_for_activity(db, profile.id, activity_id)
-    memory_bundle = build_memory_bundle(db, profile)
+    memory_bundle = build_memory_bundle(db, profile, message=message)
     memory_block = memory_bundle.get("prompt_block") or ""
 
     if persist_plan is None:
@@ -3184,7 +3184,7 @@ Never more than two consecutive sentences per bullet.
 CURRENT WEEK PLAN (reference only — do not paste as a table)
 {_plan_digest(current_plan, clock)}
 
-{advisory_prompt_block()}
+{advisory_prompt_block(message)}
 """
     elif go_deeper_mode:
         extra_block = f"""

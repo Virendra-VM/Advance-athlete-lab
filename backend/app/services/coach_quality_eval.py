@@ -7,8 +7,10 @@ from typing import Any
 
 from app.services.coach_advisory import is_go_deeper_followup, is_plan_advice_message
 from app.services.coach_intent import classify_chat_intent
+from app.services.coach_advisory import template_plan_advice
 from app.services.coach_reply_eval import (
     CoachEvalExpectation,
+    score_message_grounding,
     score_phase_e_reply,
 )
 from app.services.coach_skills import resolve_coach_skill
@@ -98,6 +100,52 @@ def evaluate_reply_quality(
         expectation=expectation,
         require_science_terms=require_science_terms,
     )
+
+
+def evaluate_grounding_case(case) -> dict[str, Any]:
+    reply_payload = template_plan_advice(
+        case.message,
+        {"load": {"minutes_acwr": 0.95}},
+        context={
+            "physiology": {"ftp_watts": 232, "lthr_bpm": 168},
+            "coros": {"latest_health": {"hrv": 63}},
+        },
+    )
+    reply = reply_payload.get("reply") or ""
+    score, detail = score_message_grounding(
+        reply,
+        forbidden_patterns=case.forbidden_patterns,
+        required_patterns=case.required_patterns,
+    )
+    return {
+        "case_id": case.case_id,
+        "description": getattr(case, "description", None),
+        "pass": score >= 1.0,
+        "score": score,
+        "detail": detail,
+        "reply_preview": reply[:240],
+    }
+
+
+def run_grounding_regression(
+    cases,
+    *,
+    min_pass_rate: float = 1.0,
+) -> dict[str, Any]:
+    results = [evaluate_grounding_case(case) for case in cases]
+    passed = sum(1 for row in results if row["pass"])
+    total = len(results)
+    pass_rate = passed / total if total else 1.0
+    return {
+        "total": total,
+        "passed": passed,
+        "failed": total - passed,
+        "pass_rate": round(pass_rate, 4),
+        "min_pass_rate": min_pass_rate,
+        "regression_pass": pass_rate >= min_pass_rate,
+        "failures": [row for row in results if not row["pass"]],
+        "cases": results,
+    }
 
 
 def run_quality_regression(

@@ -22,7 +22,9 @@ PLAN_ADVICE_RE = re.compile(
     r"should i use|should i do this|should i go with|should i stick with|"
     r"what do you think|does this (?:plan|schedule) (?:work|make sense|sound)|"
     r"is this (?:plan|schedule) ok|can i do this|tell me should i|"
-    r"would this work|good idea to|ok to do|okay to do"
+    r"would this work|good idea to|ok to do|okay to do|"
+    r"problem in my plan|any problem in|pros and cons|how can i plan|"
+    r"finish the base week|tell me my plan"
     r")\b",
     re.I,
 )
@@ -237,6 +239,14 @@ def _day_block(day_label: str, summary: str, rule: str) -> str:
     return f"**{day_label}:** {summary}\n**Coach's Rule:** {rule}"
 
 
+def _wants_pros_cons(message: str) -> bool:
+    return bool(re.search(r"\bpros and cons\b", message or "", re.I))
+
+
+def _rest_week_soon(message: str) -> bool:
+    return bool(re.search(r"\b(rest week|recovery week|deload)\b", message or "", re.I))
+
+
 def template_plan_advice(
     message: str,
     safety: dict,
@@ -253,42 +263,95 @@ def template_plan_advice(
 
     easy_band = _easy_watts(context)
     text_lower = (message or "").lower()
-    travel = "train" in text_lower or "travel" in text_lower or "kolhapur" in text_lower
-    travel_dest = _travel_destination(message)
-    stacking = "strength" in text_lower and ("bike" in text_lower or "ride" in text_lower)
-
-    friday_summary = "Strength AM + Easy Spin PM." if stacking else "One focused session — strength or easy bike, not both hard."
-    friday_rule = (
-        f"Keep the afternoon ride strictly in Zone 2 (**{easy_band}**). "
-        "Resist the urge to turn it into a makeup threshold ride!"
-        if stacking
-        else f"If you ride, stay in Zone 2 around **{easy_band}** — conversational, not heroic."
+    travel = bool(
+        re.search(r"\b(travel(?:ing)?|by train|on the train|train ride)\b", text_lower)
+        or "kolhapur" in text_lower
     )
+    travel_dest = _travel_destination(message) if travel else None
+    upper_core = bool(re.search(r"\b(upper body|upper/core|core)\b", text_lower))
+    endurance_ride = bool(re.search(r"\b(endurance ride|1 hr ride|hour ride)\b", text_lower))
+    stacking = (
+        ("strength" in text_lower or upper_core)
+        and ("bike" in text_lower or "ride" in text_lower or endurance_ride)
+    )
+    sunday_long_run = bool(re.search(r"\blong easy run\b", text_lower))
+    rest_week = _rest_week_soon(message)
+    wants_pros_cons = _wants_pros_cons(message)
 
+    if stacking and endurance_ride:
+        friday_summary = "Endurance ride (~1 hr) + upper/core after 30–60 min recovery."
+        friday_rule = (
+            f"Keep the ride strictly aerobic — Zone 2 around **{easy_band}**. "
+            "Then upper/core only if you can breathe and talk normally; skip heavy lifting if the legs feel cooked."
+        )
+    elif stacking:
+        friday_summary = "Strength AM + Easy Spin PM."
+        friday_rule = (
+            f"Keep the afternoon ride strictly in Zone 2 (**{easy_band}**). "
+            "Resist the urge to turn it into a makeup threshold ride!"
+        )
+    else:
+        friday_summary = "One focused session — strength or easy bike, not both hard."
+        friday_rule = (
+            f"If you ride, stay in Zone 2 around **{easy_band}** — conversational, not heroic."
+        )
+
+    saturday_mobility = "mobility" in text_lower
+    saturday_summary = "Long easy ride" + (" + mobility in the evening." if saturday_mobility else ".")
     saturday_rule = (
         "Keep it conversational. Enjoy the ride, but cap the duration so you aren't completely drained while packing."
         if travel
-        else "Keep it conversational — easy enough to talk the whole way. Don't chase hero distance."
+        else (
+            "Keep the ride truly easy — long duration is fine, intensity is not. "
+            "Evening mobility only; no extra strength or intervals tacked on."
+            if saturday_mobility
+            else "Keep it conversational — easy enough to talk the whole way. Don't chase hero distance."
+        )
     )
 
-    sunday_label = "Sunday (Travel Day)" if travel else "Sunday"
-    sunday_summary = "Rest & Recover on the Train." if travel else "Easy movement or full rest."
-    sunday_rule = (
-        "Skip the long run today. Stacking a long run right before sitting still on a train for hours "
-        "will make your legs stiff and trap metabolic waste. Let Sunday be your full recovery day."
-        if travel
-        else "Keep it light — mobility or 30–40 minutes easy. Not another long endurance hit."
-    )
+    if travel and not sunday_long_run:
+        sunday_label = "Sunday (Travel Day)"
+        sunday_summary = "Rest & Recover on the Train."
+        sunday_rule = (
+            "Skip the long run today. Stacking a long run right before sitting still on a train for hours "
+            "will make your legs stiff and trap metabolic waste. Let Sunday be your full recovery day."
+        )
+    elif sunday_long_run:
+        sunday_label = "Sunday"
+        sunday_summary = "Long easy run."
+        sunday_rule = (
+            "Keep it easy — conversational pace, no hero miles. "
+            + (
+                "Because your rest week starts Monday, cap duration so you enter deload fresh, not flat."
+                if rest_week
+                else "Don't turn it into a third hard day after Friday's stack and Saturday's long ride."
+            )
+        )
+    else:
+        sunday_label = "Sunday"
+        sunday_summary = "Easy movement or full rest."
+        sunday_rule = "Keep it light — mobility or 30–40 minutes easy. Not another long endurance hit."
 
     acwr_val = f"**{acwr:.2f}**" if isinstance(acwr, (int, float)) else "healthy"
     hrv_val = f"**{hrv}**" if hrv is not None else "solid"
-    dest_phrase = f" at **{travel_dest}**" if travel_dest else " at your destination"
 
-    bottom_line = (
-        f"**The Bottom Line:** Your ACWR sits at a healthy {acwr_val} and your HRV is strong at {hrv_val}, "
-        f"so your recovery foundation is solid. By resting on Sunday's train ride, you'll absorb Friday and "
-        f"Saturday's training and arrive{dest_phrase} completely fresh!"
-    )
+    if travel and not sunday_long_run:
+        dest_phrase = f" at **{travel_dest}**" if travel_dest else " at your destination"
+        bottom_line = (
+            f"**The Bottom Line:** Your ACWR sits at a healthy {acwr_val} and your HRV is strong at {hrv_val}, "
+            f"so your recovery foundation is solid. By resting on Sunday's train ride, you'll absorb Friday and "
+            f"Saturday's training and arrive{dest_phrase} completely fresh!"
+        )
+    elif rest_week:
+        bottom_line = (
+            f"**The Bottom Line:** ACWR at {acwr_val} and HRV at {hrv_val} — you're close to a clean base-week finish. "
+            "Keep Friday's ride easy, Saturday long but conversational, and Sunday's run truly easy so Monday's rest week starts with absorption, not debt."
+        )
+    else:
+        bottom_line = (
+            f"**The Bottom Line:** ACWR at {acwr_val} and HRV at {hrv_val} — solid foundation. "
+            "Protect easy days so the hard ones land clean."
+        )
 
     body_parts = [
         _empathy_opening(message),
@@ -297,12 +360,24 @@ def template_plan_advice(
         "",
         _day_block("Friday (Tomorrow)", friday_summary, friday_rule),
         "",
-        _day_block("Saturday", "Long Easy Ride.", saturday_rule),
+        _day_block("Saturday", saturday_summary, saturday_rule),
         "",
         _day_block(sunday_label, sunday_summary, sunday_rule),
-        "",
-        bottom_line,
     ]
+
+    if wants_pros_cons:
+        body_parts.extend(
+            [
+                "",
+                "**Pros:** You finish the base week with sport-specific volume, keep strength in the mix, "
+                "and enter rest week with a clear stimulus on each day.",
+                "",
+                "**Cons:** Friday's ride + upper/core and Saturday long ride stack fatigue — Sunday's long run "
+                "only works if Friday's ride stays easy and Saturday doesn't creep into tempo.",
+            ]
+        )
+
+    body_parts.extend(["", bottom_line])
 
     reply = polish_advisory_reply("\n\n".join(body_parts))
     return {
@@ -335,7 +410,7 @@ def template_go_deeper_brief(
                 f"The shape is simple: **{hard_bit}** is enough hard work for the week — "
                 f"everything else stays easy, around **{easy_band}**.",
                 f"With load at {acwr_bit}, a second quality day or back-to-back long sessions "
-                "costs more than it pays back, especially before travel.",
+                "costs more than it pays back before a recovery week.",
                 "If you can't talk through it, it's too hard. Protect the easy days and the hard one lands clean.",
             ]
         )
@@ -350,15 +425,45 @@ def template_go_deeper_brief(
 
 
 ADVISORY_CHAT_RULES = """ADVISORY MODE — enforce ELITE COACH PERSONA layout (hard fail if violated):
-1. Empathy paragraph first (validate bike fit / missed sessions / travel).
+1. Brief empathy ONLY if the athlete mentioned stress, missed sessions, bike fit, or travel in THIS message.
+   Otherwise open with a direct, warm read on the plan they just described — no invented backstory.
 2. Collaborative transition ("right instincts — let's tweak…").
-3. Friday / Saturday / Sunday — each with **Coach's Rule:** and zone numbers.
-4. **The Bottom Line:** — exactly 2 encouraging sentences (ACWR + HRV + travel).
+3. Cover each day they proposed — each with **Coach's Rule:** and zone numbers where useful.
+4. **Pros** and **Cons** (or clear trade-offs) when they asked for them.
+5. **The Bottom Line:** — 1–2 sentences tied to their plan and load (ACWR/HRV only if in ATHLETE STATE).
+GROUNDING: Do NOT mention bike fit, trains, travel, destinations, or guilt about missed work unless
+the athlete said those words in the CURRENT message.
 BAN: PRIMED/ACCUMULATE, TODAY'S CALL, REVISED WEEK, tables, "Mostly yes — with three edits"."""
 
 
-def advisory_prompt_block() -> str:
-    return ADVISORY_CHAT_RULES
+def grounding_guardrail_block(message: str) -> str:
+    """Inject per-turn grounding so advisory replies stay on the athlete's actual question."""
+    text = (message or "").strip()
+    mentions_travel = bool(
+        re.search(r"\b(travel|train ride|by train|on the train|airport|kolhapur)\b", text, re.I)
+    )
+    mentions_bike_fit = "bike fit" in text.lower()
+    mentions_missed = bool(MISSED_OR_ROUGH_RE.search(text))
+    bans: list[str] = []
+    if not mentions_bike_fit:
+        bans.append("bike fit")
+    if not mentions_travel:
+        bans.extend(["travel", "train", "Kolhapur", "destination"])
+    if not mentions_missed:
+        bans.extend(["missed session", "guilt", "you failed", "rough day you didn't mention"])
+    ban_line = ", ".join(bans) if bans else "none (they raised the sensitive topics themselves)"
+    return f"""CURRENT-TURN GROUNDING (hard fail if violated):
+- Answer ONLY the plan and question in ATHLETE MESSAGE — not old chat context.
+- Do NOT mention: {ban_line}.
+- If they asked for pros/cons, give explicit Pros and Cons on the sessions they listed.
+- Respect recovery/deload timing if they mention a rest week starting soon."""
+
+
+def advisory_prompt_block(message: str | None = None) -> str:
+    block = ADVISORY_CHAT_RULES
+    if message:
+        block = f"{block}\n\n{grounding_guardrail_block(message)}"
+    return block
 
 
 GO_DEEPER_RULES = """GO DEEPER MODE (hard):
