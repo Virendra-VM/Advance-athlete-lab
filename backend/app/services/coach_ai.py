@@ -71,6 +71,7 @@ from app.services.science_kb import (
 )
 from app.services.ai_coach import (
     AUTOPSY_SCHEMA,
+    QUICK_DEBRIEF_SCHEMA,
     BASE_SYSTEM_PROMPT as SYSTEM_PROMPT,
     advisory_system_prompt,
     advisory_task,
@@ -81,6 +82,7 @@ from app.services.ai_coach import (
     chat_system_prompt,
     chat_task,
     coach_modality,
+    quick_debrief_task_for_packet,
     retrieval_query_for_modality,
     science_sports_for_modality,
     schedule_system_prompt,
@@ -90,7 +92,9 @@ from app.services.ai_coach import (
     science_system_prompt,
     science_task,
     system_prompt_for_modality,
+    system_prompt_quick_debrief,
     template_autopsy,
+    template_quick_debrief,
     template_clinical_veto,
     template_general_chat,
     template_support_chat,
@@ -120,7 +124,8 @@ from app.services.coach_intent import (
     classify_chat_intent_detailed,
     normalize_intent,
 )
-from app.services.session_plan import build_session_plan_overlay
+from app.services.debrief_mode import DEBRIEF_FULL, DEBRIEF_QUICK, resolve_debrief_mode
+from app.services.session_plan import build_execution_headline, build_session_plan_overlay
 from app.services.periodization import season_prompt_block
 from app.services.session_telemetry import (
     analyze_activity,
@@ -3212,6 +3217,12 @@ def coach_chat(
                 telemetry=session_packet,
             )
             session_packet.update(overlay)
+            execution_headline = build_execution_headline(
+                session_packet.get("week_plan_session"),
+                session_packet,
+            )
+            if execution_headline:
+                session_packet["execution_headline"] = execution_headline
             if overlay.get("prescribed_vs_executed"):
                 session_packet["work_laps"] = [
                     lap
@@ -3316,15 +3327,55 @@ def coach_chat(
             len(planner_packet.get("risk_flags") or []),
         )
 
+    debrief_mode = None
+    if intent == WORKOUT_AUDIT and session_packet:
+        debrief_mode = resolve_debrief_mode(
+            message,
+            history=history,
+            session_packet=session_packet,
+        )
+        session_packet["debrief_mode"] = debrief_mode
+
     extra_block = ""
     if intent == WORKOUT_AUDIT and session_packet:
+        power_src = (session_packet.get("power") or {}).get("source") or "measured"
+        power_rule = ""
+        if power_src != "measured":
+            power_rule = """
+POWER SOURCE (hard)
+- power.source is not "measured" — do NOT treat watts as ground truth for IF/TSS/zones.
+- Lead with power.coaching_note. Use HR, duration, pace, and classification only.
+- No lap-by-lap watt story or sweet-spot/threshold labels from estimated power.
+"""
+        quick_rule = ""
+        if debrief_mode == DEBRIEF_QUICK:
+            from app.services.coach_debrief_plain import PHASE5_QUICK_DEBRIEF_RULES
+
+            quick_rule = f"""
+QUICK DEBRIEF MODE (hard)
+- 80-120 words. Sections: ⚡ BOTTOM LINE, 📋 VS PLAN, 🧠 RECOVERY only.
+- BAN Metric/Biology/Example triplets. BAN 🔬 MECHANICAL PRECISION and 🫀 CARDIOVASCULAR COST.
+- Lead with execution_headline when present. No lap-by-lap watt autopsy.
+{PHASE5_QUICK_DEBRIEF_RULES}
+"""
+        metrics_src = session_packet.get("metrics_source") or {}
+        metrics_rule = ""
+        if metrics_src:
+            metrics_rule = f"""
+METRICS SOURCE (ground truth for what fed this packet)
+{json.dumps(metrics_src, indent=2)}
+- Honor metrics_source tags. COROS beats Strava for HR/pace/laps when listed.
+- strava_estimated power is display-only — never IF/TSS/load.
+"""
         extra_block = f"""
 COMPUTED SESSION TELEMETRY (ground truth — do not invent or change these numbers)
 {json.dumps(session_packet, indent=2, default=str)}
-
+{power_rule}
+{metrics_rule}
+{quick_rule}
 {athlete_state_block(context, safety)}
 """
-        if has_prescription:
+        if has_prescription and debrief_mode == DEBRIEF_FULL:
             extra_block += """
 CORRECTION / PRESCRIPTION RULES (hard)
 - prescribed_vs_executed lap roles override %FTP labels.
@@ -3463,9 +3514,14 @@ BAN 🟢 TODAY'S CALL, 🗓️ REVISED WEEK, PRIMED/ACCUMULATE, and week tables.
     agent_tool_block = agent_run.prompt_block()
 
     if intent == WORKOUT_AUDIT:
-        task = autopsy_task_for_packet(modality, session_packet)
-        chat_schema = AUTOPSY_SCHEMA
-        system_prompt = system_prompt_for_modality(modality)
+        if debrief_mode == DEBRIEF_QUICK:
+            task = quick_debrief_task_for_packet(modality, session_packet)
+            chat_schema = QUICK_DEBRIEF_SCHEMA
+            system_prompt = system_prompt_quick_debrief(modality)
+        else:
+            task = autopsy_task_for_packet(modality, session_packet)
+            chat_schema = AUTOPSY_SCHEMA
+            system_prompt = system_prompt_for_modality(modality)
     elif intent == WEEK_REVIEW:
         task = week_review_task()
         chat_schema = WEEK_REVIEW_SCHEMA
@@ -3513,10 +3569,16 @@ BAN 🟢 TODAY'S CALL, 🗓️ REVISED WEEK, PRIMED/ACCUMULATE, and week tables.
         system_prompt = chat_system_prompt(voice)
 
     review_plan_block = ""
-    if intent == WEEK_REVIEW and review_plan is not current_plan:
+    current_plan_block = ""
+    if intent == WEEK_REVIEW:
         review_plan_block = f"""
-REVIEW WEEK PLAN (the recap window — not necessarily this Monday's plan)
+REVIEW WEEK PLAN (the recap window only — do not paste as a schedule table)
 {_plan_digest(review_plan, clock)}
+"""
+    else:
+        current_plan_block = f"""
+CURRENT WEEK PLAN
+{_plan_digest(current_plan, clock)}
 """
 
     user_prompt = f"""{format_clock_block(clock)}
@@ -3525,9 +3587,7 @@ REVIEW WEEK PLAN (the recap window — not necessarily this Monday's plan)
 
 ATHLETE CONTEXT
 {_context_digest(context, clock, include_session_audit=(intent == WORKOUT_AUDIT))}
-
-CURRENT WEEK PLAN
-{_plan_digest(current_plan, clock)}
+{current_plan_block}
 {review_plan_block}
 SAFETY RULES (hard limits)
 {safety_prompt_rules(safety, weekday_index=clock["weekday_index"])}
@@ -3683,9 +3743,14 @@ Respond with JSON matching exactly this shape:
 
     if reply is None:
         if intent == WORKOUT_AUDIT:
-            reply = template_autopsy(
-                message, safety, hits, session_packet=session_packet, context=context
-            )
+            if debrief_mode == DEBRIEF_QUICK:
+                reply = template_quick_debrief(
+                    message, safety, hits, session_packet=session_packet, context=context
+                )
+            else:
+                reply = template_autopsy(
+                    message, safety, hits, session_packet=session_packet, context=context
+                )
         elif intent == WEEK_REVIEW:
             reply = template_week_review(
                 message,
@@ -3785,6 +3850,16 @@ Respond with JSON matching exactly this shape:
     reply["intent"] = intent
     reply["skill"] = coach_skill
     reply["tools"] = agent_run.tools_used
+    if intent == WORKOUT_AUDIT and debrief_mode == DEBRIEF_QUICK and reply.get("reply"):
+        from app.services.coach_debrief_plain import apply_quick_debrief_plain_language
+
+        reply = apply_quick_debrief_plain_language(
+            reply,
+            message=message,
+            session_packet=session_packet,
+            safety=safety,
+            context=context,
+        )
     if reply.get("reply"):
         variety_meta = analyze_reply_variety(reply.get("reply") or "", history)
         variety_meta["regenerated"] = variety_regenerated
@@ -3861,11 +3936,13 @@ Respond with JSON matching exactly this shape:
         decision_source,
     )
 
-    if intent == GENERAL_CHAT and reply.get("reply"):
-        if skill_resolution.uses_advisory_polish:
+    if intent in {GENERAL_CHAT, WEEK_REVIEW} and reply.get("reply"):
+        if intent == GENERAL_CHAT and skill_resolution.uses_advisory_polish:
             reply["reply"] = polish_advisory_reply(reply["reply"])
-        else:
+        elif intent == GENERAL_CHAT:
             reply["reply"] = strip_schedule_sections(reply["reply"])
+        else:
+            reply["reply"] = strip_schedule_sections(reply.get("reply") or "")
 
     variety_meta = reply.pop("_variety", None)
     assistant_message_id = _store_assistant_message(
@@ -3877,6 +3954,9 @@ Respond with JSON matching exactly this shape:
         assistant_message_id,
         reply.get("reply") or "",
         skill=coach_skill,
+        debrief_mode=debrief_mode,
+        message=message,
+        quick_debrief_quality=reply.get("_quick_debrief_quality"),
     )
 
     if applied_plan:
@@ -3938,10 +4018,35 @@ def _maybe_auto_flag_coach_reply(
     reply_text: str,
     *,
     skill: str | None,
+    debrief_mode: str | None = None,
+    message: str | None = None,
+    quick_debrief_quality: dict | None = None,
 ) -> None:
     try:
+        from app.services.coach_debrief_plain import (
+            score_quick_debrief_quality,
+            should_auto_flag_quick_debrief,
+        )
         from app.services.coach_reply_eval import CoachEvalExpectation, score_phase_e_reply
-        from app.services.coach_review import maybe_auto_flag_reply
+        from app.services.coach_review import flag_message_for_review, maybe_auto_flag_reply
+        from app.services.debrief_mode import DEBRIEF_QUICK
+
+        if debrief_mode == DEBRIEF_QUICK:
+            quality = quick_debrief_quality or score_quick_debrief_quality(
+                reply_text,
+                message or "",
+            )
+            if should_auto_flag_quick_debrief(quality):
+                flag_message_for_review(
+                    db,
+                    profile_id,
+                    message_id,
+                    reason="auto_quality",
+                    category="quick_debrief",
+                    notes=f"Quick debrief quality: {quality.get('reason')}",
+                    quality_score=quality.get("score"),
+                )
+                return
 
         scored = score_phase_e_reply(
             reply_text,

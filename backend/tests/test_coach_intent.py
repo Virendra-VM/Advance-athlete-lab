@@ -90,6 +90,23 @@ def test_week_review_examples():
     assert classify_chat_intent("recap last week", use_llm=False) == WEEK_REVIEW
     assert classify_chat_intent("look at my week", use_llm=False) == WEEK_REVIEW
     assert classify_chat_intent("grade my week", use_llm=False) == WEEK_REVIEW
+    assert (
+        classify_chat_intent(
+            "Can you analyse my last week and tell me how did i do in that week.",
+            use_llm=False,
+        )
+        == WEEK_REVIEW
+    )
+    assert classify_chat_intent("analyze my last week", use_llm=False) == WEEK_REVIEW
+    assert classify_chat_intent("Summarize my week", use_llm=False) == WEEK_REVIEW
+    assert classify_chat_intent("Weekly debrief please", use_llm=False) == WEEK_REVIEW
+    assert (
+        classify_chat_intent(
+            "Analyse my week, let's see how much i have improved",
+            use_llm=False,
+        )
+        == WEEK_REVIEW
+    )
 
 
 def test_week_review_does_not_steal_session_plan_or_science():

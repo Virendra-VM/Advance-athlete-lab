@@ -601,6 +601,13 @@ def _extract_summary(payload: Any) -> dict[str, Any]:
         ),
         "swolf": _to_float(_first(source.get("swolf"), source.get("SWOLF"))),
         "description": _first(source.get("description"), source.get("desc")),
+        "device_watts": (
+            True
+            if source.get("device_watts") is True
+            else False
+            if source.get("device_watts") is False
+            else None
+        ),
     }
 
 
@@ -657,6 +664,8 @@ def build_normalized_detail(
         sources.append("strava")
 
     summary = _merge_summary(coros_summary, strava_summary)
+    if isinstance(strava_detail, dict) and "device_watts" in strava_detail:
+        summary["device_watts"] = bool(strava_detail.get("device_watts"))
 
     coros_lap_rows = _normalize_laps(coros_laps if coros_laps is not None else coros_detail)
     # If laps came from the same detail blob and look empty, try dedicated keys.

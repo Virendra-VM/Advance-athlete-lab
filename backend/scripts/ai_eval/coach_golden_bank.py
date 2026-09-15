@@ -8,6 +8,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 
+from app.services.coach_debrief_plain import DebriefEvalCase
 from app.services.coach_reply_eval import GroundingEvalCase
 from app.services.coach_intent import (
     CLINICAL_VETO,
@@ -470,6 +471,41 @@ NO_PROS_PLAN_MESSAGE = (
     "finish the base week perfectly as per my plan so tell me is there any problem in my plan "
     "which i told you right now?"
 )
+
+DEBRIEF_EVAL_CASES: list[DebriefEvalCase] = [
+    DebriefEvalCase(
+        case_id="debrief_saturday_no_meter_ride",
+        message="How was Saturday's ride?",
+        description="Outdoor ride without power meter — HR/duration led, no watt autopsy",
+        forbidden_patterns=(
+            r"\bNormalized power\b",
+            r"\bsweet[- ]spot\b",
+            r"\bintensity factor\b",
+            r"\bTSS\b",
+        ),
+        required_patterns=(
+            r"⚡ BOTTOM LINE",
+            r"📋 VS PLAN",
+            r"🧠 RECOVERY",
+            r"(reference only|No power meter|estimated|HR and duration)",
+        ),
+    ),
+    DebriefEvalCase(
+        case_id="debrief_sunday_easy_run_mismatch",
+        message="How was Sunday's run — give me a quick debrief.",
+        description="Easy long run plan but executed longer/harder than prescribed",
+        forbidden_patterns=(
+            r"\bNormalized power\b",
+            r"🔬 MECHANICAL",
+            r"METRIC:",
+            r"THE BIOLOGY:",
+        ),
+        required_patterns=(
+            r"(not easy|longer than|Longer than planned)",
+            r"(ACWR|HRV)",
+        ),
+    ),
+]
 
 GROUNDING_EVAL_CASES: list[GroundingEvalCase] = [
     GroundingEvalCase(

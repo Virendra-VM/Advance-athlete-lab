@@ -119,6 +119,29 @@ the session type.
 - Aim for 350-500 words of bullets when the session warrants depth. Never pad — but do not stop at \
 ~150 words if the athlete needs a full coaching answer."""
 
+QUICK_DEBRIEF_FORMAT_RULES = """OUTPUT FORMAT — quick debrief (hard fail if violated):
+- 80-120 words total. Plain coaching prose — NO Metric/Biology/Example triplets.
+- BAN 🔬 MECHANICAL PRECISION and 🫀 CARDIOVASCULAR COST sections entirely.
+- BAN lap-by-lap watt stories unless the athlete explicitly asked for a full breakdown.
+- Layout in this exact order with these exact headers:
+  ⚡ BOTTOM LINE
+  📋 VS PLAN
+  🧠 RECOVERY
+- ⚡ BOTTOM LINE = 1-2 sentences. Name the session and the coaching verdict (classification or execution_headline).
+- 📋 VS PLAN = duration and intensity vs week_plan_session / execution_headline. Mention power.coaching_note when watts are estimated.
+- 🧠 RECOVERY = one line on sleep/HRV/resting HR if present, plus ACWR and the next-session instruction.
+- Max two sentences per block. **Bold** only plan match and one watch number (HRV or ACWR).
+- No analogies (engine, battery, radiator, etc.) unless the athlete asked WHY/HOW.
+- Target reading grade ~8 — short words, short sentences."""
+
+QUICK_DEBRIEF_SCHEMA = """{
+  "reply": "string, quick debrief: ⚡ BOTTOM LINE, 📋 VS PLAN, 🧠 RECOVERY only — 80-120 words, no triplets",
+  "citations": ["S1"],
+  "escalate": false,
+  "escalation_reason": null,
+  "intent": "WORKOUT_AUDIT"
+}"""
+
 _VOICE_CLOSE = """Follow OUTPUT FORMAT exactly. Use only computed telemetry and ATHLETE STATE. \
 If a field is missing, write **Missing** and skip the analogy. Do not diagnose illness. \
 Never contradict the safety rules."""
@@ -639,8 +662,45 @@ def coach_modality(sport_type: str | None, family: str | None = None) -> str:
     return MODALITY_OTHER
 
 
+def _sport_lens(modality: str | None) -> str:
+    return {
+        MODALITY_RUN: (
+            "Quick RUN debrief: pace vs threshold, HR vs LTHR, impact load. No FTP unless measured power."
+        ),
+        MODALITY_RIDE: (
+            "Quick RIDE debrief: duration and HR-led read when no power meter; watts only if measured."
+        ),
+        MODALITY_SWIM: "Quick SWIM debrief: duration and efficiency — no invented SWOLF.",
+        MODALITY_STRENGTH: "Quick LIFT debrief: volume and CNS cost — not a missed endurance day.",
+        MODALITY_YOGA: "Quick MOBILITY debrief: down-regulation, not a failed interval.",
+        MODALITY_OTHER: "Quick session debrief: what it was and how it fits the week.",
+    }.get(modality or "", "Keep it short and plan-first.")
+
+
+def system_prompt_quick_debrief(modality: str | None) -> str:
+    lens = _sport_lens(modality)
+    return BASE_SYSTEM_PROMPT + "\n\n" + QUICK_DEBRIEF_FORMAT_RULES + f"\n\nSport lens:\n{lens}"
+
+
+def quick_debrief_task_for_packet(modality: str | None, packet: dict | None) -> str:
+    base = f"""Quick debrief of this session — NOT a full autopsy. {_VOICE_CLOSE}
+Use execution_headline when present. Lead with plan match, then recovery.
+Skip lap tables, triplets, and deep physiology essays."""
+    if not packet:
+        return base
+    execution = packet.get("execution_headline") or {}
+    if execution.get("headline"):
+        base += f"\n- execution_headline: {execution['headline']}"
+    power = packet.get("power") or {}
+    if power.get("source") != "measured" and power.get("coaching_note"):
+        base += f"\n- {power['coaching_note']}"
+    if modality == MODALITY_RUN:
+        base += "\n- Classify from run_intensity (pace+HR), not estimated watts."
+    return base
+
+
 def system_prompt_for_modality(modality: str | None) -> str:
-    lens = {
+    full_lens = {
         MODALITY_RUN: (
             "This autopsy is a RUN. Read the file through biomechanical loading: ground reaction "
             "forces, eccentric muscle damage in the calf-Achilles-quad chain, stride rate (SPM), "
@@ -676,17 +736,17 @@ def system_prompt_for_modality(modality: str | None) -> str:
             "was a bike FTP session or a running quality workout unless the telemetry says so."
         ),
     }.get(modality or "", "")
-    if not lens:
+    if not full_lens:
         return BASE_SYSTEM_PROMPT
-    return BASE_SYSTEM_PROMPT + "\n\nSport lens:\n" + lens + "\n\n" + AUTOPSY_FORMAT_RULES
+    return BASE_SYSTEM_PROMPT + "\n\nSport lens:\n" + full_lens + "\n\n" + AUTOPSY_FORMAT_RULES
 
 
 def autopsy_task_for_modality(modality: str | None) -> str:
     tasks = {
         MODALITY_RUN: f"""Bullet autopsy of this RUN. {_VOICE_CLOSE}
-⚡ one-sentence verdict (impact session, not a bike file).
-🔬 pace, km, SPM/cadence, splits as one-liners. Triplets for cadence and eccentric/impact load. No FTP unless power exists. Empty work_laps → say **No interval laps** — do not invent them.
-🫀 HR vs pace, peak vs max/LTHR, decoupling. Average HR is not intensity.
+⚡ one-sentence verdict (impact session, not a bike file). If execution_headline is present, lead with it.
+🔬 pace vs threshold, km, SPM/cadence — use run_intensity (pace_label + hr_label). No FTP/watt load unless power.source is measured. Empty work_laps → **No interval laps**.
+🫀 HR vs pace, peak vs max/LTHR. Classify from pace+HR, not estimated watts.
 🧠 3 actions: tissue/impact, sleep-HRV, next session. Include ACWR.""",
         MODALITY_RIDE: f"""Bullet autopsy of this BIKE session. {_VOICE_CLOSE}
 ⚡ one-sentence verdict (classification + whether the work landed).
@@ -722,6 +782,23 @@ def autopsy_task_for_packet(modality: str | None, packet: dict | None) -> str:
     base = autopsy_task_for_modality(modality)
     if not packet:
         return base
+    power = packet.get("power") or {}
+    power_rules: list[str] = []
+    source = power.get("source") or "measured"
+    if source != "measured":
+        note = power.get("coaching_note") or (
+            "No power meter — use HR, duration, and pace only. "
+            "Do NOT cite IF, TSS, sweet-spot, threshold, or %FTP from watts."
+        )
+        power_rules.extend(
+            [
+                f"POWER SOURCE: {source}. {note}",
+                "Open 🔬 with the coaching_note line, then duration/distance/pace/HR — no watt autopsy.",
+                "Do NOT list lap-by-lap watts or power-zone biology triplets.",
+            ]
+        )
+    if power_rules:
+        base = base + "\n\nPOWER SOURCE RULES\n" + "\n".join(f"- {line}" for line in power_rules)
     overlay = packet.get("prescribed_vs_executed") or {}
     prescription = packet.get("prescription")
     week = packet.get("week_plan_session")
@@ -748,6 +825,13 @@ def autopsy_task_for_packet(modality: str | None, packet: dict | None) -> str:
                 "If library_compliance.score is present, reference the grade (A–F) and whether duration + intensity targets were hit.",
                 "Cite evidence_tags from the prescription when explaining why this session was planned.",
             ]
+        )
+    execution = packet.get("execution_headline") or {}
+    if execution.get("headline"):
+        extra = extra or []
+        extra.insert(
+            0,
+            f"Open ⚡ with execution_headline: {execution['headline']}",
         )
     if not extra:
         return base
@@ -929,6 +1013,148 @@ def athlete_state_block(context: dict, safety: dict) -> str:
     )
 
 
+def template_quick_debrief(
+    message: str,
+    safety: dict,
+    science_hits: list[dict],
+    session_packet: dict | None = None,
+    context: dict | None = None,
+) -> dict[str, Any]:
+    """Phase 3 — 80-120 word debrief: bottom line, vs plan, recovery. No triplets."""
+    if not session_packet:
+        return template_autopsy(message, safety, science_hits, session_packet=None, context=context)
+
+    load = safety.get("load") or {}
+    health = ((context or {}).get("coros") or {}).get("latest_health") or {}
+    injuries = safety.get("injuries") or {}
+    hr = session_packet.get("heart_rate") or {}
+    power = session_packet.get("power") or {}
+    name = session_packet.get("name") or "the session"
+    when = session_packet.get("when") or session_packet.get("date") or "recently"
+    minutes = session_packet.get("minutes")
+    km = session_packet.get("km")
+    classification = session_packet.get("classification") or "unclassified"
+    acwr = load.get("minutes_acwr")
+    modality = session_packet.get("modality") or coach_modality(
+        session_packet.get("sport"), session_packet.get("family")
+    )
+    execution = session_packet.get("execution_headline") or {}
+    week = session_packet.get("week_plan_session") or {}
+    coaching_note = power.get("coaching_note")
+
+    if execution.get("headline"):
+        bottom = f"{name} ({when}): {execution['headline']}"
+    elif modality == MODALITY_RUN:
+        ri = session_packet.get("run_intensity") or {}
+        pace_bit = f" at {session_packet.get('pace_min_per_km')} min/km" if session_packet.get("pace_min_per_km") else ""
+        bottom = (
+            f"{name} ({when}): {minutes} min / {km} km{pace_bit} — classified **{classification}** "
+            f"(pace {ri.get('pace_label') or '?'}, HR {ri.get('hr_label') or '?'})."
+        )
+    elif power.get("source") != "measured":
+        bottom = (
+            f"{name} ({when}): {minutes} min classified **{classification}** — "
+            "HR and duration led (no power meter)."
+        )
+    else:
+        bottom = (
+            f"{name} ({when}): {minutes} min classified **{classification}** — "
+            "judge the work that was done, not average HR alone."
+        )
+
+    vs_plan_parts: list[str] = []
+    if week.get("title") or week.get("duration_min"):
+        plan_label = week.get("title") or week.get("session_type") or "planned session"
+        planned_min = week.get("duration_min")
+        if planned_min and minutes:
+            if float(minutes) > float(planned_min) * 1.1:
+                vs_plan_parts.append(
+                    f"**Longer than planned**: {minutes} min executed vs {planned_min} min {plan_label}."
+                )
+            elif float(minutes) < float(planned_min) * 0.85:
+                vs_plan_parts.append(
+                    f"**Shorter than planned**: {minutes} min vs {planned_min} min {plan_label}."
+                )
+            else:
+                vs_plan_parts.append(f"Duration matched {plan_label} (~{planned_min} min).")
+        else:
+            vs_plan_parts.append(f"Plan row: {plan_label}.")
+    if execution.get("intensity_mismatch"):
+        vs_plan_parts.append(
+            f"Intensity **{classification}** — not the easy conversational load the plan called for."
+        )
+    elif hr.get("pct_lthr_avg") is not None:
+        vs_plan_parts.append(
+            f"Avg HR {hr.get('pct_lthr_avg')}% LTHR ({hr.get('avg_bpm')} bpm)."
+        )
+    metrics_src = session_packet.get("metrics_source") or {}
+    if metrics_src.get("power") == "strava_estimated":
+        vs_plan_parts.append("Watts are **Strava estimates** — HR/pace led this read.")
+    elif coaching_note:
+        vs_plan_parts.append(coaching_note)
+    if metrics_src.get("pace") == "recalculated":
+        vs_plan_parts.append("Pace recalculated from distance and duration.")
+    if not vs_plan_parts:
+        vs_plan_parts.append("No week-plan row matched this file — grade the session on its own merits.")
+
+    back = ", ".join(injuries.get("active") or []) or "none listed"
+    recovery_parts: list[str] = []
+    watch_bold = ""
+    if health and health.get("hrv") is not None:
+        watch_bold = "hrv"
+    elif acwr is not None:
+        watch_bold = "acwr"
+    if health:
+        hrv_bit = (
+            f"**HRV {health.get('hrv')}**"
+            if watch_bold == "hrv"
+            else f"HRV {health.get('hrv')}"
+        )
+        recovery_parts.append(
+            f"Sleep {health.get('sleep_score')}, {hrv_bit}, resting HR "
+            f"{health.get('resting_heart_rate')} bpm."
+        )
+    else:
+        recovery_parts.append("No sleep/HRV check-in on file — default conservative tomorrow.")
+    if acwr is not None:
+        acwr_bit = f"**ACWR {acwr}**" if watch_bold == "acwr" else f"ACWR {acwr}"
+        recovery_parts.append(f"{acwr_bit} — protect the next 24-48h.")
+    action = {
+        MODALITY_RUN: "Next run stays truly easy if this was meant to be recovery.",
+        MODALITY_RIDE: "Next bike: easy spin if duration or heat stacked the load.",
+        MODALITY_SWIM: "Next swim: technique, not density, if shoulders feel heavy.",
+        MODALITY_STRENGTH: "Next lift: hold RPE; drop volume if HRV is still down.",
+        MODALITY_YOGA: "Protect the next quality day — mobility banked, not intensity.",
+        MODALITY_OTHER: "Keep the next session honest to what you just took on.",
+    }.get(modality, "Keep the next session honest to what you just took on.")
+    if back != "none listed":
+        recovery_parts.append(f"Active limits: {back}.")
+    recovery_parts.append(action)
+
+    lines = [
+        "⚡ BOTTOM LINE",
+        bottom,
+        "",
+        "📋 VS PLAN",
+        " ".join(vs_plan_parts),
+        "",
+        "🧠 RECOVERY",
+        " ".join(recovery_parts),
+    ]
+    return {
+        "reply": "\n".join(lines),
+        "citations": [
+            hit["citation"]["slug"]
+            for hit in science_hits[:1]
+            if hit.get("citation", {}).get("slug")
+        ],
+        "escalate": False,
+        "escalation_reason": None,
+        "intent": "WORKOUT_AUDIT",
+        "debrief_mode": "quick",
+    }
+
+
 def template_autopsy(
     message: str,
     safety: dict,
@@ -978,9 +1204,16 @@ def template_autopsy(
 
     overlay = session_packet.get("prescribed_vs_executed") or {}
     week = session_packet.get("week_plan_session") or {}
-    ride_verdict = (
-        f"{name} ({when}): {minutes} min bike classified **{classification}** — judge the watts, not average HR."
-    )
+    power_source = (power.get("source") or "measured")
+    if power_source == "measured":
+        ride_verdict = (
+            f"{name} ({when}): {minutes} min bike classified **{classification}** — judge the watts, not average HR."
+        )
+    else:
+        ride_verdict = (
+            f"{name} ({when}): {minutes} min bike classified **{classification}** — "
+            "HR and duration led (no power meter)."
+        )
     if overlay.get("aligned") or overlay.get("vo2_caps"):
         hit = overlay.get("hit_rate")
         vo2 = overlay.get("vo2_caps") or []
@@ -992,10 +1225,29 @@ def template_autopsy(
             f"{name} ({when}): prescribed over-under with 280 W VO2 finishers ({vo2_laps}) — "
             f"plan hit-rate {hit}.{week_bit}"
         )
+    execution = session_packet.get("execution_headline") or {}
+    run_headline = execution.get("headline")
+    run_intensity = session_packet.get("run_intensity") or {}
+    if run_headline:
+        run_verdict = f"{name} ({when}): {run_headline}"
+    elif run_intensity.get("pace_label") or run_intensity.get("hr_label"):
+        pace_bit = ""
+        if run_intensity.get("pct_threshold_pace"):
+            pace_bit = f" · pace {run_intensity['pct_threshold_pace']}% of threshold"
+        hr_bit = ""
+        if hr.get("pct_lthr_avg"):
+            hr_bit = f" · HR {hr['pct_lthr_avg']}% LTHR"
+        run_verdict = (
+            f"{name} ({when}): {minutes} min run classified **{classification}**"
+            f"{pace_bit}{hr_bit} — pace+HR led, not watts."
+        )
+    else:
+        run_verdict = (
+            f"{name} ({when}): {minutes} min running classified **{classification}** — "
+            "impact work, not a bike file."
+        )
     verdicts = {
-        MODALITY_RUN: (
-            f"{name} ({when}): {minutes} min running classified **{classification}** — impact work, not a bike file."
-        ),
+        MODALITY_RUN: run_verdict,
         MODALITY_RIDE: ride_verdict,
         MODALITY_SWIM: (
             f"{name} ({when}): {minutes} min swim classified **{classification}** — efficiency first, not wattage."
@@ -1013,7 +1265,11 @@ def template_autopsy(
 
     mechanical: list[str] = []
     cardio: list[str] = []
-    if modality == MODALITY_RIDE and (power.get("np_w") or power.get("avg_w")):
+    coaching_note = power.get("coaching_note")
+    if coaching_note:
+        mechanical.append(f"• **Note:** {coaching_note}")
+    compute_power_load = power_source == "measured"
+    if modality == MODALITY_RIDE and compute_power_load and (power.get("np_w") or power.get("avg_w")):
         mechanical.append(
             _triplet(
                 "Normalized power",
@@ -1024,10 +1280,30 @@ def template_autopsy(
         )
         if cad:
             mechanical.append(f"• **Cadence**: {cad} rpm")
+    elif modality == MODALITY_RIDE and not compute_power_load:
+        mechanical.append(f"• **Duration**: {minutes} min · {session_packet.get('km')} km")
+        ref = power.get("reference_avg_w")
+        if ref:
+            mechanical.append(
+                f"• **Estimated avg power (reference only)**: {ref} W — not used for IF/TSS or zones."
+            )
+        if cad:
+            mechanical.append(f"• **Cadence**: {cad} rpm")
     elif modality == MODALITY_RUN:
         pace = session_packet.get("pace_min_per_km")
         if pace:
             mechanical.append(f"• **Pace**: {pace} min/km over {session_packet.get('km')} km")
+        ri = session_packet.get("run_intensity") or {}
+        if ri.get("pct_threshold_pace"):
+            mechanical.append(
+                f"• **Pace vs threshold**: {ri.get('pct_threshold_pace')}% "
+                f"(pace {ri.get('pace_label') or '?'}, HR {ri.get('hr_label') or '?'})"
+            )
+        ref = power.get("reference_avg_w") or power.get("reference_np_w")
+        if ref and not compute_power_load:
+            mechanical.append(
+                f"• **Estimated power (ignored for load)**: {ref} W — use pace and HR for this run."
+            )
         if cad:
             mechanical.append(
                 _triplet(
@@ -1087,7 +1363,7 @@ def template_autopsy(
             )
         for line in overlay.get("key_laps") or []:
             mechanical.append(f"• {line}")
-    elif work:
+    elif work and compute_power_load:
         mechanical.append("• **Work laps** (one line each):")
         for lap in work[:12]:
             label = lap.get("label") or f"Lap {lap.get('index')}"
@@ -1176,6 +1452,7 @@ def template_autopsy(
         "escalate": False,
         "escalation_reason": None,
         "intent": "WORKOUT_AUDIT",
+        "debrief_mode": "full",
     }
 
 

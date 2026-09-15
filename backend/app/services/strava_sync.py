@@ -19,6 +19,7 @@ from app.services.strava_api import (
     get_valid_access_token,
     list_athlete_activities,
 )
+from app.services.power_source import seed_strava_summary_fields
 from app.services.strava_import import import_single_fit_file
 
 # Per-athlete sync status (avoids one global lock across athletes)
@@ -172,6 +173,8 @@ def api_activity_to_metadata(activity: dict) -> dict:
         "average_heartrate": activity.get("average_heartrate"),
         "max_heartrate": activity.get("max_heartrate"),
         "sport_type": sport_type,
+        "device_watts": activity.get("device_watts"),
+        "strava_summary_seed": seed_strava_summary_fields(activity),
     }
 
 
@@ -238,6 +241,16 @@ def import_activity_summary(
         points_file_path=None,
         source_fit_file=f"strava_api:{strava_activity_id}",
     )
+    seed = metadata.get("strava_summary_seed") or {}
+    if seed or metadata.get("device_watts") is not None:
+        import json
+
+        summary = dict(seed)
+        if metadata.get("device_watts") is not None:
+            summary["device_watts"] = bool(metadata["device_watts"])
+        record.detail_json = json.dumps(
+            {"summary": summary, "sources": ["strava_api"], "family": metadata.get("sport_type")}
+        )
     db.add(record)
     db.commit()
     db.refresh(record)

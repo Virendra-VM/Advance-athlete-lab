@@ -464,3 +464,123 @@ def _mean(values: list[Any]) -> float | None:
     if not numbers:
         return None
     return round(sum(numbers) / len(numbers), 1)
+
+
+_EASY_PLAN_TOKENS = (
+    "easy",
+    "recovery",
+    "z2",
+    "conversational",
+    "aerobic",
+    "rest",
+)
+_HARD_PLAN_TOKENS = (
+    "tempo",
+    "threshold",
+    "interval",
+    "vo2",
+    "quality",
+    "hard",
+    "race",
+)
+_RUN_EASY_LABELS = {"easy", "steady"}
+_RUN_HARDER_LABELS = {"tempo", "hard", "threshold", "vo2-intervals", "sweet-spot"}
+
+
+def _plan_blob(week_session: dict[str, Any]) -> str:
+    return " ".join(
+        str(week_session.get(key) or "")
+        for key in ("title", "session_type", "intensity", "description")
+    ).lower()
+
+
+def _planned_expects_easy(week_session: dict[str, Any]) -> bool:
+    blob = _plan_blob(week_session)
+    return any(token in blob for token in _EASY_PLAN_TOKENS)
+
+
+def _planned_expects_hard(week_session: dict[str, Any]) -> bool:
+    blob = _plan_blob(week_session)
+    return any(token in blob for token in _HARD_PLAN_TOKENS)
+
+
+def build_execution_headline(
+    week_session: dict[str, Any] | None,
+    telemetry: dict[str, Any],
+) -> dict[str, Any] | None:
+    """Planned-vs-executed headline for debriefs — duration and intensity first."""
+    if not week_session:
+        return None
+
+    from app.services.workout_library import format_pace
+
+    planned_min = week_session.get("duration_min")
+    executed_min = telemetry.get("minutes")
+    km = telemetry.get("km")
+    pace_min = telemetry.get("pace_min_per_km")
+    hr = telemetry.get("heart_rate") or {}
+    avg_hr = hr.get("avg_bpm")
+    pct_lthr = hr.get("pct_lthr_avg")
+    classification = telemetry.get("classification") or "unclassified"
+    family = telemetry.get("family") or ""
+
+    duration_delta_pct = None
+    duration_longer = False
+    if planned_min and executed_min:
+        duration_delta_pct = round(abs(float(executed_min) / float(planned_min) - 1.0) * 100, 1)
+        duration_longer = float(executed_min) > float(planned_min) * 1.1
+
+    intensity_mismatch = False
+    if family == "run":
+        if _planned_expects_easy(week_session):
+            if classification not in _RUN_EASY_LABELS:
+                intensity_mismatch = True
+            elif pct_lthr is not None and float(pct_lthr) >= 82:
+                intensity_mismatch = True
+        if _planned_expects_hard(week_session) and classification in _RUN_EASY_LABELS:
+            intensity_mismatch = True
+
+    parts: list[str] = []
+    if executed_min and km:
+        pace_bit = f" at {pace_min} min/km" if pace_min else ""
+        parts.append(f"{int(executed_min)} min / {km} km{pace_bit}")
+    elif executed_min:
+        parts.append(f"{int(executed_min)} min")
+
+    plan_title = week_session.get("title") or week_session.get("session_type") or "planned session"
+    if duration_longer:
+        parts.append(f"longer than your {planned_min or '?'} min {plan_title}")
+    elif planned_min and executed_min and duration_delta_pct is not None and duration_delta_pct <= 10:
+        parts.append(f"on plan for {plan_title}")
+
+    if intensity_mismatch and _planned_expects_easy(week_session):
+        parts.append("not easy vs plan")
+    elif intensity_mismatch:
+        parts.append(f"intensity mismatch vs {plan_title}")
+
+    if avg_hr and pct_lthr:
+        parts.append(f"HR {int(avg_hr)} avg ({pct_lthr}% LTHR)")
+
+    headline = " — ".join(parts) if parts else None
+    if headline and intensity_mismatch and _planned_expects_easy(week_session):
+        headline = f"{headline}. Classification **{classification}** — not an easy run by plan or feel."
+
+    run_intensity = dict(telemetry.get("run_intensity") or {})
+    if family == "run" and run_intensity.get("pace_sec_per_km"):
+        threshold_sec = run_intensity.get("threshold_pace_sec_per_km")
+        run_intensity["pace_display"] = format_pace(run_intensity.get("pace_sec_per_km"))
+        if threshold_sec:
+            run_intensity["threshold_pace_display"] = format_pace(threshold_sec)
+
+    return {
+        "headline": headline,
+        "planned_title": plan_title,
+        "planned_min": planned_min,
+        "executed_min": executed_min,
+        "duration_delta_pct": duration_delta_pct,
+        "duration_longer": duration_longer,
+        "intensity_mismatch": intensity_mismatch,
+        "planned_expects_easy": _planned_expects_easy(week_session),
+        "executed_classification": classification,
+        "run_intensity": run_intensity or None,
+    }

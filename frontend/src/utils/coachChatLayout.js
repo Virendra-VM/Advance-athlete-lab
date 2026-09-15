@@ -93,8 +93,23 @@ export function countWeekTableRows(tableRows) {
   return parsed.slice(1).filter((row) => !isTableDivider(row)).length
 }
 
+export function isWeekReviewDebrief(content) {
+  const text = String(content || '')
+  return /🧭\s*WEEK GRADE/i.test(text) || /📅\s*WHAT LANDED/i.test(text)
+}
+
+export function isWeekDebriefTable(rows) {
+  const header = (rows || [])
+    .map(parseTableRow)
+    .find((row) => row.length && !isTableDivider(row))
+  if (!header?.length) return false
+  const joined = header.join(' ').toLowerCase()
+  return joined.includes('status') && joined.includes('note')
+}
+
 export function messageHasScheduleContent(content) {
   const text = String(content || '')
+  if (isWeekReviewDebrief(text)) return false
   return (
     isRevisedWeekHeader(text) ||
     /WHAT CHANGED/i.test(text) ||
@@ -103,6 +118,9 @@ export function messageHasScheduleContent(content) {
 }
 
 export function goDeeperPrompt(content) {
+  if (isWeekReviewDebrief(content || '')) {
+    return 'Go deeper on this week debrief only: max 3 bullets on load distribution and recovery cost. No schedule table, no future week plan.'
+  }
   if (/WHAT CHANGED/i.test(content || '')) {
     return 'Quick follow-up only: in max 3 bullets, why do these zone changes work? One watch number. No week table.'
   }
@@ -260,12 +278,15 @@ export function extractDeepDiveBlocks(folded) {
 }
 
 export function hasGoDeeperContent(folded, content) {
+  if (isWeekReviewDebrief(content)) {
+    return extractDeepDiveBlocks(folded).length > 0 || /🔬\s*THE SCIENCE/i.test(content || '')
+  }
   if (extractDeepDiveBlocks(folded).length > 0) return true
   if (messageHasScheduleContent(content)) return true
   return (folded || []).some(
     (block) =>
       block.type === 'whatChanged' ||
-      block.type === 'table' ||
+      (block.type === 'table' && !isWeekDebriefTable(block.rows)) ||
       (block.type === 'line' && isRevisedWeekHeader(String(block.line || '').trim())),
   )
 }

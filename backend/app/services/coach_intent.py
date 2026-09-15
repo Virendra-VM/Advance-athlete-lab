@@ -134,6 +134,18 @@ WEEK_REVIEW_HINTS = (
     "analyze this week",
     "analyse my week",
     "analyze my week",
+    "analyse my last week",
+    "analyze my last week",
+    "analyse last week",
+    "analyze last week",
+    "summarize my week",
+    "summarise my week",
+    "summarize last week",
+    "summarise last week",
+    "weekly debrief",
+    "week debrief",
+    "how much have i improved",
+    "how much i've improved",
 )
 
 WEEK_SCOPE_RE = re.compile(
@@ -147,7 +159,8 @@ FORWARD_PLAN_RE = re.compile(
 )
 RETROSPECT_RE = re.compile(
     r"\b(how did i do|how did i perform|how was|how did .{0,20} go|"
-    r"recap|review|debrief|grade|look at|take a look|done with)\b",
+    r"recap|review|debrief|grade|look at|take a look|done with|"
+    r"analyse|analyze|summarize|summarise|break down)\b",
     re.IGNORECASE,
 )
 SESSION_SCOPE_RE = re.compile(
@@ -418,7 +431,14 @@ def _classify_structural(message: str) -> IntentDecision:
         review += 4
     if week_scoped and RETROSPECT_RE.search(text) and not looking_forward:
         review += 3
-    elif week_scoped and re.search(r"\b(how did i|done with|look at my week)\b", text):
+    elif week_scoped and re.search(
+        r"\b(how did i|done with|look at my week|analyse|analyze|summarize|summarise)\b",
+        text,
+    ):
+        review += 2
+    if week_scoped and re.search(r"\b(that week|in that week)\b", text) and RETROSPECT_RE.search(
+        text
+    ):
         review += 2
 
     if any(hint in text for hint in SCHEDULE_HINTS):
@@ -507,6 +527,8 @@ def _classify_structural(message: str) -> IntentDecision:
         return IntentDecision(SCHEDULE_UPDATE, 0.55, "structural_weak", audit, schedule, review)
     if audit > 0:
         return IntentDecision(WORKOUT_AUDIT, 0.55, "structural_weak", audit, schedule, review)
+    if week_scoped and not looking_forward:
+        return IntentDecision(WEEK_REVIEW, 0.55, "structural_week_scoped_default", audit, schedule, review)
     return IntentDecision(GENERAL_CHAT, 0.85, "structural_default", audit, schedule, review)
 
 

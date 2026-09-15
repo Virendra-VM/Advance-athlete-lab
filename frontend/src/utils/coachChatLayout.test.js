@@ -7,6 +7,8 @@ import {
   foldCoachContent,
   goDeeperPrompt,
   hasGoDeeperContent,
+  isWeekDebriefTable,
+  isWeekReviewDebrief,
   messageHasScheduleContent,
   whatChangedSummary,
 } from './coachChatLayout.js'
@@ -73,5 +75,18 @@ describe('coachChatLayout Phase 6', () => {
   it('countWhatChangedItems ignores header only', () => {
     assert.equal(countWhatChangedItems(['📊 **WHAT CHANGED**']), 0)
     assert.equal(countWhatChangedItems(['📊 **WHAT CHANGED**', '• **FTP:** 232 W']), 1)
+  })
+
+  it('week review debrief is not schedule content', () => {
+    const debrief = `🧭 WEEK GRADE\nB−\n📅 WHAT LANDED\n| Day | Session | Status | Note |`
+    assert.equal(isWeekReviewDebrief(debrief), true)
+    assert.equal(messageHasScheduleContent(debrief), false)
+    assert.equal(isWeekDebriefTable(['| Day | Session | Status | Note |']), true)
+  })
+
+  it('goDeeperPrompt for week debrief avoids schedule rebuild', () => {
+    const prompt = goDeeperPrompt('🧭 WEEK GRADE\nDone.')
+    assert.match(prompt, /week debrief/i)
+    assert.match(prompt, /no schedule table/i)
   })
 })
