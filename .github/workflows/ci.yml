@@ -34,14 +34,7 @@ jobs:
           # Tests build their own sqlite engines; this keeps app.database import-safe.
           DATABASE_URL: sqlite:///:memory:
           PYTHONPATH: .
-        # Nearly full suite on sqlite. Four tests are pre-existing product/test
-        # drift (prompt copy + season context None) — deselect until fixed on AI_Coach.
-        run: >
-          pytest -q
-          --deselect=tests/test_ai_coach.py::test_chat_and_schedule_prompts_skip_autopsy_sections
-          --deselect=tests/test_daily_advice.py::test_generate_daily_advice_uses_cache_until_signals_change
-          --deselect=tests/test_season_replan.py::test_replan_keeps_the_plan_sound_from_any_day_of_the_week
-          --deselect=tests/test_week_brief.py::test_generate_week_brief_uses_cache_until_signals_change
+        run: pytest -q
 
   frontend-unit:
     name: frontend-unit

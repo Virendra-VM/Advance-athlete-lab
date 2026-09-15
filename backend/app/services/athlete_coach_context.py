@@ -209,7 +209,7 @@ def build_athlete_coach_context(db: Session, athlete_profile_id: int) -> dict:
         "coros_fitness_loaded": fitness is not None,
         "coros_training_load_loaded": load is not None,
         "coros_schedule_items": len(schedule),
-        "season_plan_loaded": bool(season.get("has_plan")),
+        "season_plan_loaded": bool(season and season.get("has_plan")),
     }
 
     return {

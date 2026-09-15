@@ -228,6 +228,7 @@ def test_chat_and_schedule_prompts_skip_autopsy_sections():
     assert "skip" in chat.lower() or "BAN" in chat
     assert "MECHANICAL PRECISION" in chat
     assert "CARDIOVASCULAR COST" in chat
+    # Emoji/THE CALL ban lives on the chat task (system prompt uses prose BAN/Skip).
     assert "emoji section headers" in task.lower() or "THE CALL" in task
     assert "THE BOTTOM LINE" in schedule
     assert "skip" in schedule.lower()
