@@ -115,17 +115,27 @@ from app.services.coach_intent import (
     CLINICAL_VETO,
     DAY_ADJUST,
     GENERAL_CHAT,
+    MONTH_REVIEW,
     OFF_TOPIC,
+    PERIOD_REVIEW_INTENTS,
     SCHEDULE_UPDATE,
     WEEK_PLAN_REVIEW,
     SCIENCE_LOOKUP,
     WEEK_REVIEW,
     WORKOUT_AUDIT,
+    YEAR_REVIEW,
     classify_chat_intent_detailed,
     normalize_intent,
 )
 from app.services.debrief_mode import DEBRIEF_FULL, DEBRIEF_QUICK, resolve_debrief_mode
 from app.services.session_plan import build_execution_headline, build_session_plan_overlay
+from app.services.period_review import (
+    PERIOD_REVIEW_SCHEMA,
+    build_period_review_packet,
+    period_review_system_prompt,
+    period_review_task,
+    template_period_review,
+)
 from app.services.periodization import season_prompt_block
 from app.services.session_telemetry import (
     analyze_activity,
@@ -178,7 +188,9 @@ from app.services.coach_memory import (
     memory_snapshot,
 )
 from app.services.coach_skills import (
+    SKILL_CLINICAL,
     SKILL_GO_DEEPER,
+    SKILL_OFF_TOPIC,
     SKILL_SUPPORT_CHAT,
     SKILL_VALIDATE_PLAN,
     resolve_coach_skill,
@@ -1907,6 +1919,9 @@ def apply_week_from_chat(
             raise LookupError("message_not_found")
         meta = _decode_message_meta(row.citations)
         stored_plan_id = meta.get("plan_id")
+        stored_intent = meta.get("intent")
+        if stored_intent in PERIOD_REVIEW_INTENTS:
+            raise ValueError("That reply is a training recap, not a week plan to add to Schedule.")
         if not text:
             text = row.content or ""
 
@@ -3037,10 +3052,12 @@ def coach_chat(
     safety = context["safety"]
     red_flags = detect_red_flags(message)
 
-    db.add(
-        CoachMessage(athlete_profile_id=profile.id, role="user", content=message.strip())
+    user_row = CoachMessage(
+        athlete_profile_id=profile.id, role="user", content=message.strip()
     )
+    db.add(user_row)
     db.commit()
+    db.refresh(user_row)
 
     if red_flags:
         reply = {
@@ -3049,6 +3066,7 @@ def coach_chat(
             "escalate": True,
             "escalation_reason": f"Red-flag symptom mentioned: {', '.join(red_flags)}.",
         }
+        _stamp_message_routing(db, user_row, CLINICAL_VETO, "clinical")
         _store_assistant_message(db, profile.id, reply, "safety-gate")
         return {
             "provider": "safety-gate",
@@ -3085,6 +3103,8 @@ def coach_chat(
     if intent not in (
         WORKOUT_AUDIT,
         WEEK_REVIEW,
+        MONTH_REVIEW,
+        YEAR_REVIEW,
         WEEK_PLAN_REVIEW,
         SCHEDULE_UPDATE,
         DAY_ADJUST,
@@ -3152,6 +3172,7 @@ def coach_chat(
             region=clinical.get("region"),
         )
         db.commit()
+        _stamp_message_routing(db, user_row, CLINICAL_VETO, SKILL_CLINICAL)
         reply = template_clinical_veto(
             message,
             region=clinical.get("region"),
@@ -3170,6 +3191,7 @@ def coach_chat(
 
     if intent == OFF_TOPIC:
         reply = template_off_topic(message)
+        _stamp_message_routing(db, user_row, OFF_TOPIC, SKILL_OFF_TOPIC)
         _store_assistant_message(db, profile.id, reply, "domain-gate")
         return {
             "provider": "domain-gate",
@@ -3184,6 +3206,7 @@ def coach_chat(
     current_plan = get_active_plan(db, profile.id, clock["week_start"])
 
     if apply_advisory_mode and advisory_thread:
+        _stamp_message_routing(db, user_row, GENERAL_CHAT, coach_skill)
         return _complete_apply_advisory_chat(
             db,
             profile,
@@ -3197,6 +3220,7 @@ def coach_chat(
 
     session_packet = None
     week_packet = None
+    period_packet = None
     review_plan = current_plan
     modality = None
     science_grounded = False
@@ -3257,6 +3281,18 @@ def coach_chat(
         hits = _retrieve(
             db,
             "weekly training load ACWR adherence periodization recovery sleep HRV "
+            + message[:180],
+            profile,
+            k=5,
+        )
+    elif intent in {MONTH_REVIEW, YEAR_REVIEW}:
+        horizon = "year" if intent == YEAR_REVIEW else "month"
+        period_packet = build_period_review_packet(
+            db, profile, context, clock, message, horizon=horizon
+        )
+        hits = _retrieve(
+            db,
+            "training load ACWR periodization consistency recovery sleep HRV "
             + message[:180],
             profile,
             k=5,
@@ -3399,6 +3435,20 @@ Sunday's long ride is one row in 📅 WHAT LANDED.
 Use the packet window. If today is Monday and they said they finished the week, recap last Mon–Sun.
 Never more than two consecutive sentences per block.
 """
+    elif intent in {MONTH_REVIEW, YEAR_REVIEW}:
+        horizon = "year" if intent == YEAR_REVIEW else "month"
+        extra_block = f"""
+PERIOD REVIEW PACKET (ground truth for the {horizon} window — do not invent sessions)
+{json.dumps(period_packet, indent=2, default=str)}
+
+{athlete_state_block(context, safety)}
+
+ROUTING (hard)
+Intent is {intent}. This is a {horizon} performance debrief, not a week plan and not a file autopsy.
+Do not load or invent session telemetry. Completely skip ⚡ THE BOTTOM LINE, 🔬 MECHANICAL PRECISION, and 🫀 CARDIOVASCULAR COST.
+Do not paste CURRENT WEEK PLAN, 🗓️ REVISED WEEK, or Add-to-Schedule language.
+Use PERIOD REVIEW PACKET buckets only.
+"""
     elif intent == WEEK_PLAN_REVIEW:
         extra_block = f"""
 {today_call_prompt_block(context, safety)}
@@ -3526,6 +3576,11 @@ BAN 🟢 TODAY'S CALL, 🗓️ REVISED WEEK, PRIMED/ACCUMULATE, and week tables.
         task = week_review_task()
         chat_schema = WEEK_REVIEW_SCHEMA
         system_prompt = week_review_system_prompt()
+    elif intent in {MONTH_REVIEW, YEAR_REVIEW}:
+        horizon = "year" if intent == YEAR_REVIEW else "month"
+        task = period_review_task(horizon)
+        chat_schema = PERIOD_REVIEW_SCHEMA.replace("MONTH_REVIEW", intent)
+        system_prompt = period_review_system_prompt(horizon)
     elif intent == WEEK_PLAN_REVIEW:
         task = week_plan_review_task()
         chat_schema = WEEK_PLAN_REVIEW_SCHEMA
@@ -3575,6 +3630,8 @@ BAN 🟢 TODAY'S CALL, 🗓️ REVISED WEEK, PRIMED/ACCUMULATE, and week tables.
 REVIEW WEEK PLAN (the recap window only — do not paste as a schedule table)
 {_plan_digest(review_plan, clock)}
 """
+    elif intent in {MONTH_REVIEW, YEAR_REVIEW}:
+        current_plan_block = ""
     else:
         current_plan_block = f"""
 CURRENT WEEK PLAN
@@ -3759,6 +3816,14 @@ Respond with JSON matching exactly this shape:
                 packet=week_packet,
                 context=context,
             )
+        elif intent in {MONTH_REVIEW, YEAR_REVIEW}:
+            reply = template_period_review(
+                message,
+                safety,
+                hits,
+                packet=period_packet,
+                horizon="year" if intent == YEAR_REVIEW else "month",
+            )
         elif intent == WEEK_PLAN_REVIEW:
             reply = template_week_plan_review(
                 message,
@@ -3936,7 +4001,7 @@ Respond with JSON matching exactly this shape:
         decision_source,
     )
 
-    if intent in {GENERAL_CHAT, WEEK_REVIEW} and reply.get("reply"):
+    if intent in {GENERAL_CHAT, WEEK_REVIEW, MONTH_REVIEW, YEAR_REVIEW} and reply.get("reply"):
         if intent == GENERAL_CHAT and skill_resolution.uses_advisory_polish:
             reply["reply"] = polish_advisory_reply(reply["reply"])
         elif intent == GENERAL_CHAT:
@@ -3945,6 +4010,7 @@ Respond with JSON matching exactly this shape:
             reply["reply"] = strip_schedule_sections(reply.get("reply") or "")
 
     variety_meta = reply.pop("_variety", None)
+    _stamp_message_routing(db, user_row, intent, coach_skill)
     assistant_message_id = _store_assistant_message(
         db, profile.id, reply, provider_name, variety=variety_meta
     )
@@ -3972,6 +4038,33 @@ Respond with JSON matching exactly this shape:
         "plan": applied_plan,
         "proactive_prompts": list_proactive_prompts(db, profile.id),
     }
+
+
+def _stamp_message_routing(
+    db: Session,
+    row: CoachMessage | None,
+    intent: str | None,
+    skill: str | None,
+) -> None:
+    if row is None:
+        return
+    meta = _decode_message_meta(row.citations)
+    if intent:
+        meta["intent"] = intent
+    if skill:
+        meta["skill"] = skill
+    citations = meta.get("citations") or []
+    payload = {
+        "citations": citations if isinstance(citations, list) else [],
+        "plan_id": meta.get("plan_id"),
+        "intent": meta.get("intent"),
+        "skill": meta.get("skill"),
+        "tools": meta.get("tools"),
+        "variety": meta.get("variety"),
+    }
+    row.citations = json.dumps(payload)
+    db.add(row)
+    db.commit()
 
 
 def _decode_message_meta(raw: str | None) -> dict:

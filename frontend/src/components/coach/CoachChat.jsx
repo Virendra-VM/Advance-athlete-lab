@@ -17,6 +17,8 @@ import {
   foldCoachContent,
   goDeeperPrompt,
   hasGoDeeperContent,
+  isDebriefIntent,
+  isScheduleIntent,
   isWeekDebriefTable,
   isWeekReviewDebrief,
   isCoachSectionHeader,
@@ -278,6 +280,7 @@ function CoachReplyBody({
   weekTableDefaultOpen = true,
   onGoDeeper,
   goDeeperDisabled = false,
+  intent = null,
 }) {
   if (mine) {
     return <p className="whitespace-pre-wrap leading-relaxed">{content}</p>
@@ -286,12 +289,12 @@ function CoachReplyBody({
   const folded = foldCoachContent(content)
   const deepDiveBlocks = extractDeepDiveBlocks(folded)
   const visibleBlocks = folded.filter((block) => block.type !== 'deepDive')
-  const showGoDeeper = hasGoDeeperContent(folded, content)
+  const showGoDeeper = hasGoDeeperContent(folded, content, intent)
   let placedApply = false
   const lastVisible = visibleBlocks.length - 1
 
   const handleAskCoach = onGoDeeper
-    ? () => onGoDeeper(goDeeperPrompt(content))
+    ? () => onGoDeeper(goDeeperPrompt(content, intent))
     : undefined
 
   return (
@@ -489,7 +492,9 @@ function PinnedBar({ pin, onJump, onUnpin }) {
   )
 }
 
-function looksLikeWeekTable(content) {
+function looksLikeWeekTable(content, intent) {
+  if (isDebriefIntent(intent)) return false
+  if (isScheduleIntent(intent)) return true
   const text = String(content || '')
   if (isWeekReviewDebrief(text)) return false
   return (
@@ -510,17 +515,17 @@ function findWeekAnchorMessageId(messages, plan) {
   for (let i = messages.length - 1; i >= 0; i--) {
     const message = messages[i]
     if (message.role === 'user') continue
-    if (message.intent === 'WEEK_REVIEW') continue
+    if (isDebriefIntent(message.intent)) continue
     if (isWeekReviewDebrief(message.content)) continue
-    if (message.plan_id === plan.plan_id) return message.id
+    if (message.plan_id === plan.plan_id || isScheduleIntent(message.intent)) return message.id
   }
 
   for (let i = messages.length - 1; i >= 0; i--) {
     const message = messages[i]
     if (message.role === 'user') continue
-    if (message.intent === 'WEEK_REVIEW') continue
+    if (isDebriefIntent(message.intent)) continue
     if (isWeekReviewDebrief(message.content)) continue
-    if (looksLikeWeekTable(message.content)) return message.id
+    if (looksLikeWeekTable(message.content, message.intent)) return message.id
   }
 
   return null
@@ -545,13 +550,12 @@ function MessageRow({
     (typeof message.id === 'number' ||
       (typeof message.id === 'string' && !String(message.id).startsWith('pending-')))
   const body = streamed != null ? streamed : message.content
-  const isDebriefReply =
-    message.intent === 'WEEK_REVIEW' || isWeekReviewDebrief(body)
+  const isDebriefReply = isDebriefIntent(message.intent) || isWeekReviewDebrief(body)
   const applyWeek =
     !isDebriefReply &&
     !streaming &&
     onApplyWeek &&
-    (message.plan_id || looksLikeWeekTable(body)) ? (
+    (isScheduleIntent(message.intent) || message.plan_id || looksLikeWeekTable(body, message.intent)) ? (
       <ApplyWeekButton
         onApply={() => onApplyWeek(message)}
         applying={applying}
@@ -604,6 +608,7 @@ function MessageRow({
           weekTableDefaultOpen={Boolean(isLatestAssistant)}
           onGoDeeper={onGoDeeper}
           goDeeperDisabled={goDeeperDisabled}
+          intent={message.intent}
         />
       </motion.div>
       {streaming ? null : (

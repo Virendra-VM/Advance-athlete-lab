@@ -18,12 +18,14 @@ from app.services.coach_intent import (
     CLINICAL_VETO,
     DAY_ADJUST,
     GENERAL_CHAT,
+    MONTH_REVIEW,
     OFF_TOPIC,
     SCHEDULE_UPDATE,
     SCIENCE_LOOKUP,
     WEEK_PLAN_REVIEW,
     WEEK_REVIEW,
     WORKOUT_AUDIT,
+    YEAR_REVIEW,
 )
 
 # --- Skill identifiers (stable API for frontend / eval) ---
@@ -31,6 +33,8 @@ from app.services.coach_intent import (
 SKILL_REVIEW_SESSION = "review_session"
 SKILL_REBUILD_WEEK = "rebuild_week"
 SKILL_WEEK_DEBRIEF = "week_debrief"
+SKILL_MONTH_DEBRIEF = "month_debrief"
+SKILL_YEAR_DEBRIEF = "year_debrief"
 SKILL_WEEK_PLAN_REVIEW = "week_plan_review"
 SKILL_ADJUST_DAY = "adjust_day"
 SKILL_EXPLAIN_METRIC = "explain_metric"
@@ -46,6 +50,8 @@ ALL_SKILLS = (
     SKILL_REVIEW_SESSION,
     SKILL_REBUILD_WEEK,
     SKILL_WEEK_DEBRIEF,
+    SKILL_MONTH_DEBRIEF,
+    SKILL_YEAR_DEBRIEF,
     SKILL_WEEK_PLAN_REVIEW,
     SKILL_ADJUST_DAY,
     SKILL_EXPLAIN_METRIC,
@@ -62,6 +68,8 @@ INTENT_TO_SKILL: dict[str, str] = {
     WORKOUT_AUDIT: SKILL_REVIEW_SESSION,
     SCHEDULE_UPDATE: SKILL_REBUILD_WEEK,
     WEEK_REVIEW: SKILL_WEEK_DEBRIEF,
+    MONTH_REVIEW: SKILL_MONTH_DEBRIEF,
+    YEAR_REVIEW: SKILL_YEAR_DEBRIEF,
     WEEK_PLAN_REVIEW: SKILL_WEEK_PLAN_REVIEW,
     DAY_ADJUST: SKILL_ADJUST_DAY,
     SCIENCE_LOOKUP: SKILL_EXPLAIN_METRIC,
@@ -210,6 +218,10 @@ Autopsy the named session with telemetry. Planned-vs-executed only.""",
 Two-pass schedule. Action summary or full report per mode.""",
         SKILL_WEEK_DEBRIEF: """SKILL: week_debrief
 Recap the week window from the packet. No single-ride autopsy.""",
+        SKILL_MONTH_DEBRIEF: """SKILL: month_debrief
+Recap the month / ~30-day window. Weekly buckets, not a 7-day schedule table.""",
+        SKILL_YEAR_DEBRIEF: """SKILL: year_debrief
+Recap the year / season. Monthly buckets, not a week plan.""",
         SKILL_WEEK_PLAN_REVIEW: """SKILL: week_plan_review
 Review-only — no calendar save, no autopsy.""",
         SKILL_ADJUST_DAY: """SKILL: adjust_day

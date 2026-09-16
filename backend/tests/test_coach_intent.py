@@ -107,6 +107,37 @@ def test_week_review_examples():
         )
         == WEEK_REVIEW
     )
+    assert (
+        classify_chat_intent(
+            "how much have I improved over the last 7 days",
+            use_llm=False,
+        )
+        == WEEK_REVIEW
+    )
+
+
+def test_month_and_year_review_are_first_class():
+    from app.services.coach_intent import MONTH_REVIEW, YEAR_REVIEW
+
+    assert classify_chat_intent("How did I do this month?", use_llm=False) == MONTH_REVIEW
+    assert classify_chat_intent("analyse my last month", use_llm=False) == MONTH_REVIEW
+    assert (
+        classify_chat_intent(
+            "how much have I improved over the last 30 days",
+            use_llm=False,
+        )
+        == MONTH_REVIEW
+    )
+    assert classify_chat_intent("How did I do this year?", use_llm=False) == YEAR_REVIEW
+    assert classify_chat_intent("year in review of my training", use_llm=False) == YEAR_REVIEW
+    assert (
+        classify_chat_intent(
+            "how much have I improved over the last 12 months",
+            use_llm=False,
+        )
+        == YEAR_REVIEW
+    )
+    assert classify_chat_intent("How did I do this week?", use_llm=False) == WEEK_REVIEW
 
 
 def test_week_review_does_not_steal_session_plan_or_science():

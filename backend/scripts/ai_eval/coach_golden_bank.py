@@ -46,6 +46,7 @@ class GoldenRoutingCase:
     expected_intent: str | None = None
     acceptable_skills: tuple[str, ...] = field(default_factory=tuple)
     tags: tuple[str, ...] = field(default_factory=tuple)
+    strict_intent: bool = False
 
 
 def _cases(
@@ -55,6 +56,7 @@ def _cases(
     messages: list[str],
     *,
     acceptable_skills: tuple[str, ...] = (),
+    strict_intent: bool = False,
 ) -> list[GoldenRoutingCase]:
     allowed = acceptable_skills or (skill,)
     return [
@@ -65,6 +67,7 @@ def _cases(
             expected_skill=skill,
             expected_intent=intent,
             acceptable_skills=allowed,
+            strict_intent=strict_intent,
         )
         for index, message in enumerate(messages, start=1)
     ]
@@ -261,7 +264,8 @@ _WEEK_DEBRIEF = _cases(
         "Recap the week — wins and misses",
         "Finished the week — how did I do?",
     ],
-    acceptable_skills=(SKILL_WEEK_DEBRIEF, SKILL_GENERAL_CHAT),
+    acceptable_skills=(SKILL_WEEK_DEBRIEF,),
+    strict_intent=True,
 )
 
 _WEEK_PLAN_REVIEW = _cases(
@@ -444,6 +448,10 @@ GOLDEN_ROUTING_CASES: list[GoldenRoutingCase] = (
     + _TAPER_RACE
     + _TRAVEL
 )
+
+from scripts.ai_eval.coach_intent_variants import build_intent_variant_bank  # noqa: E402
+
+GOLDEN_ROUTING_CASES = list(GOLDEN_ROUTING_CASES) + build_intent_variant_bank()
 
 # Quality-reply cases (subset with reply expectations for mechanical scoring)
 QUALITY_REPLY_CASE_IDS = frozenset(

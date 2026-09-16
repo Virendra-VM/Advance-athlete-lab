@@ -7,6 +7,7 @@ import {
   foldCoachContent,
   goDeeperPrompt,
   hasGoDeeperContent,
+  isDebriefIntent,
   isWeekDebriefTable,
   isWeekReviewDebrief,
   messageHasScheduleContent,
@@ -57,6 +58,7 @@ describe('coachChatLayout Phase 6', () => {
   it('detects schedule content for go deeper', () => {
     assert.equal(messageHasScheduleContent('🗓️ REVISED WEEK\n| Day | Session |'), true)
     assert.equal(messageHasScheduleContent('Just a casual chat answer.'), false)
+    assert.equal(messageHasScheduleContent('| Day | Session | Status | Note |', 'WEEK_REVIEW'), false)
   })
 
   it('hasGoDeeperContent when deep dive or schedule present', () => {
@@ -82,6 +84,14 @@ describe('coachChatLayout Phase 6', () => {
     assert.equal(isWeekReviewDebrief(debrief), true)
     assert.equal(messageHasScheduleContent(debrief), false)
     assert.equal(isWeekDebriefTable(['| Day | Session | Status | Note |']), true)
+    assert.equal(isDebriefIntent('MONTH_REVIEW'), true)
+    assert.equal(messageHasScheduleContent('anything', 'YEAR_REVIEW'), false)
+  })
+
+  it('goDeeperPrompt uses stored intent when present', () => {
+    assert.match(goDeeperPrompt('plain', 'MONTH_REVIEW'), /month debrief/i)
+    assert.match(goDeeperPrompt('plain', 'YEAR_REVIEW'), /year debrief/i)
+    assert.match(goDeeperPrompt('plain', 'WEEK_REVIEW'), /week debrief/i)
   })
 
   it('goDeeperPrompt for week debrief avoids schedule rebuild', () => {
