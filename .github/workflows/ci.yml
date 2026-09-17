@@ -32,7 +32,7 @@ jobs:
       - name: Run pytest
         env:
           # Tests build their own sqlite engines; this keeps app.database import-safe.
-          DATABASE_URL: sqlite:///:memory:
+          DATABASE_URL: "sqlite:///:memory:"
           PYTHONPATH: .
         run: pytest -q
 
