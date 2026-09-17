@@ -56,6 +56,34 @@ def test_golden_bank_has_200_plus_cases():
     assert len(GOLDEN_ROUTING_CASES) >= 200
 
 
+def test_core_intents_have_200_plus_strict_variants():
+    from collections import Counter
+
+    counts = Counter(case.category for case in GOLDEN_ROUTING_CASES)
+    for category in (
+        "week_debrief",
+        "month_debrief",
+        "year_debrief",
+        "review_session",
+        "rebuild_week",
+        "adjust_day",
+        "explain_metric",
+        "general_chat",
+        "clinical",
+        "off_topic",
+    ):
+        assert counts[category] >= 200, (category, counts[category])
+
+
+def test_week_debrief_bank_is_strict():
+    week_cases = [case for case in GOLDEN_ROUTING_CASES if case.category == "week_debrief"]
+    assert week_cases
+    for case in week_cases:
+        assert case.strict_intent is True
+        assert case.acceptable_skills == ("week_debrief",)
+        assert "general_chat" not in case.acceptable_skills
+
+
 def test_grounding_eval_bank_present():
     assert len(GROUNDING_EVAL_CASES) >= 1
     assert "Pros and cons" in GROUNDING_EVAL_CASES[0].message

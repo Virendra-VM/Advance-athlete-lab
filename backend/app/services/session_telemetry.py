@@ -324,6 +324,184 @@ def best_rolling_mean(series_1hz: list[float | None], window_s: int) -> float | 
     return _round(best, 0)
 
 
+RUN_INTENSITY_RANK = {"easy": 0, "steady": 1, "tempo": 2, "hard": 3}
+
+
+def _pace_sec_per_km(
+    *,
+    pace_min_per_km: float | None,
+    duration_s: float | None,
+    distance_m: float | None,
+) -> float | None:
+    if pace_min_per_km and pace_min_per_km > 0:
+        return _round(float(pace_min_per_km) * 60.0, 1)
+    if duration_s and distance_m and distance_m >= 50:
+        return _round(float(duration_s) / (float(distance_m) / 1000.0), 1)
+    return None
+
+
+def _run_pace_intensity_label(
+    pace_sec_per_km: float | None,
+    threshold_pace_sec_per_km: float | None,
+) -> str | None:
+    if not pace_sec_per_km or not threshold_pace_sec_per_km:
+        return None
+    ratio = float(pace_sec_per_km) / float(threshold_pace_sec_per_km)
+    if ratio >= 1.12:
+        return "easy"
+    if ratio >= 1.05:
+        return "steady"
+    if ratio >= 0.98:
+        return "tempo"
+    return "hard"
+
+
+def _run_hr_intensity_label(
+    avg_hr: float | None,
+    lthr: float | None,
+    hr_time: list[dict[str, Any]],
+) -> str | None:
+    if lthr and avg_hr:
+        ratio = float(avg_hr) / float(lthr)
+        if ratio < 0.83:
+            return "easy"
+        if ratio < 0.90:
+            return "steady"
+        if ratio < 0.96:
+            return "tempo"
+        return "hard"
+    by_name = {row.get("name", ""): row.get("pct") or 0 for row in hr_time}
+    z12 = sum(
+        by_name.get(label, 0)
+        for label in (
+            "Z1 recovery",
+            "Z2 aerobic",
+            "Z2 endurance",
+            "Z1",
+            "Z2",
+        )
+    )
+    z4plus = sum(
+        by_name.get(label, 0)
+        for label in ("Z4 threshold", "Z5 VO2max", "Z4", "Z5")
+    )
+    if z4plus >= 15:
+        return "hard"
+    z3 = sum(by_name.get(label, 0) for label in ("Z3 tempo", "Z3 aerobic", "Z3"))
+    if z3 >= 25:
+        return "tempo"
+    if z12 >= 70:
+        return "easy"
+    if z12 >= 50:
+        return "steady"
+    return None
+
+
+def classify_run_session(
+    *,
+    pace_sec_per_km: float | None,
+    threshold_pace_sec_per_km: float | None,
+    avg_hr: float | None,
+    lthr: float | None,
+    hr_time: list[dict[str, Any]] | None = None,
+) -> str:
+    """Run intensity from pace vs threshold and HR vs LTHR — never bike power logic."""
+    hr_time = hr_time or []
+    pace_label = _run_pace_intensity_label(pace_sec_per_km, threshold_pace_sec_per_km)
+    hr_label = _run_hr_intensity_label(avg_hr, lthr, hr_time)
+    labels = [label for label in (pace_label, hr_label) if label]
+    if not labels:
+        return "continuous"
+    return max(labels, key=lambda name: RUN_INTENSITY_RANK[name])
+
+
+def classify_ride_without_measured_power(
+    *,
+    avg_hr: float | None,
+    lthr: float | None,
+    hr_time: list[dict[str, Any]],
+    duration_min: float | None,
+) -> str:
+    """Outdoor / estimated-watt rides — HR and duration only, no power-zone names."""
+    by_name = {row.get("name", ""): row.get("pct") or 0 for row in hr_time}
+    z12 = sum(
+        by_name.get(label, 0)
+        for label in (
+            "Z1 recovery",
+            "Z2 aerobic",
+            "Z2 endurance",
+            "Z1",
+            "Z2",
+        )
+    )
+    z3plus = sum(
+        by_name.get(label, 0)
+        for label in ("Z3 tempo", "Z3 aerobic", "Z4 threshold", "Z3", "Z4")
+    )
+    hr_ratio = float(avg_hr) / float(lthr) if lthr and avg_hr else None
+    if duration_min and duration_min >= 150:
+        return "long"
+    if z12 >= 65 and (hr_ratio is None or hr_ratio < 0.88):
+        return "endurance"
+    if z3plus >= 20 or (hr_ratio is not None and hr_ratio >= 0.92):
+        return "moderate"
+    if hr_ratio is not None and hr_ratio < 0.85:
+        return "easy"
+    if duration_min and duration_min >= 90:
+        return "endurance"
+    return "aerobic"
+
+
+def classify_session_without_measured_power(
+    *,
+    family: str,
+    avg_hr: float | None,
+    lthr: float | None,
+    hr_time: list[dict[str, Any]],
+    pace_sec_per_km: float | None = None,
+    threshold_pace_sec_per_km: float | None = None,
+    duration_min: float | None = None,
+) -> str:
+    """Intensity label when watts are estimated or absent — sport-correct signals."""
+    if family == "run":
+        return classify_run_session(
+            pace_sec_per_km=pace_sec_per_km,
+            threshold_pace_sec_per_km=threshold_pace_sec_per_km,
+            avg_hr=avg_hr,
+            lthr=lthr,
+            hr_time=hr_time,
+        )
+    if family == "ride":
+        return classify_ride_without_measured_power(
+            avg_hr=avg_hr,
+            lthr=lthr,
+            hr_time=hr_time,
+            duration_min=duration_min,
+        )
+    by_name = {row.get("name", ""): row.get("pct") or 0 for row in hr_time}
+    z12 = sum(
+        by_name.get(label, 0)
+        for label in (
+            "Z1 recovery",
+            "Z2 aerobic",
+            "Z2 endurance",
+            "Z1",
+            "Z2",
+        )
+    )
+    z3plus = sum(
+        by_name.get(label, 0)
+        for label in ("Z3 tempo", "Z3 aerobic", "Z4 threshold", "Z3", "Z4")
+    )
+    if z12 >= 65:
+        return "endurance"
+    if z3plus >= 20:
+        return "moderate"
+    if lthr and avg_hr and float(avg_hr) / float(lthr) < 0.85:
+        return "endurance"
+    return "aerobic"
+
+
 def classify_session(
     *,
     intensity_factor_value: float | None,
@@ -407,8 +585,10 @@ def _column_values(frame: pd.DataFrame, *names: str) -> list[float | None]:
 def _enrich_laps(
     laps: list[dict[str, Any]],
     physiology: dict[str, Any],
+    *,
+    include_power_load: bool = True,
 ) -> list[dict[str, Any]]:
-    ftp = physiology.get("ftp_watts")
+    ftp = physiology.get("ftp_watts") if include_power_load else None
     lthr = physiology.get("lthr_bpm")
     max_hr = physiology.get("max_hr_bpm")
     rows = []
@@ -420,17 +600,20 @@ def _enrich_laps(
             "label": lap.get("label"),
             "duration_s": lap.get("duration_s"),
             "duration_min": _round((lap.get("duration_s") or 0) / 60.0, 1),
-            "avg_power": avg_power,
-            "np": _round(lap.get("normalized_power"), 0),
-            "pct_ftp": _pct(avg_power, ftp, 0),
             "avg_hr": avg_hr,
             "max_hr": _round(lap.get("max_hr"), 0),
             "pct_lthr": _pct(avg_hr, lthr, 0),
             "pct_max_hr": _pct(avg_hr, max_hr, 0),
             "avg_cadence": _round(lap.get("avg_cadence"), 0),
         }
+        if include_power_load:
+            row["avg_power"] = avg_power
+            row["np"] = _round(lap.get("normalized_power"), 0)
+            row["pct_ftp"] = _pct(avg_power, ftp, 0)
+        elif avg_power:
+            row["reference_avg_w"] = avg_power
         rows.append(row)
-    return _annotate_lap_roles(rows, ftp)
+    return _annotate_lap_roles(rows, ftp) if include_power_load else rows
 
 
 def _compact_exercises(raw: Any) -> list[dict[str, Any]]:
@@ -497,6 +680,12 @@ def compact_activity_metrics(
 
 def analyze_activity(activity: Activity, physiology: dict[str, Any]) -> dict[str, Any]:
     """Full telemetry packet for one session. Safe to inject into a prompt."""
+    from app.services.power_source import (
+        power_coaching_note,
+        resolve_power_source,
+        should_compute_power_load_metrics,
+    )
+
     detail = parse_activity_detail(activity) or {}
     summary = detail.get("summary") if isinstance(detail.get("summary"), dict) else {}
     raw_laps = detail.get("laps") if isinstance(detail.get("laps"), list) else []
@@ -517,70 +706,173 @@ def analyze_activity(activity: Activity, physiology: dict[str, Any]) -> dict[str
     if elapsed:
         duration_s = max(duration_s, elapsed[-1] - elapsed[0])
 
+    from app.services.session_metrics import resolve_session_metrics
+
+    metrics_resolution = resolve_session_metrics(
+        activity,
+        detail=detail,
+        frame=frame,
+        stream_power=power,
+        stream_hr=hr,
+        stream_cadence=cadence,
+        duration_s=duration_s,
+    )
+    metrics_source = metrics_resolution.get("metrics_source") or {}
+    resolved = metrics_resolution.get("resolved") or {}
+
+    power_stream_present = bool(any(value and value > 0 for value in power))
+    family = activity_sport_family(activity.sport_type)
+    power_source = metrics_resolution.get("power_source") or resolve_power_source(
+        activity,
+        detail,
+        power_stream_present=power_stream_present,
+    )
+    compute_power_load = should_compute_power_load_metrics(power_source)
+    coaching_note = power_coaching_note(power_source, family)
+
     avg_power = _mean([value for value in power if value and value > 0]) or _round(
         summary.get("avg_power"), 0
     )
     np_watts = normalized_power(elapsed, power) if power else _round(
         summary.get("normalized_power"), 0
     )
+    if np_watts is None:
+        np_watts = _round(summary.get("weighted_average_watts"), 0)
+    if compute_power_load and np_watts is None and avg_power:
+        np_watts = avg_power
     max_power = _peak([value for value in power if value]) or _round(summary.get("max_power"), 0)
-    avg_hr = _mean([value for value in hr if value and value > 30]) or _round(
+    avg_hr = _mean([value for value in hr if value and value > 30]) or resolved.get("avg_hr") or _round(
         activity.average_heartrate or summary.get("avg_hr"), 0
     )
-    max_hr = _peak([value for value in hr if value]) or _round(
+    max_hr = _peak([value for value in hr if value]) or resolved.get("max_hr") or _round(
         activity.max_heartrate or summary.get("max_hr"), 0
     )
     cad_values = [value for value in cadence if value and value > 20]
+    if not cad_values and resolved.get("avg_cadence"):
+        cad_values = [float(resolved["avg_cadence"])]
     ftp = physiology.get("ftp_watts")
-    iff = intensity_factor(np_watts, ftp)
-    laps = _enrich_laps(raw_laps, physiology)
+    iff = intensity_factor(np_watts, ftp) if compute_power_load else None
+    laps = _enrich_laps(raw_laps, physiology, include_power_load=compute_power_load)
     power_zones = coggan_power_zones(ftp)
     hr_zones = heart_rate_zones(
         lthr_bpm=physiology.get("lthr_bpm"), max_hr_bpm=physiology.get("max_hr_bpm")
     )
-    power_time = time_in_zones(elapsed, power, power_zones, value_key_low="low_w", value_key_high="high_w")
+    power_time: list[dict[str, Any]] = []
+    if compute_power_load:
+        power_time = time_in_zones(
+            elapsed, power, power_zones, value_key_low="low_w", value_key_high="high_w"
+        )
+        if not power_time and isinstance(zones_blob.get("power"), list):
+            power_time = _coerce_provider_zones(zones_blob.get("power"), "power")
     hr_time = time_in_zones(elapsed, hr, hr_zones, value_key_low="low_bpm", value_key_high="high_bpm")
-    if not power_time and isinstance(zones_blob.get("power"), list):
-        power_time = _coerce_provider_zones(zones_blob.get("power"), "power")
     if not hr_time and isinstance(zones_blob.get("hr"), list):
         hr_time = _coerce_provider_zones(zones_blob.get("hr"), "hr")
+    if hr_time and elapsed and any(value and value > 30 for value in hr):
+        metrics_source["hr_zones"] = "streams"
+    elif hr_time and metrics_source.get("hr_zones") == "none":
+        metrics_source["hr_zones"] = "computed"
+
+    pace_min_km = resolved.get("pace_min_per_km")
+    if pace_min_km is None and activity.distance_m and duration_s and activity.distance_m >= 50:
+        pace_min_km = _round((duration_s / 60.0) / (activity.distance_m / 1000.0), 2)
+    pace_sec_per_km = _pace_sec_per_km(
+        pace_min_per_km=pace_min_km or _round(summary.get("avg_pace"), 2),
+        duration_s=duration_s,
+        distance_m=activity.distance_m,
+    )
+    threshold_pace = physiology.get("threshold_pace_sec_per_km")
 
     lap_source = "stored"
-    if laps_are_uninformative(raw_laps, duration_s) and power and ftp:
+    if compute_power_load and laps_are_uninformative(raw_laps, duration_s) and power and ftp:
         detected = detect_laps_from_power_stream(
             elapsed, power, ftp=ftp, hr=hr, cadence=cadence
         )
         if detected:
             raw_laps = detected
             lap_source = "power_stream"
-            laps = _enrich_laps(raw_laps, physiology)
+            laps = _enrich_laps(raw_laps, physiology, include_power_load=True)
 
-    classification = classify_session(
-        intensity_factor_value=iff,
-        power_zone_time=power_time,
-        laps=laps,
-        ftp=ftp,
-    )
-    work_laps = [
-        lap
-        for lap in laps
-        if lap.get("role") in {"over", "under", "work"}
-        or (
-            lap.get("role") not in {"warmup", "cooldown", "recovery"}
-            and (lap.get("pct_ftp") or 0) >= 80
-            and (lap.get("duration_s") or 0) < 12 * 60
+    if compute_power_load:
+        classification = classify_session(
+            intensity_factor_value=iff,
+            power_zone_time=power_time,
+            laps=laps,
+            ftp=ftp,
         )
-    ]
+    else:
+        classification = classify_session_without_measured_power(
+            family=family,
+            avg_hr=avg_hr,
+            lthr=physiology.get("lthr_bpm"),
+            hr_time=hr_time,
+            pace_sec_per_km=pace_sec_per_km,
+            threshold_pace_sec_per_km=threshold_pace,
+            duration_min=_round(duration_s / 60.0, 0),
+        )
+
+    work_laps = []
+    if compute_power_load:
+        work_laps = [
+            lap
+            for lap in laps
+            if lap.get("role") in {"over", "under", "work"}
+            or (
+                lap.get("role") not in {"warmup", "cooldown", "recovery"}
+                and (lap.get("pct_ftp") or 0) >= 80
+                and (lap.get("duration_s") or 0) < 12 * 60
+            )
+        ]
     peak_hr_by_block = [
         {"label": lap.get("label") or f"Lap {lap.get('index')}", "max_hr": lap.get("max_hr")}
         for lap in laps
         if lap.get("max_hr")
     ]
-    pace_min_km = None
-    if activity.distance_m and duration_s and activity.distance_m >= 50:
-        pace_min_km = _round((duration_s / 60.0) / (activity.distance_m / 1000.0), 2)
+    run_intensity: dict[str, Any] | None = None
+    if family == "run":
+        pace_label = _run_pace_intensity_label(pace_sec_per_km, threshold_pace)
+        hr_label = _run_hr_intensity_label(avg_hr, physiology.get("lthr_bpm"), hr_time)
+        run_intensity = {
+            "pace_sec_per_km": pace_sec_per_km,
+            "threshold_pace_sec_per_km": threshold_pace,
+            "pct_threshold_pace": (
+                _round(100.0 * float(pace_sec_per_km) / float(threshold_pace), 1)
+                if pace_sec_per_km and threshold_pace
+                else None
+            ),
+            "pace_label": pace_label,
+            "hr_label": hr_label,
+            "signals": [name for name, label in (("pace", pace_label), ("hr", hr_label)) if label],
+        }
     exercises = _compact_exercises(detail.get("exercises"))
-    family = activity_sport_family(activity.sport_type)
+
+    power_block: dict[str, Any] = {
+        "source": power_source,
+        "coaching_note": coaching_note,
+    }
+    if compute_power_load:
+        power_block.update(
+            {
+                "avg_w": avg_power,
+                "np_w": np_watts,
+                "max_w": max_power,
+                "pct_ftp_np": _pct(np_watts, ftp, 0),
+                "intensity_factor": iff,
+                "tss": training_stress_score(duration_s, np_watts, ftp),
+            }
+        )
+    else:
+        power_block.update(
+            {
+                "avg_w": None,
+                "np_w": None,
+                "max_w": None,
+                "pct_ftp_np": None,
+                "intensity_factor": None,
+                "tss": None,
+                "reference_avg_w": avg_power,
+                "reference_np_w": np_watts,
+            }
+        )
 
     return {
         "id": activity.id,
@@ -592,21 +884,18 @@ def analyze_activity(activity: Activity, physiology: dict[str, Any]) -> dict[str
         "pace_min_per_km": pace_min_km or _round(summary.get("avg_pace"), 2),
         "has_streams": bool(elapsed),
         "classification": classification,
-        "power": {
-            "avg_w": avg_power,
-            "np_w": np_watts,
-            "max_w": max_power,
-            "pct_ftp_np": _pct(np_watts, ftp, 0),
-            "intensity_factor": iff,
-            "tss": training_stress_score(duration_s, np_watts, ftp),
-        },
+        "power": power_block,
         "heart_rate": {
             "avg_bpm": avg_hr,
             "max_bpm": max_hr,
             "pct_lthr_avg": _pct(avg_hr, physiology.get("lthr_bpm"), 0),
             "pct_max_avg": _pct(avg_hr, physiology.get("max_hr_bpm"), 0),
             "pct_max_peak": _pct(max_hr, physiology.get("max_hr_bpm"), 0),
-            "decoupling_pct": hr_power_decoupling(elapsed, hr, power) if elapsed else None,
+            "decoupling_pct": (
+                hr_power_decoupling(elapsed, hr, power)
+                if elapsed and compute_power_load
+                else None
+            ),
             "peak_by_lap": peak_hr_by_block[:12],
         },
         "cadence": {
@@ -621,20 +910,29 @@ def analyze_activity(activity: Activity, physiology: dict[str, Any]) -> dict[str
             "avg_pace": _round(summary.get("avg_pace"), 2),
         },
         "exercises": exercises,
-        "time_in_power_zones": power_time,
+        "time_in_power_zones": power_time if compute_power_load else [],
         "time_in_hr_zones": hr_time,
         "lap_source": lap_source,
         "lap_count": len(laps),
         "work_lap_count": len(work_laps),
         "laps": laps,
         "work_laps": work_laps,
+        "run_intensity": run_intensity,
+        "metrics_source": metrics_source,
+        "pace_recalculated": metrics_resolution.get("pace_recalculated"),
         "anchors_used": {
             "ftp_watts": ftp,
             "ftp_source": physiology.get("ftp_source"),
             "lthr_bpm": physiology.get("lthr_bpm"),
             "max_hr_bpm": physiology.get("max_hr_bpm"),
+            "threshold_pace_sec_per_km": threshold_pace,
         },
-        "missing": _missing_fields(elapsed, power, hr, ftp),
+        "missing": _missing_fields(
+            elapsed,
+            power if compute_power_load else [],
+            hr,
+            ftp if compute_power_load else None,
+        ),
     }
 
 

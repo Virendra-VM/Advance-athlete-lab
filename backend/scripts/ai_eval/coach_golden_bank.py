@@ -8,6 +8,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 
+from app.services.coach_debrief_plain import DebriefEvalCase
 from app.services.coach_reply_eval import GroundingEvalCase
 from app.services.coach_intent import (
     CLINICAL_VETO,
@@ -45,6 +46,7 @@ class GoldenRoutingCase:
     expected_intent: str | None = None
     acceptable_skills: tuple[str, ...] = field(default_factory=tuple)
     tags: tuple[str, ...] = field(default_factory=tuple)
+    strict_intent: bool = False
 
 
 def _cases(
@@ -54,6 +56,7 @@ def _cases(
     messages: list[str],
     *,
     acceptable_skills: tuple[str, ...] = (),
+    strict_intent: bool = False,
 ) -> list[GoldenRoutingCase]:
     allowed = acceptable_skills or (skill,)
     return [
@@ -64,6 +67,7 @@ def _cases(
             expected_skill=skill,
             expected_intent=intent,
             acceptable_skills=allowed,
+            strict_intent=strict_intent,
         )
         for index, message in enumerate(messages, start=1)
     ]
@@ -260,7 +264,8 @@ _WEEK_DEBRIEF = _cases(
         "Recap the week — wins and misses",
         "Finished the week — how did I do?",
     ],
-    acceptable_skills=(SKILL_WEEK_DEBRIEF, SKILL_GENERAL_CHAT),
+    acceptable_skills=(SKILL_WEEK_DEBRIEF,),
+    strict_intent=True,
 )
 
 _WEEK_PLAN_REVIEW = _cases(
@@ -444,6 +449,10 @@ GOLDEN_ROUTING_CASES: list[GoldenRoutingCase] = (
     + _TRAVEL
 )
 
+from scripts.ai_eval.coach_intent_variants import build_intent_variant_bank  # noqa: E402
+
+GOLDEN_ROUTING_CASES = list(GOLDEN_ROUTING_CASES) + build_intent_variant_bank()
+
 # Quality-reply cases (subset with reply expectations for mechanical scoring)
 QUALITY_REPLY_CASE_IDS = frozenset(
     {
@@ -470,6 +479,41 @@ NO_PROS_PLAN_MESSAGE = (
     "finish the base week perfectly as per my plan so tell me is there any problem in my plan "
     "which i told you right now?"
 )
+
+DEBRIEF_EVAL_CASES: list[DebriefEvalCase] = [
+    DebriefEvalCase(
+        case_id="debrief_saturday_no_meter_ride",
+        message="How was Saturday's ride?",
+        description="Outdoor ride without power meter — HR/duration led, no watt autopsy",
+        forbidden_patterns=(
+            r"\bNormalized power\b",
+            r"\bsweet[- ]spot\b",
+            r"\bintensity factor\b",
+            r"\bTSS\b",
+        ),
+        required_patterns=(
+            r"⚡ BOTTOM LINE",
+            r"📋 VS PLAN",
+            r"🧠 RECOVERY",
+            r"(reference only|No power meter|estimated|HR and duration)",
+        ),
+    ),
+    DebriefEvalCase(
+        case_id="debrief_sunday_easy_run_mismatch",
+        message="How was Sunday's run — give me a quick debrief.",
+        description="Easy long run plan but executed longer/harder than prescribed",
+        forbidden_patterns=(
+            r"\bNormalized power\b",
+            r"🔬 MECHANICAL",
+            r"METRIC:",
+            r"THE BIOLOGY:",
+        ),
+        required_patterns=(
+            r"(not easy|longer than|Longer than planned)",
+            r"(ACWR|HRV)",
+        ),
+    ),
+]
 
 GROUNDING_EVAL_CASES: list[GroundingEvalCase] = [
     GroundingEvalCase(

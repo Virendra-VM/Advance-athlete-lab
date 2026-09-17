@@ -17,6 +17,8 @@ logger = logging.getLogger(__name__)
 WORKOUT_AUDIT = "WORKOUT_AUDIT"
 SCHEDULE_UPDATE = "SCHEDULE_UPDATE"
 WEEK_REVIEW = "WEEK_REVIEW"
+MONTH_REVIEW = "MONTH_REVIEW"
+YEAR_REVIEW = "YEAR_REVIEW"
 WEEK_PLAN_REVIEW = "WEEK_PLAN_REVIEW"
 DAY_ADJUST = "DAY_ADJUST"
 SCIENCE_LOOKUP = "SCIENCE_LOOKUP"
@@ -24,11 +26,15 @@ CLINICAL_VETO = "CLINICAL_VETO"
 OFF_TOPIC = "OFF_TOPIC"
 GENERAL_CHAT = "GENERAL_CHAT"
 
+PERIOD_REVIEW_INTENTS = frozenset({WEEK_REVIEW, MONTH_REVIEW, YEAR_REVIEW})
+
 INTENTS = (
     WORKOUT_AUDIT,
     SCHEDULE_UPDATE,
     DAY_ADJUST,
     WEEK_REVIEW,
+    MONTH_REVIEW,
+    YEAR_REVIEW,
     WEEK_PLAN_REVIEW,
     SCIENCE_LOOKUP,
     CLINICAL_VETO,
@@ -43,6 +49,11 @@ LEGACY_INTENT = {
     "schedule": SCHEDULE_UPDATE,
     "week_review": WEEK_REVIEW,
     "week_recap": WEEK_REVIEW,
+    "month_review": MONTH_REVIEW,
+    "month_recap": MONTH_REVIEW,
+    "year_review": YEAR_REVIEW,
+    "year_recap": YEAR_REVIEW,
+    "season_review": YEAR_REVIEW,
     "day_adjust": DAY_ADJUST,
     "today_adjust": DAY_ADJUST,
     "science": SCIENCE_LOOKUP,
@@ -134,10 +145,77 @@ WEEK_REVIEW_HINTS = (
     "analyze this week",
     "analyse my week",
     "analyze my week",
+    "analyse my last week",
+    "analyze my last week",
+    "analyse last week",
+    "analyze last week",
+    "summarize my week",
+    "summarise my week",
+    "summarize last week",
+    "summarise last week",
+    "weekly debrief",
+    "week debrief",
+)
+
+MONTH_REVIEW_HINTS = (
+    "how did i do this month",
+    "how did i do last month",
+    "how was my month",
+    "how was this month",
+    "how was last month",
+    "monthly recap",
+    "recap my month",
+    "review my month",
+    "grade my month",
+    "analyse my month",
+    "analyze my month",
+    "analyse last month",
+    "analyze last month",
+    "summarize my month",
+    "summarise my month",
+    "last 30 days",
+    "past 30 days",
+    "last 4 weeks",
+    "past 4 weeks",
+)
+
+YEAR_REVIEW_HINTS = (
+    "how did i do this year",
+    "how did i do last year",
+    "how was my year",
+    "how was this year",
+    "how was last year",
+    "yearly recap",
+    "year in review",
+    "recap my year",
+    "review my year",
+    "grade my year",
+    "grade my season",
+    "analyse my year",
+    "analyze my year",
+    "summarize my year",
+    "summarise my year",
+    "last 12 months",
+    "past 12 months",
+    "this season",
 )
 
 WEEK_SCOPE_RE = re.compile(
-    r"\b(this week|last week|the week|my week|weekly recap|week recap)\b",
+    r"\b(this week|last week|the week|my week|weekly recap|week recap|"
+    r"past week|previous week|last 7 days|past 7 days|the last 7 days|"
+    r"last seven days|past seven days)\b",
+    re.IGNORECASE,
+)
+MONTH_SCOPE_RE = re.compile(
+    r"\b(this month|last month|the month|my month|monthly recap|month recap|"
+    r"past month|previous month|last 30 days|past 30 days|the last 30 days|"
+    r"last 4 weeks|past 4 weeks|last four weeks|30 days ago)\b",
+    re.IGNORECASE,
+)
+YEAR_SCOPE_RE = re.compile(
+    r"\b(this year|last year|the year|my year|yearly recap|year recap|"
+    r"past year|previous year|year in review|this season|last season|"
+    r"last 12 months|past 12 months|the last 12 months|calendar year)\b",
     re.IGNORECASE,
 )
 FORWARD_PLAN_RE = re.compile(
@@ -146,8 +224,10 @@ FORWARD_PLAN_RE = re.compile(
     re.IGNORECASE,
 )
 RETROSPECT_RE = re.compile(
-    r"\b(how did i do|how did i perform|how was|how did .{0,20} go|"
-    r"recap|review|debrief|grade|look at|take a look|done with)\b",
+    r"\b(how did i do|how did i perform|how was|how's my|hows my|how did .{0,20} go|"
+    r"recap|review|debrief|grade|look at|take a look|done with|"
+    r"analyse|analyze|summarize|summarise|break down|"
+    r"improved|improvement|progress|fitter|gains|compared)\b",
     re.IGNORECASE,
 )
 SESSION_SCOPE_RE = re.compile(
@@ -185,8 +265,12 @@ SCIENCE_HINTS = (
 )
 
 SCIENCE_QUESTION_RE = re.compile(
-    r"\b(what is|what's|whats|how does|why does|why is my|why has my|why's my|"
-    r"explain|latest research|peer[- ]?reviewed|blood flow restriction|heat acclim)\b",
+    r"\b("
+    r"what is(?! a good| the best| a nice)|what's(?! a good| the best)|whats(?! a good)|"
+    r"how does|why does|why is my|why has my|why's my|"
+    r"explain|latest research|peer[- ]?reviewed|blood flow restriction|heat acclim|"
+    r"what does .{0,20} (mean|do|measure)"
+    r")\b",
     re.IGNORECASE,
 )
 
@@ -202,20 +286,29 @@ OFF_TOPIC_HINTS = (
     "what stock",
     "which stock",
     "stock should i buy",
+    "stock price",
     "crypto",
     "bitcoin",
     "nft",
     "who should i vote",
     "election",
     "write me python",
+    "write me a python",
     "do my homework",
     "recipe for lasagna",
     "best tv show",
+    "fix my wifi",
+    "help with my taxes",
+    "book me a flight",
+    "capital of france",
+    "joke about cats",
+    "restaurant nearby",
 )
 
 OFF_TOPIC_RE = re.compile(
     r"\b(stock|stocks|crypto|bitcoin|ethereum|nft|portfolio|who (won|should i vote)|"
-    r"election|homework|lasagna|netflix)\b",
+    r"election|homework|lasagna|netflix|python script|wifi|taxes|flight to|"
+    r"capital of|tv show)\b",
     re.IGNORECASE,
 )
 
@@ -245,7 +338,13 @@ SCHEDULE_HINTS = (
     "rest day",
     "what should i do this week",
     "plan my week",
+    "plan the week",
     "build my week",
+    "build a recovery week",
+    "plan the rest",
+    "change friday",
+    "this week's calendar",
+    "this weeks calendar",
 )
 
 DAY_ADJUST_HINTS = (
@@ -274,7 +373,9 @@ TODAY_SCOPE_RE = re.compile(
 CLASSIFIER_SYSTEM = """You classify athlete coach-chat messages. Reply with JSON only.
 Choose exactly one intent:
 - WORKOUT_AUDIT: one named or implied session (today's ride, this run, laps, watts, "how was yoga").
-- WEEK_REVIEW: recap of a completed or current training week ("how did I do this week", "look at my week").
+- WEEK_REVIEW: recap of a completed or current training week ("how did I do this week", "last 7 days").
+- MONTH_REVIEW: recap of a month or ~30 days of training ("how did I do this month", "last 4 weeks").
+- YEAR_REVIEW: recap of a year/season ("how did I do this year", "last 12 months").
 - DAY_ADJUST: today's session only because HRV, readiness, stress, ACWR, or sleep is poor. Do not pick this for a full-week rewrite.
 - SCHEDULE_UPDATE: proposing, asking to see, or asking to change this week's training plan going forward (calendar, sports, rest days) — not a one-day health tweak.
 - CLINICAL_VETO: sharp/tissue pain, injury diagnosis requests, or asking the coach to prescribe medication.
@@ -288,7 +389,7 @@ Never pick SCHEDULE_UPDATE for a retrospective week recap.
 Never pick SCHEDULE_UPDATE when the only reason is today's HRV, readiness, stress, or ACWR — that is DAY_ADJUST.
 Never invent a paper. CLINICAL_VETO always beats a science explanation if they report sharp pain."""
 
-CLASSIFIER_SCHEMA = """{"intent": "WORKOUT_AUDIT|WEEK_REVIEW|DAY_ADJUST|SCHEDULE_UPDATE|SCIENCE_LOOKUP|CLINICAL_VETO|OFF_TOPIC|GENERAL_CHAT"}"""
+CLASSIFIER_SCHEMA = """{"intent": "WORKOUT_AUDIT|WEEK_REVIEW|MONTH_REVIEW|YEAR_REVIEW|DAY_ADJUST|SCHEDULE_UPDATE|SCIENCE_LOOKUP|CLINICAL_VETO|OFF_TOPIC|GENERAL_CHAT"}"""
 
 
 @dataclass(frozen=True)
@@ -299,6 +400,8 @@ class IntentDecision:
     audit_score: int = 0
     schedule_score: int = 0
     review_score: int = 0
+    month_score: int = 0
+    year_score: int = 0
 
 
 def normalize_intent(value: str | None) -> str:
@@ -334,6 +437,57 @@ def classify_chat_intent_detailed(
             audit_score=10,
         )
     structural = _classify_structural(message)
+    if structural.source in {
+        "empty",
+        "structural_go_deeper",
+        "structural_plan_advice",
+        "structural_clinical",
+        "structural_off_topic",
+    }:
+        return structural
+    if structural.intent in {CLINICAL_VETO, OFF_TOPIC} and structural.confidence >= 0.8:
+        return structural
+
+    embed = None
+    long_tail = bool(
+        re.search(
+            r"\b(last 7 days|past 7 days|last 30 days|last 4 weeks|last 12 months|"
+            r"improved|improvement|progress|fitter|recap|debrief|"
+            r"analyse|analyze|summarize|summarise|how did i do|how was my|how's my)\b",
+            message or "",
+            re.I,
+        )
+    )
+    weak_or_default = (
+        structural.confidence < 0.7
+        or structural.source in {"structural_weak", "structural_week_scoped_default"}
+        or (structural.source == "structural_default" and long_tail)
+    )
+    if weak_or_default:
+        try:
+            from app.services.coach_intent_embed import classify_with_embeddings
+
+            embed = classify_with_embeddings(message)
+        except Exception:  # noqa: BLE001 — embeddings must never break chat
+            embed = None
+        if embed and embed.intent in INTENTS:
+            if (
+                structural.intent in PERIOD_REVIEW_INTENTS
+                and embed.intent not in PERIOD_REVIEW_INTENTS
+                and embed.intent != SCHEDULE_UPDATE
+            ):
+                return structural
+            return IntentDecision(
+                intent=embed.intent,
+                confidence=embed.confidence,
+                source=embed.source,
+                audit_score=structural.audit_score,
+                schedule_score=structural.schedule_score,
+                review_score=structural.review_score,
+                month_score=structural.month_score,
+                year_score=structural.year_score,
+            )
+
     if structural.confidence >= 0.7 or not use_llm:
         return structural
     llm_intent = _classify_with_llm(message)
@@ -346,6 +500,30 @@ def classify_chat_intent_detailed(
                 audit_score=structural.audit_score,
                 schedule_score=structural.schedule_score,
                 review_score=structural.review_score,
+                month_score=structural.month_score,
+                year_score=structural.year_score,
+            )
+        if llm_intent == WORKOUT_AUDIT and structural.month_score >= 3:
+            return IntentDecision(
+                intent=MONTH_REVIEW,
+                confidence=0.85,
+                source="structural_blocks_llm_audit",
+                audit_score=structural.audit_score,
+                schedule_score=structural.schedule_score,
+                review_score=structural.review_score,
+                month_score=structural.month_score,
+                year_score=structural.year_score,
+            )
+        if llm_intent == WORKOUT_AUDIT and structural.year_score >= 3:
+            return IntentDecision(
+                intent=YEAR_REVIEW,
+                confidence=0.85,
+                source="structural_blocks_llm_audit",
+                audit_score=structural.audit_score,
+                schedule_score=structural.schedule_score,
+                review_score=structural.review_score,
+                month_score=structural.month_score,
+                year_score=structural.year_score,
             )
         if structural.intent in {CLINICAL_VETO, OFF_TOPIC} and structural.confidence >= 0.8:
             return structural
@@ -356,6 +534,8 @@ def classify_chat_intent_detailed(
             audit_score=structural.audit_score,
             schedule_score=structural.schedule_score,
             review_score=structural.review_score,
+            month_score=structural.month_score,
+            year_score=structural.year_score,
         )
     # Fail open to the structural winner. Never invent an autopsy.
     if structural.intent == WORKOUT_AUDIT and structural.confidence < 0.7:
@@ -396,14 +576,21 @@ def _classify_structural(message: str) -> IntentDecision:
     audit = 0
     schedule = 0
     review = 0
+    month_review = 0
+    year_review = 0
     science = 0
     week_scoped = bool(WEEK_SCOPE_RE.search(text))
+    month_scoped = bool(MONTH_SCOPE_RE.search(text))
+    year_scoped = bool(YEAR_SCOPE_RE.search(text))
     looking_forward = bool(FORWARD_PLAN_RE.search(text))
     pasted_laps = bool(LAP_RE.search(text) and POWER_PASTE_RE.search(text))
+    retrospect = bool(RETROSPECT_RE.search(text))
 
     if any(hint in text for hint in AUDIT_HINTS):
         audit += 3
-    if ("how did i do" in text or "how did i perform" in text) and not week_scoped:
+    if ("how did i do" in text or "how did i perform" in text) and not (
+        week_scoped or month_scoped or year_scoped
+    ):
         if SESSION_SCOPE_RE.search(text):
             audit += 3
     if POWER_PASTE_RE.search(text) and ("ftp" in text or "lap" in text or len(message) >= 280):
@@ -411,15 +598,37 @@ def _classify_structural(message: str) -> IntentDecision:
     if pasted_laps:
         audit += 3
     if re.search(r"\b(how was|analyse|analyze)\b", text) and SESSION_SCOPE_RE.search(text):
-        if not week_scoped:
+        if not (week_scoped or month_scoped or year_scoped):
             audit += 2
+
+    if any(hint in text for hint in YEAR_REVIEW_HINTS):
+        year_review += 4
+    if year_scoped and retrospect and not looking_forward:
+        year_review += 3
+
+    if any(hint in text for hint in MONTH_REVIEW_HINTS):
+        month_review += 4
+    if month_scoped and retrospect and not looking_forward:
+        month_review += 3
 
     if any(hint in text for hint in WEEK_REVIEW_HINTS):
         review += 4
-    if week_scoped and RETROSPECT_RE.search(text) and not looking_forward:
+    if week_scoped and retrospect and not looking_forward:
         review += 3
-    elif week_scoped and re.search(r"\b(how did i|done with|look at my week)\b", text):
+    elif week_scoped and re.search(
+        r"\b(how did i|done with|look at my week|analyse|analyze|summarize|summarise)\b",
+        text,
+    ):
         review += 2
+    if week_scoped and re.search(r"\b(that week|in that week)\b", text) and retrospect:
+        review += 2
+
+    # Longer windows beat a week recap when both are present.
+    if year_review >= 3:
+        review = min(review, 2)
+        month_review = min(month_review, 2)
+    elif month_review >= 3:
+        review = min(review, 2)
 
     if any(hint in text for hint in SCHEDULE_HINTS):
         schedule += 3
@@ -443,7 +652,7 @@ def _classify_structural(message: str) -> IntentDecision:
         science += 4
     if PERSONAL_METRIC_RE.search(text):
         science += 4
-    if SCIENCE_QUESTION_RE.search(text) and not week_scoped and audit < 3 and schedule < 3:
+    if SCIENCE_QUESTION_RE.search(text) and not week_scoped and not month_scoped and not year_scoped and audit < 3 and schedule < 3:
         science += 3
 
     day_adjust = 0
@@ -476,38 +685,74 @@ def _classify_structural(message: str) -> IntentDecision:
         pasted_laps or "analyse" in text or "analyze" in text or "you got it wrong" in text
     ):
         return IntentDecision(
-            WORKOUT_AUDIT, 0.9, "structural_audit_overrides_schedule", audit, schedule, review
+            WORKOUT_AUDIT, 0.9, "structural_audit_overrides_schedule", audit, schedule, review,
+            month_review, year_review,
         )
 
-    # Week recap beats a generic "how did I do" autopsy unless they pasted laps.
-    if review >= 3 and review >= audit and not pasted_laps:
-        if schedule >= 3 and looking_forward and schedule > review:
+    period_scores = (
+        (YEAR_REVIEW, year_review),
+        (MONTH_REVIEW, month_review),
+        (WEEK_REVIEW, review),
+    )
+    best_period, best_period_score = max(period_scores, key=lambda item: item[1])
+    if best_period_score >= 3 and best_period_score >= audit and not pasted_laps:
+        if schedule >= 3 and looking_forward and schedule > best_period_score:
             confidence = 0.92 if schedule >= 5 else 0.8
-            return IntentDecision(SCHEDULE_UPDATE, confidence, "structural", audit, schedule, review)
-        confidence = 0.92 if review >= 5 else 0.85
-        return IntentDecision(WEEK_REVIEW, confidence, "structural", audit, schedule, review)
+            return IntentDecision(
+                SCHEDULE_UPDATE, confidence, "structural", audit, schedule, review,
+                month_review, year_review,
+            )
+        confidence = 0.92 if best_period_score >= 5 else 0.85
+        return IntentDecision(
+            best_period, confidence, "structural", audit, schedule, review,
+            month_review, year_review,
+        )
 
-    if day_adjust >= 3 and not full_week_build and day_adjust >= audit and review < 3:
+    if day_adjust >= 3 and not full_week_build and day_adjust >= audit and best_period_score < 3:
         confidence = 0.92 if day_adjust >= 5 else 0.8
-        return IntentDecision(DAY_ADJUST, confidence, "structural_day_adjust", audit, schedule, review)
+        return IntentDecision(
+            DAY_ADJUST, confidence, "structural_day_adjust", audit, schedule, review,
+            month_review, year_review,
+        )
 
-    if schedule >= 3 and schedule > audit and schedule >= review:
+    if schedule >= 3 and schedule > audit and schedule >= best_period_score:
         confidence = 0.92 if schedule >= 5 else 0.8
-        return IntentDecision(SCHEDULE_UPDATE, confidence, "structural", audit, schedule, review)
-    if audit >= 3 and audit >= schedule and audit >= review:
+        return IntentDecision(
+            SCHEDULE_UPDATE, confidence, "structural", audit, schedule, review,
+            month_review, year_review,
+        )
+    if audit >= 3 and audit >= schedule and audit >= best_period_score:
         confidence = 0.92 if audit >= 5 else 0.8
-        return IntentDecision(WORKOUT_AUDIT, confidence, "structural", audit, schedule, review)
-    if science >= 3 and science >= audit and science >= schedule and science >= review:
+        return IntentDecision(
+            WORKOUT_AUDIT, confidence, "structural", audit, schedule, review,
+            month_review, year_review,
+        )
+    if science >= 3 and science >= audit and science >= schedule and science >= best_period_score:
         confidence = 0.9 if science >= 5 else 0.8
-        return IntentDecision(SCIENCE_LOOKUP, confidence, "structural_science", audit, schedule, review)
-    if review > 0 and review >= audit and review >= schedule:
-        return IntentDecision(WEEK_REVIEW, 0.6, "structural_weak", audit, schedule, review)
+        return IntentDecision(
+            SCIENCE_LOOKUP, confidence, "structural_science", audit, schedule, review,
+            month_review, year_review,
+        )
+    if best_period_score > 0 and best_period_score >= audit and best_period_score >= schedule:
+        return IntentDecision(
+            best_period, 0.6, "structural_weak", audit, schedule, review,
+            month_review, year_review,
+        )
     # DIY "should I use this plan?" with day names is advice, not a calendar rebuild.
     if schedule > 0 and schedule >= audit and not is_plan_advice_message(message):
-        return IntentDecision(SCHEDULE_UPDATE, 0.55, "structural_weak", audit, schedule, review)
+        return IntentDecision(
+            SCHEDULE_UPDATE, 0.55, "structural_weak", audit, schedule, review,
+            month_review, year_review,
+        )
     if audit > 0:
-        return IntentDecision(WORKOUT_AUDIT, 0.55, "structural_weak", audit, schedule, review)
-    return IntentDecision(GENERAL_CHAT, 0.85, "structural_default", audit, schedule, review)
+        return IntentDecision(
+            WORKOUT_AUDIT, 0.55, "structural_weak", audit, schedule, review,
+            month_review, year_review,
+        )
+    return IntentDecision(
+        GENERAL_CHAT, 0.85, "structural_default", audit, schedule, review,
+        month_review, year_review,
+    )
 
 
 def _classify_with_llm(message: str) -> str | None:

@@ -49,11 +49,13 @@ def evaluate_routing_case(case) -> dict[str, Any]:
     routing = resolve_message_routing(case.message)
     skill_ok = routing.skill in case.acceptable_skills
     intent_ok = case.expected_intent is None or routing.intent == case.expected_intent
+    strict = bool(getattr(case, "strict_intent", False))
+    passed = (skill_ok and intent_ok) if strict else skill_ok
     return {
         "case_id": case.case_id,
         "category": getattr(case, "category", None),
         "message": case.message,
-        "pass": skill_ok,
+        "pass": passed,
         "skill_ok": skill_ok,
         "intent_ok": intent_ok,
         "expected_skill": case.expected_skill,

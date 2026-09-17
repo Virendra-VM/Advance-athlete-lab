@@ -51,6 +51,11 @@ def test_intent_to_skill_mapping():
     assert resolve_coach_skill(WORKOUT_AUDIT, "How was today's ride?").skill == SKILL_REVIEW_SESSION
     assert resolve_coach_skill(SCHEDULE_UPDATE, "Plan my week").skill == SKILL_REBUILD_WEEK
     assert resolve_coach_skill(WEEK_REVIEW, "How did I do this week?").skill == SKILL_WEEK_DEBRIEF
+    from app.services.coach_intent import MONTH_REVIEW, YEAR_REVIEW
+    from app.services.coach_skills import SKILL_MONTH_DEBRIEF, SKILL_YEAR_DEBRIEF
+
+    assert resolve_coach_skill(MONTH_REVIEW, "How did I do this month?").skill == SKILL_MONTH_DEBRIEF
+    assert resolve_coach_skill(YEAR_REVIEW, "How did I do this year?").skill == SKILL_YEAR_DEBRIEF
     assert resolve_coach_skill(DAY_ADJUST, "Skip today — HRV is low").skill == SKILL_ADJUST_DAY
     assert resolve_coach_skill(SCIENCE_LOOKUP, "What is ACWR?").skill == SKILL_EXPLAIN_METRIC
 

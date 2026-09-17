@@ -18,6 +18,8 @@ from app.services.coach_skills import (
     SKILL_SUPPORT_CHAT,
     SKILL_VALIDATE_PLAN,
     SKILL_WEEK_DEBRIEF,
+    SKILL_MONTH_DEBRIEF,
+    SKILL_YEAR_DEBRIEF,
     SKILL_WEEK_PLAN_REVIEW,
 )
 from app.services.coach_tools import (
@@ -79,6 +81,12 @@ SKILL_TOOL_PLAN: dict[str, tuple[str, ...]] = {
     SKILL_WEEK_DEBRIEF: (
         TOOL_GET_ATHLETE_SNAPSHOT,
         TOOL_GET_WEEK_PLAN,
+    ),
+    SKILL_MONTH_DEBRIEF: (
+        TOOL_GET_ATHLETE_SNAPSHOT,
+    ),
+    SKILL_YEAR_DEBRIEF: (
+        TOOL_GET_ATHLETE_SNAPSHOT,
     ),
     SKILL_WEEK_PLAN_REVIEW: (
         TOOL_GET_ATHLETE_SNAPSHOT,

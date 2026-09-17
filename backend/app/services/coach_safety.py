@@ -138,7 +138,10 @@ RED_FLAG_PATTERNS = [
 
 CLINICAL_PAIN_RE = re.compile(
     r"\b(sharp|stabbing|shooting|burning)\b.{0,48}\b(pain|hurt|ache)s?\b"
-    r"|\b(pain|hurt|ache)s?\b.{0,32}\b(tendon|achilles|knee|shin|joint|spine|back)\b",
+    r"|\b(pain|hurt|ache)s?\b.{0,32}\b(tendon|achilles|knee|shin|joint|spine|back)\b"
+    r"|\b(tore|torn|tear)\b.{0,24}\b(calf|hamstring|quad|achilles|tendon|meniscus|acl)"
+    r"|\b(felt a pop|painful pop|spasms?|numbness|chest pain)\b"
+    r"|\b(stress fracture|plantar fasciitis)\b",
     re.IGNORECASE,
 )
 CLINICAL_MEDICATION_RE = re.compile(

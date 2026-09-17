@@ -93,8 +93,45 @@ export function countWeekTableRows(tableRows) {
   return parsed.slice(1).filter((row) => !isTableDivider(row)).length
 }
 
-export function messageHasScheduleContent(content) {
+export function isDebriefIntent(intent) {
+  return (
+    intent === 'WEEK_REVIEW' ||
+    intent === 'MONTH_REVIEW' ||
+    intent === 'YEAR_REVIEW'
+  )
+}
+
+export function isScheduleIntent(intent) {
+  return intent === 'SCHEDULE_UPDATE' || intent === 'DAY_ADJUST'
+}
+
+export function isWeekReviewDebrief(content) {
   const text = String(content || '')
+  return (
+    /🧭\s*WEEK GRADE/i.test(text) ||
+    /🧭\s*MONTH GRADE/i.test(text) ||
+    /🧭\s*YEAR GRADE/i.test(text) ||
+    /📅\s*WHAT LANDED/i.test(text)
+  )
+}
+
+export function isWeekDebriefTable(rows) {
+  const header = (rows || [])
+    .map(parseTableRow)
+    .find((row) => row.length && !isTableDivider(row))
+  if (!header?.length) return false
+  const joined = header.join(' ').toLowerCase()
+  return (
+    (joined.includes('status') && joined.includes('note')) ||
+    (joined.includes('sessions') && joined.includes('quality'))
+  )
+}
+
+export function messageHasScheduleContent(content, intent) {
+  if (isDebriefIntent(intent)) return false
+  if (isScheduleIntent(intent)) return true
+  const text = String(content || '')
+  if (isWeekReviewDebrief(text)) return false
   return (
     isRevisedWeekHeader(text) ||
     /WHAT CHANGED/i.test(text) ||
@@ -102,8 +139,17 @@ export function messageHasScheduleContent(content) {
   )
 }
 
-export function goDeeperPrompt(content) {
-  if (/WHAT CHANGED/i.test(content || '')) {
+export function goDeeperPrompt(content, intent) {
+  if (intent === 'MONTH_REVIEW' || /🧭\s*MONTH GRADE/i.test(content || '')) {
+    return 'Go deeper on this month debrief only: max 3 bullets on consistency and recovery. No schedule table, no future week plan.'
+  }
+  if (intent === 'YEAR_REVIEW' || /🧭\s*YEAR GRADE/i.test(content || '')) {
+    return 'Go deeper on this year debrief only: max 3 bullets on the season pattern. No schedule table, no future week plan.'
+  }
+  if (intent === 'WEEK_REVIEW' || isWeekReviewDebrief(content || '')) {
+    return 'Go deeper on this week debrief only: max 3 bullets on load distribution and recovery cost. No schedule table, no future week plan.'
+  }
+  if (isScheduleIntent(intent) || /WHAT CHANGED/i.test(content || '')) {
     return 'Quick follow-up only: in max 3 bullets, why do these zone changes work? One watch number. No week table.'
   }
   return 'Quick follow-up only: in max 4 bullets, why is one hard day enough this week? One watch number. No week table or schedule rebuild.'
@@ -259,13 +305,16 @@ export function extractDeepDiveBlocks(folded) {
   return folded.filter((block) => block.type === 'deepDive')
 }
 
-export function hasGoDeeperContent(folded, content) {
+export function hasGoDeeperContent(folded, content, intent) {
+  if (isDebriefIntent(intent) || isWeekReviewDebrief(content)) {
+    return extractDeepDiveBlocks(folded).length > 0 || /🔬\s*THE SCIENCE/i.test(content || '')
+  }
   if (extractDeepDiveBlocks(folded).length > 0) return true
-  if (messageHasScheduleContent(content)) return true
+  if (messageHasScheduleContent(content, intent)) return true
   return (folded || []).some(
     (block) =>
       block.type === 'whatChanged' ||
-      block.type === 'table' ||
+      (block.type === 'table' && !isWeekDebriefTable(block.rows)) ||
       (block.type === 'line' && isRevisedWeekHeader(String(block.line || '').trim())),
   )
 }
