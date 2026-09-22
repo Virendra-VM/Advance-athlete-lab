@@ -7,13 +7,11 @@ and then falls back to the deterministic provider.
 
 from __future__ import annotations
 
-import re
 from datetime import date
-from typing import Any, Literal
+
+from typing import Any
 
 from pydantic import BaseModel, Field, field_validator
-
-_TARGET_DATE_RE = re.compile(r"^\d{4}-\d{2}-\d{2}$")
 
 SESSION_TYPES = {
     "rest",
@@ -104,44 +102,3 @@ class ChatReplyJSON(BaseModel):
     escalation_reason: str | None = None
     intent: str | None = None
     week_plan: Any | None = None
-
-
-class CoachIntent(BaseModel):
-    """Architecture lens for one athlete message.
-
-    The live router still stores the existing runtime labels. This model is the
-    validated contract those labels translate into. A schedule change stays in
-    discussion until requires_database_patch is true.
-    """
-
-    intent_category: Literal[
-        "WORKOUT_SINGLE_AUTOPSY",
-        "WEEKLY_EXECUTIVE_SUMMARY",
-        "SCHEDULE_MUTATION",
-        "SCIENCE_LOOKUP",
-        "CLINICAL_VETO",
-    ] = Field(..., description="The classified intent of the athlete's query.")
-    confidence_score: float = Field(..., ge=0.0, le=1.0)
-    requires_database_patch: bool = Field(
-        ...,
-        description="True if a schedule mutation is explicitly authorized by the user.",
-    )
-    target_date: str | None = Field(
-        default=None,
-        description="ISO-8601 date string if a schedule mutation is required.",
-    )
-
-    @field_validator("target_date")
-    @classmethod
-    def validate_date_format(cls, value: str | None) -> str | None:
-        if value is None:
-            return None
-        if isinstance(value, str) and not value.strip():
-            return None
-        if not _TARGET_DATE_RE.match(value):
-            raise ValueError("Target date must follow YYYY-MM-DD format.")
-        try:
-            date.fromisoformat(value)
-        except ValueError as exc:
-            raise ValueError("Target date must be a real YYYY-MM-DD date.") from exc
-        return value

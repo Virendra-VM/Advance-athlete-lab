@@ -299,46 +299,6 @@ def hr_power_decoupling(
     return _round(100.0 * (second_ratio - first_ratio) / first_ratio, 1)
 
 
-def hr_pace_decoupling(
-    elapsed_s: list[float],
-    heart_rate: list[float | None],
-    speed_mps: list[float | None],
-) -> float | None:
-    """Percent rise in HR:speed from first half to second half. Positive = aerobic drift.
-
-    This is the running Pa:Hr check. It sits beside hr_power_decoupling and does not replace it.
-    """
-    pairs = [
-        (float(hr), float(speed))
-        for hr, speed in zip(_to_1hz(elapsed_s, heart_rate), _to_1hz(elapsed_s, speed_mps))
-        if hr and speed and speed > 0.5
-    ]
-    if len(pairs) < 120:
-        return None
-    mid = len(pairs) // 2
-
-    def ratio(chunk: list[tuple[float, float]]) -> float | None:
-        hr_mean = sum(item[0] for item in chunk) / len(chunk)
-        speed_mean = sum(item[1] for item in chunk) / len(chunk)
-        if speed_mean <= 0:
-            return None
-        return hr_mean / speed_mean
-
-    first_ratio = ratio(pairs[:mid])
-    second_ratio = ratio(pairs[mid:])
-    if not first_ratio or not second_ratio:
-        return None
-    return _round(100.0 * (second_ratio - first_ratio) / first_ratio, 1)
-
-
-def aerobic_base_cleared(decoupling_pct: float | None, duration_s: float | None) -> bool:
-    """A steady 60–90 minute effort under 5% decoupling clears the aerobic-base gate."""
-    if decoupling_pct is None or duration_s is None:
-        return False
-    minutes = float(duration_s) / 60.0
-    return 60.0 <= minutes <= 90.0 and float(decoupling_pct) < 5.0
-
-
 def best_rolling_mean(series_1hz: list[float | None], window_s: int) -> float | None:
     values = [value if value is not None and value >= 0 else None for value in series_1hz]
     if len(values) < window_s:
@@ -736,13 +696,11 @@ def analyze_activity(activity: Activity, physiology: dict[str, Any]) -> dict[str
     power: list[float | None] = []
     hr: list[float | None] = []
     cadence: list[float | None] = []
-    speed: list[float | None] = []
     if frame is not None:
         elapsed = [float(value) for value in frame["elapsed_s"].tolist()]
         power = _column_values(frame, "power")
         hr = _column_values(frame, "heart_rate", "heartrate", "hr")
         cadence = _column_values(frame, "cadence")
-        speed = _column_values(frame, "speed", "enhanced_speed", "velocity_smooth")
 
     duration_s = float(activity.moving_time_s or 0)
     if elapsed:
@@ -916,15 +874,6 @@ def analyze_activity(activity: Activity, physiology: dict[str, Any]) -> dict[str
             }
         )
 
-    pace_decoupling_pct = hr_pace_decoupling(elapsed, hr, speed) if elapsed and speed else None
-    power_decoupling_pct = (
-        hr_power_decoupling(elapsed, hr, power) if elapsed and compute_power_load else None
-    )
-    if family == "run" and pace_decoupling_pct is not None:
-        decoupling_pct = pace_decoupling_pct
-    else:
-        decoupling_pct = power_decoupling_pct if power_decoupling_pct is not None else pace_decoupling_pct
-
     return {
         "id": activity.id,
         "name": activity.name,
@@ -942,9 +891,11 @@ def analyze_activity(activity: Activity, physiology: dict[str, Any]) -> dict[str
             "pct_lthr_avg": _pct(avg_hr, physiology.get("lthr_bpm"), 0),
             "pct_max_avg": _pct(avg_hr, physiology.get("max_hr_bpm"), 0),
             "pct_max_peak": _pct(max_hr, physiology.get("max_hr_bpm"), 0),
-            "decoupling_pct": decoupling_pct,
-            "pace_decoupling_pct": pace_decoupling_pct,
-            "aerobic_base_cleared": aerobic_base_cleared(decoupling_pct, duration_s),
+            "decoupling_pct": (
+                hr_power_decoupling(elapsed, hr, power)
+                if elapsed and compute_power_load
+                else None
+            ),
             "peak_by_lap": peak_hr_by_block[:12],
         },
         "cadence": {

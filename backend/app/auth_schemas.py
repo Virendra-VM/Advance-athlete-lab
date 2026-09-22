@@ -228,8 +228,6 @@ class ProfileUpdateRequest(BaseModel):
     zone_run_pace_method: str | None = None
     cycle_tracking_enabled: bool | None = None
     cycle_length_manual: int | None = Field(default=None, ge=18, le=45)
-    basal_body_temp_c: float | None = Field(default=None, ge=35.0, le=38.5)
-    aop_mmhg: float | None = Field(default=None, ge=80, le=350)
 
     @field_validator("sex")
     @classmethod
@@ -400,8 +398,6 @@ class AthleteProfileResponse(BaseModel):
     ftp_estimated_watts: float | None = None
     cycle_tracking_enabled: bool = False
     cycle_length_manual: int | None = None
-    basal_body_temp_c: float | None = None
-    aop_mmhg: float | None = None
 
     sports: list[SportRead] = []
     injuries: list[InjuryRead] = []

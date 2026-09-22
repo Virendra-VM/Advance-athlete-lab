@@ -26,12 +26,14 @@ VALID_SPORTS = frozenset({"run", "bike", "swim", "strength", "other"})
 MACRO_PHASES = ("base", "build", "peak", "taper")
 PHASE_RATIOS = {"base": 0.40, "build": 0.30, "peak": 0.20, "taper": 0.10}
 
-# A full A-race season follows PHASE_RATIOS (40/30/20/10) by largest remainder.
-# These ceilings are the audit's "this taper is longer than both the ratio and
-# the 8–21 day research window" line, not a cap on the macro split itself.
+# Taper research converges on 8–21 days of reduced load; longer than that and
+# fitness starts leaking away. Peak is similarly self-limiting — race-pace work
+# cannot be held for months. Weeks beyond these caps go to base, where extra
+# aerobic runway is worth the most.
 TAPER_MAX_WEEKS = 3
 PEAK_MAX_WEEKS = 6
-# Base:build split for whatever is left after an anchored peak and taper are reserved.
+# Base:build split for whatever is left after peak and taper are reserved,
+# holding the 40:30 intent of PHASE_RATIOS.
 BASE_SHARE_OF_REMAINDER = 4 / 7
 
 PHASE_DEFAULTS: dict[str, dict[str, Any]] = {
@@ -126,44 +128,21 @@ def distribute_macro_weeks(
         base = max(0, total_weeks - taper - peak - build)
         return {"base": base, "build": build, "peak": peak, "taper": taper}
 
-    anchor = max(int(anchor_weeks or total_weeks), total_weeks)
-    full = _largest_remainder(anchor)
-    if anchor == total_weeks:
-        return full
+    # Reserve the sharp end first. Taper and peak have hard physiological
+    # ceilings, so they are sized before the remainder is split, and a long
+    # runway grows base rather than stretching a taper past three weeks.
+    anchor = max(anchor_weeks or total_weeks, total_weeks)
+    taper = min(TAPER_MAX_WEEKS, max(1, int(anchor * PHASE_RATIOS["taper"] + 0.5)))
+    peak = min(PEAK_MAX_WEEKS, max(1, int(anchor * PHASE_RATIOS["peak"])))
 
-    # Peak and taper stay at the full-season size. Lost weeks come out of base and build.
-    taper = min(full["taper"], total_weeks - 1)
-    peak = min(full["peak"], max(0, total_weeks - taper - 1))
+    # Whatever the anchor asked for still has to fit in the weeks on hand.
+    taper = min(taper, total_weeks - 1)
+    peak = min(peak, total_weeks - taper - 1)
     remainder = total_weeks - taper - peak
+
     base = int(remainder * BASE_SHARE_OF_REMAINDER + 0.5)
     build = remainder - base
-    if build < 0:
-        base += build
-        build = 0
     return {"base": base, "build": build, "peak": peak, "taper": taper}
-
-
-def _largest_remainder(total_weeks: int) -> dict[str, int]:
-    """40/30/20/10 split. Leftover weeks go to the largest fractional parts."""
-    raw = {phase: total_weeks * PHASE_RATIOS[phase] for phase in MACRO_PHASES}
-    counts = {phase: int(raw[phase]) for phase in MACRO_PHASES}
-    leftover = total_weeks - sum(counts.values())
-    order = sorted(
-        MACRO_PHASES,
-        key=lambda phase: (raw[phase] - counts[phase], PHASE_RATIOS[phase]),
-        reverse=True,
-    )
-    for phase in order:
-        if leftover <= 0:
-            break
-        counts[phase] += 1
-        leftover -= 1
-    if total_weeks >= 2 and counts["taper"] < 1:
-        donor = max(("base", "build", "peak"), key=lambda phase: (counts[phase], PHASE_RATIOS[phase]))
-        if counts[donor] > 0:
-            counts[donor] -= 1
-            counts["taper"] += 1
-    return counts
 
 
 def insert_recovery_weeks(blocks: list[PhaseBlock], every: int = 4) -> list[PhaseBlock]:

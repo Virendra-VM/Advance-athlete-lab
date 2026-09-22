@@ -6,8 +6,6 @@ shared parser in ``base.py`` handles the rest.
 
 from __future__ import annotations
 
-import threading
-
 import httpx
 
 from pathlib import Path
@@ -212,39 +210,6 @@ class GeminiProvider:
 
 
 _BACKEND_ROOT = Path(__file__).resolve().parents[3]
-# The bundled bridge is a large Node process. On a cold disk it can take
-# longer than the SDK's 30s default to print its ready line, and each coach
-# attempt was launching a new one. One shared bridge gets a longer start.
-_BRIDGE_DISCOVERY_TIMEOUT_S = 90.0
-_CURSOR_CLIENT = None
-_CURSOR_CLIENT_LOCK = threading.Lock()
-
-
-def _shared_cursor_client(client_cls):
-    global _CURSOR_CLIENT
-    with _CURSOR_CLIENT_LOCK:
-        if _CURSOR_CLIENT is None:
-            _CURSOR_CLIENT = client_cls.launch_bridge(
-                workspace=str(_BACKEND_ROOT),
-                timeout=_BRIDGE_DISCOVERY_TIMEOUT_S,
-            )
-        return _CURSOR_CLIENT
-
-
-def _drop_cursor_client() -> None:
-    global _CURSOR_CLIENT
-    with _CURSOR_CLIENT_LOCK:
-        client = _CURSOR_CLIENT
-        _CURSOR_CLIENT = None
-    if client is None:
-        return
-    close = getattr(client, "close", None)
-    if close is None:
-        return
-    try:
-        close()
-    except Exception:
-        return
 
 
 class CursorProvider:
@@ -271,33 +236,22 @@ class CursorProvider:
             raise ProviderError("CURSOR_API_KEY is not set.")
 
         try:
-            from cursor_sdk import Agent, AgentOptions, Client, CursorAgentError, LocalAgentOptions
+            from cursor_sdk import Agent, AgentOptions, CursorAgentError, LocalAgentOptions
         except ImportError as exc:
             raise ProviderError("cursor-sdk is not installed (pip install cursor-sdk).") from exc
 
         prompt = f"{system}\n\n---\n\n{user}"
-        options = AgentOptions(
-            model=self.model,
-            api_key=self.api_key,
-            local=LocalAgentOptions(cwd=str(_BACKEND_ROOT)),
-        )
-        result = None
-        for attempt in (1, 2):
-            try:
-                result = Agent.prompt(
-                    prompt,
-                    options,
-                    client=_shared_cursor_client(Client),
-                )
-                break
-            except CursorAgentError as exc:
-                discovery_timeout = "bridge discovery" in str(exc).lower()
-                if discovery_timeout and attempt == 1:
-                    _drop_cursor_client()
-                    continue
-                raise ProviderError(f"Cursor request failed: {exc}") from exc
-        if result is None:
-            raise ProviderError("Cursor request failed: bridge did not start.")
+        try:
+            result = Agent.prompt(
+                prompt,
+                AgentOptions(
+                    model=self.model,
+                    api_key=self.api_key,
+                    local=LocalAgentOptions(cwd=str(_BACKEND_ROOT)),
+                ),
+            )
+        except CursorAgentError as exc:
+            raise ProviderError(f"Cursor request failed: {exc}") from exc
 
         if result.status == "error":
             raise ProviderError(f"Cursor run failed: {result.id or 'unknown run'}")

@@ -14,7 +14,6 @@ from sqlalchemy.orm import Session
 
 from app.models import AthleteProfile
 from app.services.periodization import (
-    PHASE_RATIOS,
     TAPER_MAX_WEEKS,
     build_season_context,
     get_active_season_plan,
@@ -227,9 +226,7 @@ def _audit_phases(
                     },
                 )
             )
-        ratio_weeks = int(total_weeks * PHASE_RATIOS["taper"] + 0.5)
-        # A ratio-sized taper (about 10% of the season) is the plan, not a leak.
-        if taper_weeks > max(TAPER_MAX_WEEKS, ratio_weeks + 1):
+        if taper_weeks > TAPER_MAX_WEEKS:
             flags.append(
                 _flag(
                     "long_taper",

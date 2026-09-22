@@ -43,42 +43,16 @@ def test_hrv_minus_7_downgrades_one_tier():
     assert any("HRV" in reason for reason in result["downgrade_reasons"])
 
 
-def test_acwr_spike_confirmed_by_poor_sleep_forces_rest():
+def test_acwr_16_forces_rest():
     result = resolve_todays_call(
         readiness_score=90,
         hrv=55,
         hrv_baseline=50,
-        sleep_hours=6.0,
+        sleep_hours=8,
         acwr=1.6,
     )
     assert result["call_level"] == "rest"
     assert any("ACWR" in reason for reason in result["downgrade_reasons"])
-
-
-def test_acwr_spike_confirmed_by_high_rpe_forces_rest():
-    result = resolve_todays_call(
-        readiness_score=90,
-        hrv=55,
-        hrv_baseline=50,
-        sleep_hours=8,
-        acwr=1.6,
-        session_rpe=8,
-    )
-    assert result["call_level"] == "rest"
-
-
-def test_acwr_spike_softens_when_sleep_and_rpe_are_fine():
-    result = resolve_todays_call(
-        readiness_score=90,
-        hrv=55,
-        hrv_baseline=50,
-        sleep_hours=8,
-        acwr=1.6,
-        session_rpe=3,
-    )
-    assert result["call_level"] == "moderate"
-    assert result["metrics"]["acwr_softened"] is True
-    assert any("volume reduced" in reason for reason in result["downgrade_reasons"])
 
 
 def test_sleep_debt_warning():
