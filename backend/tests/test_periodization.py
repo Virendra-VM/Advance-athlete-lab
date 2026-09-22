@@ -14,8 +14,6 @@ from datetime import timedelta  # noqa: E402
 
 from app.models import AthleteEvent, AthleteProfile  # noqa: E402
 from app.services.periodization import (  # noqa: E402
-    PEAK_MAX_WEEKS,
-    TAPER_MAX_WEEKS,
     blocks_to_dated_phases,
     build_phase_blocks,
     collapse_blocks,
@@ -58,11 +56,10 @@ def test_every_season_length_spends_exactly_its_budget():
         assert min(counts.values()) >= 0, total
 
 
-def test_taper_and_peak_stay_inside_physiological_caps():
+def test_a_race_block_follows_forty_thirty_twenty_ten():
     counts = distribute_macro_weeks(52)
-    # A year of runway must not become a six-week taper; the surplus goes to base.
-    assert counts["taper"] == TAPER_MAX_WEEKS
-    assert counts["peak"] == PEAK_MAX_WEEKS
+    # Largest remainder of 40/30/20/10 on a 52-week season.
+    assert counts == {"base": 21, "build": 16, "peak": 10, "taper": 5}
     assert counts["base"] > counts["build"] > counts["peak"]
 
 

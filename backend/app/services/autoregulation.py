@@ -119,6 +119,7 @@ def resolve_todays_call(
     hrv_baseline: float | None,
     sleep_hours: float | None,
     acwr: float | None,
+    session_rpe: float | None = None,
     recent_sleep: list[float] | None = None,
     recent_readiness: list[float] | None = None,
     spine_vulnerable: bool = False,
@@ -140,9 +141,22 @@ def resolve_todays_call(
     level = base
     delta = hrv_delta_pct(hrv, hrv_baseline)
 
-    if isinstance(acwr, (int, float)) and acwr > 1.5:
+    acwr_spike = isinstance(acwr, (int, float)) and acwr > 1.5
+    poor_sleep = isinstance(sleep_hours, (int, float)) and sleep_hours < 7
+    high_rpe = isinstance(session_rpe, (int, float)) and session_rpe >= 7
+    acwr_softened = False
+    if acwr_spike and (poor_sleep or high_rpe):
         level = TrainingCallLevel.REST
-        downgrade_reasons.append(f"ACWR {acwr:.2f} > 1.5 — spike risk")
+        downgrade_reasons.append(
+            f"ACWR {acwr:.2f} > 1.5 — sleep or RPE confirms the spike"
+        )
+    elif acwr_spike:
+        acwr_softened = True
+        if level is not TrainingCallLevel.REST:
+            level = _downgrade(level, 1)
+        downgrade_reasons.append(
+            f"ACWR {acwr:.2f} > 1.5 — volume reduced; sleep and RPE do not confirm a rest day"
+        )
     elif delta is not None and delta <= -15:
         level = TrainingCallLevel.REST
         downgrade_reasons.append(f"HRV {delta:.1f}% vs baseline — deep suppression")
@@ -150,9 +164,7 @@ def resolve_todays_call(
         level = TrainingCallLevel.REST
         downgrade_reasons.append(f"Sleep {sleep_hours:.1f}h < 5h")
 
-    if level not in (TrainingCallLevel.REST,) and downgrade_reasons:
-        pass  # already forced REST
-    elif level not in (TrainingCallLevel.REST,):
+    if level not in (TrainingCallLevel.REST,):
         steps = 0
         if delta is not None and delta <= -7:
             steps += 1
@@ -242,7 +254,9 @@ def resolve_todays_call(
             "hrv_baseline": hrv_baseline,
             "hrv_delta_pct": delta,
             "sleep_hours": sleep_hours,
+            "session_rpe": session_rpe,
             "acwr": acwr,
+            "acwr_softened": acwr_softened,
             "acwr_zone": acwr_zone,
         },
     }

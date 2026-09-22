@@ -124,8 +124,10 @@ from app.services.coach_intent import (
     WEEK_REVIEW,
     WORKOUT_AUDIT,
     YEAR_REVIEW,
+    EXECUTION_CONFIRMATION,
     classify_chat_intent_detailed,
     normalize_intent,
+    route_athlete_query,
 )
 from app.services.debrief_mode import DEBRIEF_FULL, DEBRIEF_QUICK, resolve_debrief_mode
 from app.services.session_plan import build_execution_headline, build_session_plan_overlay
@@ -1876,6 +1878,12 @@ def _complete_apply_advisory_chat(
         "disclaimer": safety["disclaimer"],
         "plan": applied_plan,
         "proactive_prompts": list_proactive_prompts(db, profile.id),
+        "coach_intent": {
+            "intent_category": "SCHEDULE_MUTATION",
+            "confidence_score": 0.95,
+            "requires_database_patch": True,
+            "target_date": None,
+        },
     }
 
 
@@ -3028,13 +3036,13 @@ def chat_history(db: Session, profile_id: int, limit: int = 30) -> list[dict]:
 
 
 def _recent_transcript(history: list[dict], *, drop_assistant: bool) -> str:
-    """Prior turns only. Drop stale autopsies so a correction cannot be copied."""
+    """Prior turns as rolling physiological facts. Raw anxiety is not replayed."""
+    from app.services.coach_conversation import rolling_state_summary
+
     prior = list(history[:-1][-8:] if history else [])
     if drop_assistant:
         prior = [entry for entry in prior if entry.get("role") != "assistant"]
-    return "\n".join(
-        f"{entry['role'].upper()}: {entry['content']}" for entry in prior
-    )
+    return rolling_state_summary(prior)
 
 
 def coach_chat(
@@ -3080,6 +3088,7 @@ def coach_chat(
     history_for_routing = chat_history(db, profile.id, limit=12)
     apply_advisory_mode = is_apply_advisory_followup(message, history_for_routing)
     advisory_thread = recent_advisory_thread(history_for_routing) if apply_advisory_mode else None
+    decision = None
 
     if apply_advisory_mode:
         resolved_intent = GENERAL_CHAT
@@ -3149,12 +3158,21 @@ def coach_chat(
     memory_bundle = build_memory_bundle(db, profile, message=message)
     memory_block = memory_bundle.get("prompt_block") or ""
 
-    if persist_plan is None:
-        persist_plan = intent in {SCHEDULE_UPDATE, DAY_ADJUST}
-
     clinical = detect_clinical_boundary(message)
     if clinical:
         intent = CLINICAL_VETO
+
+    route_confidence = decision.confidence if decision is not None else 0.9
+    coach_intent = route_athlete_query(
+        message,
+        runtime_intent=SCHEDULE_UPDATE if apply_advisory_mode else intent,
+        confidence=route_confidence,
+        today=clock["today"],
+    )
+    if apply_advisory_mode and coach_intent is not None:
+        coach_intent = coach_intent.model_copy(update={"requires_database_patch": True})
+    if persist_plan is None:
+        persist_plan = bool(coach_intent and coach_intent.requires_database_patch)
 
     if intent == CLINICAL_VETO:
         clinical = clinical or {"kind": "tissue_pain", "region": None, "hits": []}
@@ -3187,6 +3205,40 @@ def coach_chat(
             "citations": ["aal-safety-and-load"],
             "history": chat_history(db, profile.id),
             "disclaimer": safety["disclaimer"],
+            "coach_intent": coach_intent.model_dump() if coach_intent else None,
+        }
+
+    from app.services.coach_conversation import bfr_pressure_reply, taper_tantrum_reply
+
+    bfr_reply = bfr_pressure_reply(message, getattr(profile, "aop_mmhg", None))
+    tantrum_reply = taper_tantrum_reply(message)
+    patching = bool(coach_intent and coach_intent.requires_database_patch)
+    if bfr_reply:
+        canned = bfr_reply
+    elif tantrum_reply and not patching:
+        canned = tantrum_reply
+    else:
+        canned = None
+    if canned:
+        reply = {
+            "reply": canned,
+            "citations": ["aal-endurance-playbook"] if bfr_reply else [],
+            "escalate": False,
+            "escalation_reason": None,
+            "intent": intent,
+        }
+        provider = "bfr-gate" if bfr_reply else "taper-voice"
+        _stamp_message_routing(db, user_row, intent, provider)
+        _store_assistant_message(db, profile.id, reply, provider)
+        return {
+            "provider": provider,
+            "model": "deterministic-rules",
+            "reply": reply,
+            "citations": reply["citations"],
+            "history": chat_history(db, profile.id),
+            "disclaimer": safety["disclaimer"],
+            "plan": None,
+            "coach_intent": coach_intent.model_dump() if coach_intent else None,
         }
 
     if intent == OFF_TOPIC:
@@ -3649,7 +3701,7 @@ ATHLETE CONTEXT
 SAFETY RULES (hard limits)
 {safety_prompt_rules(safety, weekday_index=clock["weekday_index"])}
 
-RECENT CONVERSATION
+ROLLING STATE (physiological facts only — do not invent earlier anxiety)
 {transcript or '(none)'}
 
 {memory_block}
@@ -3978,6 +4030,8 @@ Respond with JSON matching exactly this shape:
             reply_text=reply.get("reply") or "",
             week_start=clock["week_start"],
         )
+        if not plan_data and proposed_plan:
+            plan_data = proposed_plan
         if plan_data:
             try:
                 applied_plan = persist_week_from_chat(
@@ -3994,6 +4048,13 @@ Respond with JSON matching exactly this shape:
                 reply["plan_id"] = applied_plan.get("plan_id")
             except Exception as exc:  # noqa: BLE001 — chat must still return the table
                 logger.warning("Could not persist chat week: %s", exc)
+    if (
+        coach_intent
+        and coach_intent.requires_database_patch
+        and applied_plan
+        and not apply_advisory_mode
+    ):
+        reply["reply"] = EXECUTION_CONFIRMATION
     logger.info(
         "Coach routed intent=%s skill=%s source=%s",
         intent,
@@ -4037,6 +4098,7 @@ Respond with JSON matching exactly this shape:
         "disclaimer": safety["disclaimer"],
         "plan": applied_plan,
         "proactive_prompts": list_proactive_prompts(db, profile.id),
+        "coach_intent": coach_intent.model_dump() if coach_intent else None,
     }
 
 

@@ -95,6 +95,8 @@ def run_migrations() -> None:
                 ("ftp_estimated_at", "TIMESTAMP"),
                 ("cycle_tracking_enabled", "BOOLEAN NOT NULL DEFAULT FALSE"),
                 ("cycle_length_manual", "INTEGER"),
+                ("basal_body_temp_c", "DOUBLE PRECISION"),
+                ("aop_mmhg", "DOUBLE PRECISION"),
             ]
             for column_name, column_type in additions:
                 if column_name not in profile_columns:

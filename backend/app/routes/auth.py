@@ -295,6 +295,8 @@ SCALAR_V2_FIELDS = (
     "zone_run_pace_method",
     "cycle_tracking_enabled",
     "cycle_length_manual",
+    "basal_body_temp_c",
+    "aop_mmhg",
 )
 
 GOAL_MIRROR_FIELDS = (
