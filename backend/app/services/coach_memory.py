@@ -16,7 +16,6 @@ from sqlalchemy.orm import Session
 
 from app.models import Activity, AthleteProfile, CoachMemory
 from app.services.coach_advisory import MISSED_OR_ROUGH_RE, _travel_destination
-from app.services.coach_conversation import physiological_fact
 from app.services.coach_skills import (
     SKILL_SUPPORT_CHAT,
     SKILL_VALIDATE_PLAN,
@@ -157,7 +156,7 @@ def extract_episodic_from_chat(
                     MEMORY_EPISODIC,
                     "missed_session",
                     "Recent missed sessions",
-                    physiological_fact(text) or "User missed a planned session.",
+                    text[:400],
                     "chat",
                     f"episodic:missed:{day_key}",
                     expires_at=expires,
@@ -185,7 +184,7 @@ def extract_episodic_from_chat(
                 MEMORY_EPISODIC,
                 "preference",
                 "Stated training preference",
-                physiological_fact(text) or "User stated a training preference.",
+                text[:300],
                 "chat",
                 f"episodic:preference:{day_key}",
                 expires_at=expires,
@@ -503,7 +502,7 @@ def memory_snapshot(memories: list[CoachMemory]) -> list[dict]:
             "type": row.memory_type,
             "category": row.category,
             "summary": row.summary,
-            "content": (physiological_fact(row.content) or row.summary or "")[:280],
+            "content": row.content[:280],
         }
         for row in memories
     ]

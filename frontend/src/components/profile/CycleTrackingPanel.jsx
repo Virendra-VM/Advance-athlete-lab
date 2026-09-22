@@ -52,27 +52,6 @@ function CycleTrackingFields({ form, onChange, onCycleUpdate }) {
       {form.cycle_tracking_enabled ? (
         <div className="mt-4 grid gap-4 sm:grid-cols-2">
           <label className="block text-sm">
-            <span className="mb-1 block text-[var(--aal-muted)]">Basal temperature (°C)</span>
-            <input
-              type="number"
-              min={35}
-              max={38.5}
-              step={0.1}
-              value={form.basal_body_temp_c ?? ''}
-              onChange={(event) =>
-                onChange(
-                  'basal_body_temp_c',
-                  event.target.value ? Number(event.target.value) : null,
-                )
-              }
-              placeholder="36.5"
-              className="w-full rounded-xl border border-[var(--aal-line)] bg-[var(--aal-card)] px-3 py-2"
-            />
-            <span className="mt-1 block text-xs text-[var(--aal-muted)]">
-              Optional waking temperature. Leave blank if you are not tracking it.
-            </span>
-          </label>
-          <label className="block text-sm">
             <span className="mb-1 block text-[var(--aal-muted)]">Manual cycle length (days)</span>
             <input
               type="number"
@@ -140,11 +119,6 @@ export function CycleTrackingView({ form, cycleContext }) {
       </p>
       {cycleContext.training_note ? (
         <p className="mt-1 text-sm text-[var(--aal-muted)]">{cycleContext.training_note}</p>
-      ) : null}
-      {form.basal_body_temp_c != null ? (
-        <p className="mt-1 text-sm text-[var(--aal-muted)]">
-          Basal temperature {form.basal_body_temp_c}°C
-        </p>
       ) : null}
     </div>
   )
