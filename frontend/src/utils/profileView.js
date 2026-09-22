@@ -417,6 +417,8 @@ export function normalizeProfileForm(form) {
     planning_notes: toTextOrNull(form.planning_notes),
     cycle_tracking_enabled: Boolean(form.cycle_tracking_enabled),
     cycle_length_manual: toNumberOrNull(form.cycle_length_manual),
+    basal_body_temp_c: toNumberOrNull(form.basal_body_temp_c),
+    aop_mmhg: toNumberOrNull(form.aop_mmhg),
   }
 }
 

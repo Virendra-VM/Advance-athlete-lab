@@ -11,6 +11,7 @@ from __future__ import annotations
 import logging
 import re
 from dataclasses import dataclass
+from datetime import date, timedelta
 
 logger = logging.getLogger(__name__)
 
@@ -61,7 +62,81 @@ LEGACY_INTENT = {
     "clinical_safety_veto": CLINICAL_VETO,
     "clinical": CLINICAL_VETO,
     "off_topic": OFF_TOPIC,
+    # Architecture lens names. Stored replies may use either vocabulary.
+    "workout_single_autopsy": WORKOUT_AUDIT,
+    "weekly_executive_summary": WEEK_REVIEW,
+    "schedule_mutation": SCHEDULE_UPDATE,
 }
+
+# Blueprint lenses. Runtime labels above stay the values classify_chat_intent returns.
+WORKOUT_SINGLE_AUTOPSY = "WORKOUT_SINGLE_AUTOPSY"
+WEEKLY_EXECUTIVE_SUMMARY = "WEEKLY_EXECUTIVE_SUMMARY"
+SCHEDULE_MUTATION = "SCHEDULE_MUTATION"
+
+ARCHITECTURE_INTENTS = (
+    WORKOUT_SINGLE_AUTOPSY,
+    WEEKLY_EXECUTIVE_SUMMARY,
+    SCHEDULE_MUTATION,
+    SCIENCE_LOOKUP,
+    CLINICAL_VETO,
+)
+
+# Several runtime labels share one lens. The reverse map is the canonical
+# runtime label for that lens, so reading a lens back does not collapse
+# DAY_ADJUST into a week rewrite or a month recap into a week recap.
+RUNTIME_TO_ARCHITECTURE = {
+    WORKOUT_AUDIT: WORKOUT_SINGLE_AUTOPSY,
+    WEEK_REVIEW: WEEKLY_EXECUTIVE_SUMMARY,
+    MONTH_REVIEW: WEEKLY_EXECUTIVE_SUMMARY,
+    YEAR_REVIEW: WEEKLY_EXECUTIVE_SUMMARY,
+    SCHEDULE_UPDATE: SCHEDULE_MUTATION,
+    DAY_ADJUST: SCHEDULE_MUTATION,
+    WEEK_PLAN_REVIEW: SCHEDULE_MUTATION,
+    SCIENCE_LOOKUP: SCIENCE_LOOKUP,
+    CLINICAL_VETO: CLINICAL_VETO,
+}
+
+ARCHITECTURE_TO_RUNTIME = {
+    WORKOUT_SINGLE_AUTOPSY: WORKOUT_AUDIT,
+    WEEKLY_EXECUTIVE_SUMMARY: WEEK_REVIEW,
+    SCHEDULE_MUTATION: SCHEDULE_UPDATE,
+    SCIENCE_LOOKUP: SCIENCE_LOOKUP,
+    CLINICAL_VETO: CLINICAL_VETO,
+}
+
+# Spoken after a calendar write. Discussion turns never use this line.
+EXECUTION_CONFIRMATION = "Done. I've updated your calendar. Rest up."
+
+_QUESTION_RE = re.compile(
+    r"(\?\s*$)|^\s*(can|could|should|would|how|what|why|may|is it|do you think)\b",
+    re.IGNORECASE,
+)
+_EXPLICIT_PATCH_RE = re.compile(
+    r"\b("
+    r"update my (week|calendar|schedule|plan)|"
+    r"yes,?\s+update|"
+    r"do it|"
+    r"lock (it|that) in|"
+    r"go ahead|"
+    r"apply (it|that|those|the changes|the plan)|"
+    r"put (it|that) on (my )?(calendar|schedule)"
+    r")\b",
+    re.IGNORECASE,
+)
+_IMPERATIVE_PATCH_RE = re.compile(
+    r"^\s*(please\s+)?(move|swap|shift|reschedule|skip|downgrade|make|change|wipe)\b",
+    re.IGNORECASE,
+)
+_ISO_DATE_RE = re.compile(r"\b(\d{4}-\d{2}-\d{2})\b")
+_WEEKDAY_NAMES = (
+    "monday",
+    "tuesday",
+    "wednesday",
+    "thursday",
+    "friday",
+    "saturday",
+    "sunday",
+)
 
 POWER_PASTE_RE = re.compile(
     r"\b(\d{2,4})\s*(w|watts|bpm|rpm|%?\s*ftp)\b",
@@ -335,6 +410,8 @@ SCHEDULE_HINTS = (
     "modify my plan",
     "move the long",
     "swap my",
+    "can i swap",
+    "could i swap",
     "rest day",
     "what should i do this week",
     "plan my week",
@@ -409,6 +486,111 @@ def normalize_intent(value: str | None) -> str:
     if raw in INTENTS:
         return raw
     return LEGACY_INTENT.get(raw.lower(), GENERAL_CHAT)
+
+
+def architecture_intent_for(runtime_intent: str | None) -> str | None:
+    """Map a runtime or legacy label onto a blueprint lens.
+
+    GENERAL_CHAT and OFF_TOPIC stay unmapped. They are not one of the five lenses.
+    """
+    if runtime_intent is None or not str(runtime_intent).strip():
+        return None
+    raw = str(runtime_intent).strip()
+    if raw in RUNTIME_TO_ARCHITECTURE:
+        return RUNTIME_TO_ARCHITECTURE[raw]
+    normalized = normalize_intent(raw)
+    return RUNTIME_TO_ARCHITECTURE.get(normalized)
+
+
+def runtime_intent_for(architecture_intent: str) -> str:
+    """Canonical runtime label for a blueprint lens."""
+    try:
+        return ARCHITECTURE_TO_RUNTIME[architecture_intent]
+    except KeyError as exc:
+        raise ValueError(f"Unknown architecture intent: {architecture_intent}") from exc
+
+
+def schedule_patch_authorized(message: str) -> bool:
+    """True only when the athlete told us to write the calendar.
+
+    A question stays in discussion. An explicit confirm or an imperative
+    change ("Move my long run to Sunday") is execution.
+    """
+    text = (message or "").strip()
+    if not text:
+        return False
+    if _EXPLICIT_PATCH_RE.search(text):
+        return True
+    if _QUESTION_RE.search(text):
+        return False
+    return bool(_IMPERATIVE_PATCH_RE.search(text))
+
+
+def extract_target_date(message: str, today: date | None = None) -> str | None:
+    """First concrete day in the message, as YYYY-MM-DD."""
+    text = message or ""
+    iso = _ISO_DATE_RE.search(text)
+    if iso:
+        try:
+            date.fromisoformat(iso.group(1))
+        except ValueError:
+            return None
+        return iso.group(1)
+    if today is None:
+        return None
+    lower = text.lower()
+    if re.search(r"\btoday\b", lower):
+        return today.isoformat()
+    if re.search(r"\btomorrow\b", lower):
+        return (today + timedelta(days=1)).isoformat()
+    for index, name in enumerate(_WEEKDAY_NAMES):
+        if re.search(rf"\b{name}\b", lower):
+            delta = (index - today.weekday()) % 7
+            return (today + timedelta(days=delta)).isoformat()
+    return None
+
+
+def route_athlete_query(
+    message: str,
+    *,
+    runtime_intent: str,
+    confidence: float = 0.9,
+    today: date | None = None,
+):
+    """Phase gate. Discussion never sets requires_database_patch."""
+    from app.ai_schemas import CoachIntent
+
+    category = architecture_intent_for(runtime_intent)
+    if category is None:
+        return None
+    patch = category == SCHEDULE_MUTATION and schedule_patch_authorized(message)
+    score = min(1.0, max(0.0, float(confidence)))
+    return CoachIntent(
+        intent_category=category,
+        confidence_score=score,
+        requires_database_patch=patch,
+        target_date=extract_target_date(message, today) if patch else None,
+    )
+
+
+def decision_to_coach_intent(
+    decision: IntentDecision,
+    *,
+    requires_database_patch: bool = False,
+    target_date: str | None = None,
+):
+    """Validate a routing decision as the blueprint CoachIntent, when it has a lens."""
+    from app.ai_schemas import CoachIntent
+
+    category = architecture_intent_for(decision.intent)
+    if category is None:
+        return None
+    return CoachIntent(
+        intent_category=category,
+        confidence_score=decision.confidence,
+        requires_database_patch=requires_database_patch,
+        target_date=target_date,
+    )
 
 
 def classify_chat_intent(

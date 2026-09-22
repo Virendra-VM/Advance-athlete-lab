@@ -9,9 +9,37 @@ from app.schemas import AthleteStatsResponse, WeeklyVolumeBucket
 
 WEEK_COUNT = 8
 WEEK_DAYS = 7
+ACUTE_EWMA_DAYS = 7
+CHRONIC_EWMA_DAYS = 28
 
 STRENGTH_SPORTS = {"strength", "weighttraining", "weight_training", "gym", "yoga", "pilates", "crossfit"}
 ENDURANCE_SPORTS = {"run", "running", "ride", "cycling", "bike", "swim", "swimming", "walk", "hike"}
+
+
+def ewma_lambda(window_days: int) -> float:
+    """Smoothing factor 2/(N+1). Acute N=7 is 0.25; chronic N=28 is 2/29."""
+    return 2.0 / (float(window_days) + 1.0)
+
+
+def ewma_value(daily_loads: list[float], window_days: int) -> float | None:
+    if not daily_loads:
+        return None
+    lam = ewma_lambda(window_days)
+    value = float(daily_loads[0])
+    for load in daily_loads[1:]:
+        value = lam * float(load) + (1.0 - lam) * value
+    return value
+
+
+def ewma_acwr(daily_loads: list[float]) -> float | None:
+    """Acute EWMA (7-day) divided by chronic EWMA (28-day) on the same daily series."""
+    if len(daily_loads) < ACUTE_EWMA_DAYS:
+        return None
+    acute = ewma_value(daily_loads, ACUTE_EWMA_DAYS)
+    chronic = ewma_value(daily_loads, CHRONIC_EWMA_DAYS)
+    if acute is None or chronic is None or chronic <= 0:
+        return None
+    return round(acute / chronic, 2)
 
 
 def _round_km(value: float) -> float:
@@ -135,6 +163,41 @@ def _sum_session_load(
     return _round_load(total)
 
 
+def _daily_session_loads(
+    db: Session,
+    athlete_profile_id: int,
+    now: datetime,
+    *,
+    physiology: dict | None = None,
+) -> list[float]:
+    """Chronological daily loads for the last 28 days, zeros included."""
+    start = now - timedelta(days=CHRONIC_EWMA_DAYS - 1)
+    rows = (
+        db.query(Activity)
+        .filter(
+            Activity.athlete_profile_id == athlete_profile_id,
+            Activity.activity_date >= start,
+            Activity.activity_date <= now,
+            Activity.canonical_activity_id.is_(None),
+        )
+        .all()
+    )
+    by_day: dict = {}
+    cursor = start.date()
+    end = now.date()
+    while cursor <= end:
+        by_day[cursor] = 0.0
+        cursor += timedelta(days=1)
+    for row in rows:
+        stamp = row.activity_date
+        if stamp is None:
+            continue
+        day = stamp.date() if hasattr(stamp, "date") else stamp
+        if day in by_day:
+            by_day[day] += compute_session_load(row, physiology=physiology)
+    return [by_day[day] for day in sorted(by_day)]
+
+
 def _build_weekly_buckets(
     db: Session,
     athlete_profile_id: int,
@@ -228,7 +291,12 @@ def compute_acwr(
     chronic_load_km = _round_km(total_28d_km / 4.0)
     km_acwr = round(acute_load_km / chronic_load_km, 2) if chronic_load_km > 0 else None
 
-    primary = load_acwr or minutes_acwr or km_acwr
+    rolling = load_acwr or minutes_acwr or km_acwr
+    daily_loads = _daily_session_loads(
+        db, athlete_profile_id, now, physiology=physiology
+    )
+    ewma = ewma_acwr(daily_loads)
+    primary = ewma if ewma is not None else rolling
     return {
         "acute_load": acute_load,
         "chronic_load": chronic_load,
@@ -239,7 +307,9 @@ def compute_acwr(
         "acute_km": acute_load_km,
         "chronic_km": chronic_load_km,
         "km_acwr": km_acwr,
+        "rolling_acwr": rolling,
         "acwr": primary,
+        "acwr_method": "ewma" if ewma is not None else "rolling",
         "acwr_source": "load"
         if load_acwr is not None
         else ("minutes" if minutes_acwr is not None else "km"),

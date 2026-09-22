@@ -275,7 +275,17 @@ def tool_check_injury_rules(ctx: CoachToolContext) -> ToolResult:
     readiness = (ctx.safety or {}).get("readiness") or {}
     load = (ctx.safety or {}).get("load") or {}
     acwr = load.get("minutes_acwr")
-    hard_veto = isinstance(acwr, (int, float)) and acwr > 1.5
+    sleep_hours = readiness.get("sleep_hours")
+    recent_rpe = load.get("recent_rpe")
+    acwr_spike = isinstance(acwr, (int, float)) and acwr > 1.5
+    acwr_softened = (
+        acwr_spike
+        and isinstance(sleep_hours, (int, float))
+        and sleep_hours >= 7
+        and isinstance(recent_rpe, (int, float))
+        and recent_rpe <= 5
+    )
+    hard_veto = acwr_spike and not acwr_softened
     data = {
         "active_injuries": injuries.get("active") or [],
         "avoid_keywords": injuries.get("avoid_keywords") or [],

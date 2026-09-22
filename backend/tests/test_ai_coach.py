@@ -271,16 +271,18 @@ def test_schedule_prompt_bypasses_autopsy():
     task = schedule_task("full_report")
     assert "Olympic Coach" in system or "Athletic Director" in system
     assert "do not autopsy" in system.lower() or "Do NOT autopsy" in system
+    assert "Never output a status badge" in system
     assert "TODAY'S CALL" in system
-    assert "LOCKER ROOM DIRECTIVE" in system
-    assert "Coach's Secret Rule" in system
-    assert "PRIMED" in system and "CAUTION" in system and "REST / RESTORE" in system
+    assert "Practical Analogy" in system
+    assert "coiling the spring" in system
+    assert "PRIMED / ACCUMULATE" in system
     assert "CONDITIONAL TEACHING" in system or "Do NOT add 🔬 WEEKLY TRANSLATIONS" in system
     assert "80-180 words" in system
-    assert "DO NOT" in system
+    assert "Do NOT autopsy" in system
     assert "Why this works" in task or "Why recovery" in task
     assert "autopsy" in task.lower()
-    assert "Secret Rule" in task
+    assert "Practical Analogy" in task
+    assert "status badge" in task
     assert "BOTTOM LINE" in task or "skip" in system.lower()
 
 

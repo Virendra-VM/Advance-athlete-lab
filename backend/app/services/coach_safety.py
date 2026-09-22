@@ -52,10 +52,11 @@ INJURY_RULES: dict[str, dict] = {
         ],
         "avoid_session_types": [],
         "prefer": [
-            "dead bug",
-            "bird dog",
-            "plank",
+            "modified curl-up",
             "side plank",
+            "bird dog",
+            "dead bug",
+            "plank",
             "unilateral leg work",
             "walking",
             "swimming",
@@ -161,13 +162,18 @@ INJURY_REGION_PATTERNS = (
     ("foot", r"\b(foot|plantar)\b"),
     ("hip", r"\bhip\b"),
     ("shoulder", r"\bshoulder\b"),
-    ("lower back", r"\b(lower back|lumbar|spine|spinal)\b"),
+    ("lower back", r"\b(lower back|lumbar|spine|spinal|tweaked my back|lumbar stiffness|shooting pain down (?:my )?leg)\b"),
     ("wrist / elbow", r"\b(wrist|elbow)\b"),
     ("neck", r"\bneck\b"),
     ("calf", r"\bcalf\b"),
 )
 
 
+SPINE_LOCK_HORIZON_DAYS = 14
+MCGILL_BIG3_PRESCRIPTION = (
+    "McGill Big 3: Modified Curl-Up, Side Plank, and Bird Dog. "
+    "Russian pyramid 5-3-1 with 10-second holds."
+)
 SPINE_FORBIDDEN_KEYWORDS = [
     "back squat",
     "barbell squat",
@@ -182,6 +188,10 @@ SPINE_FORBIDDEN_KEYWORDS = [
     "toe touch",
     "superman",
     "jefferson curl",
+    "overhead press",
+    "plyometric",
+    "plyometrics",
+    "box jump",
 ]
 
 STRENGTH_SESSION_TYPES = {"strength", "gym", "weights", "power", "lift", "crossfit"}
@@ -208,6 +218,16 @@ def has_spine_lock(injuries: dict) -> bool:
 def spine_forbidden_hit(text: str) -> str | None:
     haystack = _text(text)
     return next((keyword for keyword in SPINE_FORBIDDEN_KEYWORDS if keyword in haystack), None)
+
+
+def within_spine_horizon(workout: dict, *, today: date | None = None) -> bool:
+    """Spine substitution covers undated sessions and the next 14 days."""
+    today = today or date.today()
+    parsed = _parse_date(workout.get("date"))
+    if parsed is None:
+        return True
+    delta = (parsed - today).days
+    return -1 <= delta <= SPINE_LOCK_HORIZON_DAYS
 
 
 def _is_heavy_lower_strength(workout: dict) -> bool:
@@ -745,6 +765,8 @@ def validate_plan(plan: dict, safety: dict) -> dict:
     # 2b. Spine lock — explicit forbidden lifts when lower back is active.
     if has_spine_lock(safety["injuries"]):
         for workout in workouts:
+            if not within_spine_horizon(workout):
+                continue
             text = _session_text(workout)
             hit = spine_forbidden_hit(text)
             if not hit:
@@ -758,8 +780,9 @@ def validate_plan(plan: dict, safety: dict) -> dict:
             workout["intensity"] = "Spine-safe / easy"
             workout["title"] = workout.get("title") or "Spine-safe strength"
             workout["description"] = (
-                "Auto-replaced for active lower-back protection. Allowed: dead bug, bird dog, "
-                "plank, side plank, unilateral leg work. No loaded spinal flexion or hinging."
+                "Auto-replaced for active lower-back protection. "
+                + MCGILL_BIG3_PRESCRIPTION
+                + " No loaded spinal flexion or hinging."
             )
 
     # 3. Hard-session budget.
@@ -920,16 +943,40 @@ def validate_plan(plan: dict, safety: dict) -> dict:
     load = safety.get("load") or {}
     acwr = load.get("minutes_acwr")
     if isinstance(acwr, (int, float)) and acwr > 1.5:
+        readiness = safety.get("readiness") or {}
+        sleep_hours = readiness.get("sleep_hours")
+        recent_rpe = load.get("recent_rpe")
+        softened = (
+            isinstance(sleep_hours, (int, float))
+            and sleep_hours >= 7
+            and isinstance(recent_rpe, (int, float))
+            and recent_rpe <= 5
+        )
         for workout in workouts:
-            if _is_hard(workout):
+            if not _is_hard(workout):
+                continue
+            if softened:
+                duration = workout.get("duration_min")
+                if isinstance(duration, (int, float)) and duration > 0:
+                    workout["duration_min"] = max(20, int(round(float(duration) * 0.8)))
                 add(
                     "adjusted",
-                    "acwr_veto",
-                    f"{workout.get('title') or 'Session'} downgraded — ACWR {acwr:.2f} > 1.5.",
+                    "acwr_volume_cut",
+                    f"{workout.get('title') or 'Session'} shortened — ACWR {acwr:.2f} > 1.5, "
+                    "but sleep and RPE do not confirm a full cut.",
                 )
-                workout["session_type"] = "easy"
-                workout["intensity"] = "Easy / conversational"
-                workout["autoregulation_note"] = "ACWR spike — quality work vetoed this week."
+                workout["autoregulation_note"] = (
+                    "ACWR is elevated. Volume is down about 20% because sleep and RPE look fine."
+                )
+                continue
+            add(
+                "adjusted",
+                "acwr_veto",
+                f"{workout.get('title') or 'Session'} downgraded — ACWR {acwr:.2f} > 1.5.",
+            )
+            workout["session_type"] = "easy"
+            workout["intensity"] = "Easy / conversational"
+            workout["autoregulation_note"] = "ACWR spike — quality work vetoed this week."
 
     # 9. Blocking conditions — the plan must not be shown as-is.
     blocked = False
@@ -992,9 +1039,10 @@ def safety_prompt_rules(safety: dict, weekday_index: int | None = None) -> str:
         )
     if safety.get("spine_lock"):
         lines.append(
-            "- SPINE LOCK active: no deadlift, back squat, crunch, sit-up, good morning, or loaded "
-            "spinal flexion. Use dead bug, bird dog, plank, side plank, unilateral leg work. "
-            "No hard run within 24h of heavy lower-body strength."
+            "- SPINE LOCK active for the next 14 days: no deadlift, back squat, crunch, sit-up, "
+            "good morning, overhead press, plyometrics, or loaded spinal flexion. "
+            + MCGILL_BIG3_PRESCRIPTION
+            + " No hard run within 24h of heavy lower-body strength."
         )
     if injuries["past"]:
         lines.append(f"- Past injuries to respect: {', '.join(injuries['past'])}.")
