@@ -78,6 +78,14 @@ export const ZONE_ANCHOR_FIELDS = [
     max: 90,
   },
   {
+    key: 'aop_mmhg',
+    label: 'Arterial occlusion pressure (mmHg)',
+    type: 'number',
+    min: 80,
+    max: 350,
+    help: 'Doppler baseline only. Leave blank if you do not have one. Cuff pressure is not prescribed without it.',
+  },
+  {
     key: 'zone_run_hr_method',
     label: 'Run HR zone model',
     type: 'chips-single',
@@ -231,6 +239,9 @@ export function TrainingZonesView({ form }) {
         </FactorItem>
         <FactorItem label="Run HR model">
           <DisplayValue>{zoneMethodLabel(form.zone_run_hr_method)}</DisplayValue>
+        </FactorItem>
+        <FactorItem label="Occlusion pressure">
+          <DisplayValue>{form.aop_mmhg != null ? `${form.aop_mmhg} mmHg` : null}</DisplayValue>
         </FactorItem>
       </div>
       <ZonesTables zones={zones} />

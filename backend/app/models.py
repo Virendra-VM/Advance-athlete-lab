@@ -105,6 +105,10 @@ class AthleteProfile(Base):
     # --- Cycle tracking (opt-in, female physiology) ---
     cycle_tracking_enabled = Column(Boolean, nullable=False, default=False)
     cycle_length_manual = Column(Integer, nullable=True)
+    # Latest waking basal temperature in Celsius. Optional phase input.
+    basal_body_temp_c = Column(Float, nullable=True)
+    # Doppler arterial occlusion pressure in mmHg. Required before any BFR pressure.
+    aop_mmhg = Column(Float, nullable=True)
 
 
 class AthleteInjury(Base):

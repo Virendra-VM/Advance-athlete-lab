@@ -197,6 +197,9 @@ def build_cycle_context(
     next_start = last_start + timedelta(days=cycle_length)
     days_to_next = (next_start - on_date).days
     phase = map_cycle_phase(day_in_cycle, cycle_length)
+    prescription_phase, temperature_adjusted = apply_basal_temperature(
+        phase, getattr(profile, "basal_body_temp_c", None)
+    )
 
     return {
         "enabled": True,
@@ -208,19 +211,67 @@ def build_cycle_context(
         "phase": phase,
         "days_to_next_period": days_to_next,
         "late_luteal": phase == "late_luteal" or days_to_next <= 3,
-        "training_note": phase_training_note(phase, day_in_cycle),
+        "basal_body_temp_c": getattr(profile, "basal_body_temp_c", None),
+        "temperature_adjusted": temperature_adjusted,
+        "prescription": phase_prescription(prescription_phase),
+        "training_note": phase_training_note(prescription_phase, day_in_cycle),
     }
+
+
+# Four coaching phases. late_luteal stays a luteal sub-state so existing day-26
+# mapping still resolves, and it carries the same Zone 2 prescription.
+PHASE_PRESCRIPTIONS: dict[str, dict[str, Any]] = {
+    "menstrual": {
+        "intensity": "easy",
+        "warmup_extra_min": 0,
+        "note": "Menstrual phase — mobility and easy Zone 2 when symptoms are present.",
+    },
+    "follicular": {
+        "intensity": "high",
+        "warmup_extra_min": 0,
+        "note": "Follicular phase — highest load window. VO2 and heavy strength are appropriate.",
+    },
+    "ovulatory": {
+        "intensity": "high",
+        "warmup_extra_min": 10,
+        "note": "Ovulatory window — keep the intensity and add a longer warm-up.",
+    },
+    "luteal": {
+        "intensity": "zone2",
+        "warmup_extra_min": 0,
+        "note": "Luteal phase — steady Zone 2, watch the heat, and take in more carbohydrate.",
+    },
+    "late_luteal": {
+        "intensity": "zone2",
+        "warmup_extra_min": 0,
+        "note": "Late luteal — Zone 2 only, heat caution, extra carbohydrate, and protect sleep.",
+    },
+}
+
+
+def apply_basal_temperature(phase: str, temp_c: float | None) -> tuple[str, bool]:
+    """A basal reading at or above 37.0°C in the first half of the cycle is a luteal shift.
+
+    A single stored temperature cannot prove a 0.3–0.5°C rise without a follicular
+    baseline, so this only moves the prescription when the reading is already in
+    the elevated range and the calendar phase is still follicular or ovulatory.
+    """
+    if temp_c is None or phase not in ("follicular", "ovulatory"):
+        return phase, False
+    if float(temp_c) >= 37.0:
+        return "luteal", True
+    return phase, False
+
+
+def phase_prescription(phase: str) -> dict[str, Any]:
+    return dict(PHASE_PRESCRIPTIONS.get(phase, PHASE_PRESCRIPTIONS["follicular"]))
 
 
 def phase_training_note(phase: str, day_in_cycle: int) -> str:
-    notes = {
-        "menstrual": "Menstrual phase — prioritize recovery and easy aerobic work.",
-        "follicular": "Follicular phase — rising tolerance; quality sessions generally well tolerated.",
-        "ovulatory": "Ovulatory window — neuromuscular power often peaks; use quality wisely.",
-        "luteal": "Luteal phase — respect RPE; hydration and sleep matter more.",
-        "late_luteal": "Late luteal — downshift intensity; protect sleep and autonomic balance.",
-    }
-    return notes.get(phase, f"Cycle day {day_in_cycle}.")
+    prescription = PHASE_PRESCRIPTIONS.get(phase)
+    if prescription:
+        return prescription["note"]
+    return f"Cycle day {day_in_cycle}."
 
 
 def menstrual_downgrade_steps(cycle_ctx: dict[str, Any] | None) -> tuple[int, list[str], list[dict[str, str]]]:
@@ -238,6 +289,9 @@ def menstrual_downgrade_steps(cycle_ctx: dict[str, Any] | None) -> tuple[int, li
     if phase == "menstrual" or (isinstance(day, int) and 1 <= day <= 5):
         steps += 1
         reasons.append(f"Menstrual phase (day {day})")
+    elif phase == "luteal" or cycle_ctx.get("temperature_adjusted"):
+        steps += 1
+        reasons.append("Luteal phase — Zone 2, heat caution, extra carbohydrate")
     if cycle_ctx.get("late_luteal") or (
         isinstance(days_to_next, int) and 0 <= days_to_next <= 3
     ):

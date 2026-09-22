@@ -576,6 +576,9 @@ export function TrainingView({
         <FactorItem key="maxhr" label="Max HR">
           <DisplayValue>{form.max_hr_bpm != null ? `${form.max_hr_bpm} bpm` : null}</DisplayValue>
         </FactorItem>,
+        <FactorItem key="aop" label="Occlusion pressure">
+          <DisplayValue>{form.aop_mmhg != null ? `${form.aop_mmhg} mmHg` : null}</DisplayValue>
+        </FactorItem>,
         <FactorItem key="zones-link" label="Zone tables" wide>
           <DisplayValue>
             <Link
