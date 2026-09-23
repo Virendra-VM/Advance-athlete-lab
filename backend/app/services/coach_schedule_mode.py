@@ -275,8 +275,16 @@ def build_proposed_schedule_week(
     current_plan: dict | None,
     message: str,
 ) -> dict[str, Any]:
-    """Pass 1 — deterministic week from library + zone enrichment."""
+    """Pass 1 — deterministic week from athlete DIY, executed days, or library."""
     from app.services.coach_safety import validate_plan
+    from app.services.diy_week_parser import (
+        executed_by_day_from_context,
+        has_diy_week_proposal,
+        merge_week_workouts,
+        parse_diy_week_from_message,
+        soft_cap_today_only,
+        workouts_from_executed,
+    )
     from app.services.session_blueprints import enrich_plan
     from app.services.workout_library import physiology_from_context
     from app.services.workout_selection import (
@@ -285,8 +293,17 @@ def build_proposed_schedule_week(
     )
 
     week_start = clock["week_start"]
-    today = clock.get("today")
+    today = clock.get("today") or date.today()
     physiology = physiology_from_context(context)
+    diy_workouts = parse_diy_week_from_message(message, clock) if message else []
+    diy_mode = bool(diy_workouts) or has_diy_week_proposal(message or "")
+
+    executed = executed_by_day_from_context(
+        context,
+        week_start=week_start,
+        week_end=week_start + timedelta(days=6),
+    )
+    executed_rows = workouts_from_executed(executed, today=today)
 
     if wants_same_schedule(message) and current_plan and (current_plan.get("plan") or {}).get(
         "workouts"
@@ -301,13 +318,77 @@ def build_proposed_schedule_week(
             "selection_engine": "swl-v2-rezone",
         }
         proposed = apply_library_selection_to_plan(proposed, context, safety)
+    elif diy_mode and diy_workouts:
+        # Honor the athlete's day-by-day proposal; fill unspecified open days from library.
+        library = build_library_week(context, safety, week_start, today=today)
+        library = apply_library_selection_to_plan(library, context, safety)
+        current_rows = list(((current_plan or {}).get("plan") or {}).get("workouts") or [])
+        claimed = {
+            str(item.get("date") or "")[:10]
+            for item in (executed_rows + diy_workouts)
+            if str(item.get("date") or "")[:10]
+        }
+        executed_dates = {
+            str(item.get("date") or "")[:10]
+            for item in executed_rows
+            if str(item.get("date") or "")[:10]
+        }
+        # Prefer COROS/Strava files for past days — drop DIY "I did X" duplicates.
+        diy_kept = [
+            item
+            for item in diy_workouts
+            if str(item.get("date") or "")[:10] not in executed_dates
+        ]
+        library_kept = [
+            item
+            for item in (library.get("workouts") or [])
+            if str(item.get("date") or "")[:10] not in claimed
+        ]
+        # Keep past planned days that have no file yet (honest Missed), not library ghosts.
+        past_planned = []
+        for item in current_rows:
+            iso = str(item.get("date") or "")[:10]
+            if not iso or iso in claimed:
+                continue
+            try:
+                day = date.fromisoformat(iso)
+            except ValueError:
+                continue
+            if day < today:
+                past_planned.append(copy.deepcopy(item))
+        seed = past_planned + library_kept + executed_rows + diy_kept
+        seed = soft_cap_today_only(seed, safety, today=today)
+        proposed = {
+            "title": f"Athlete week of {week_start.strftime('%b %d')}",
+            "summary": "Week built from your proposed sessions — today soft-capped if readiness is red.",
+            "focus": "athlete-proposed calendar",
+            "week_start": week_start.isoformat(),
+            "workouts": seed,
+            "selection_engine": "diy-v1",
+            "diy_honored": True,
+        }
     else:
         proposed = build_library_week(context, safety, week_start, today=today)
         proposed = apply_library_selection_to_plan(proposed, context, safety)
+        # Stamp past executed files so the table is Done, not Missed/Unplanned.
+        if executed_rows:
+            proposed["workouts"] = merge_week_workouts(
+                base=list(proposed.get("workouts") or []),
+                overlay=executed_rows,
+                today=today,
+            )
+        proposed["workouts"] = soft_cap_today_only(
+            list(proposed.get("workouts") or []),
+            safety,
+            today=today,
+        )
 
     proposed["week_start"] = week_start.isoformat()
     validation = validate_plan(proposed, safety)
     proposed = enrich_plan(validation["plan"], safety, physiology=physiology)
+    if diy_mode:
+        proposed["diy_honored"] = True
+        proposed["focus"] = proposed.get("focus") or "athlete-proposed calendar"
     return proposed
 
 
@@ -315,9 +396,11 @@ def build_week_table_rows(
     plan_data: dict,
     *,
     clock: dict | None = None,
+    context: dict | None = None,
 ) -> list[str]:
     """Markdown table rows for REVISED WEEK section."""
     from app.services.ai_coach import _secret_rule
+    from app.services.diy_week_parser import executed_by_day_from_context
 
     weekdays = (
         "Monday",
@@ -330,9 +413,20 @@ def build_week_table_rows(
     )
     week_start = (clock or {}).get("week_start")
     today = (clock or {}).get("today")
-    by_date: dict[str, dict] = {}
+    by_date: dict[str, list[dict]] = {}
     for workout in plan_data.get("workouts") or []:
-        by_date[_workout_key(workout)] = workout
+        key = _workout_key(workout)
+        if not key:
+            continue
+        by_date.setdefault(key, []).append(workout)
+
+    executed = {}
+    if context is not None and week_start is not None:
+        executed = executed_by_day_from_context(
+            context,
+            week_start=week_start,
+            week_end=week_start + timedelta(days=6),
+        )
 
     rows = [
         "| Day | Session | Primary Focus | Intensity | Coach's Secret Rule |",
@@ -341,12 +435,54 @@ def build_week_table_rows(
     for index, name in enumerate(weekdays):
         day = week_start + timedelta(days=index) if week_start is not None else None
         iso = day.isoformat() if day is not None else ""
-        workout = by_date.get(iso) or {}
-        session = workout.get("title") or workout.get("session_type") or "Unplanned"
-        focus = workout.get("sport") or workout.get("session_type") or "—"
-        intensity = workout.get("intensity") or workout.get("session_type") or "—"
+        planned_rows = by_date.get(iso) or []
+        workout = planned_rows[0] if planned_rows else {}
         past = bool(today and day and day < today)
-        secret = _secret_rule(workout, session, intensity, past=past)
+        day_executed = executed.get(day) if day is not None else None
+
+        if day_executed:
+            names = " + ".join(str(item.get("name") or "Session") for item in day_executed)
+            sports = " / ".join(
+                sorted(
+                    {
+                        str(item.get("sport") or "").strip()
+                        for item in day_executed
+                        if item.get("sport")
+                    }
+                )
+            ) or (workout.get("sport") or "—")
+            minutes = sum(item.get("minutes") or 0 for item in day_executed)
+            session = names
+            focus = sports
+            intensity = f"{minutes:.0f} min logged" if minutes else "Completed"
+            secret = "Done" if planned_rows else "Unplanned"
+        elif past and not workout:
+            session = "Unplanned"
+            focus = "—"
+            intensity = "—"
+            secret = "Missed"
+        elif len(planned_rows) > 1:
+            session = " + ".join(
+                str(item.get("title") or item.get("session_type") or "Session")
+                for item in planned_rows
+            )
+            focus = " / ".join(
+                sorted(
+                    {
+                        str(item.get("sport") or item.get("session_type") or "").strip()
+                        for item in planned_rows
+                        if item.get("sport") or item.get("session_type")
+                    }
+                )
+            ) or "—"
+            intensity = workout.get("intensity") or workout.get("session_type") or "—"
+            secret = _secret_rule(workout, session, intensity, past=past)
+        else:
+            session = workout.get("title") or workout.get("session_type") or "Unplanned"
+            focus = workout.get("sport") or workout.get("session_type") or "—"
+            intensity = workout.get("intensity") or workout.get("session_type") or "—"
+            secret = _secret_rule(workout, session, intensity, past=past)
+
         rows.append(f"| {name} | {session} | {focus} | {intensity} | {secret} |")
     return rows
 
@@ -443,6 +579,17 @@ def build_schedule_narrator_block(
         if schedule_mode == ACTION_SUMMARY
         else "Follow OUTPUT FORMAT: 🟢 TODAY'S CALL, 🗣️ LOCKER ROOM DIRECTIVE, 🗓️ REVISED WEEK, 🛡️ SPINE LOCK."
     )
+    diy_honored = bool(proposed_plan.get("diy_honored"))
+    diy_rule = ""
+    if diy_honored:
+        diy_rule = """
+ATHLETE DIY WEEK (hard)
+- Pass 1 already honored the athlete's proposed days (selection_engine diy-v1).
+- Copy those sessions into 🗓️ REVISED WEEK — do NOT replace Sat long / Sun mountain with mobility.
+- If readiness is REST/EASY: soft-cap TODAY only. Negotiate future load in prose
+  (e.g. "trim Sunday to 2–2.5 h if sleep stays low") — never silently delete proposed days.
+- Past days with logged files are Done — never label them Missed.
+"""
     block = f"""
 {today_call_block}
 
@@ -457,7 +604,7 @@ Do NOT add 🔬 WEEKLY TRANSLATIONS or science/lingo/analogy triplets unless CON
 {lead_rule}
 Open with a plain-language lead: decision + one watch number + one why sentence (Phase 4).
 Copy week_plan from PLANNER PACKET exactly. Copy PROPOSED WEEK TABLE verbatim into 🗓️ REVISED WEEK.
-
+{diy_rule}
 PLANNER PACKET (pass 1 — ground truth)
 {json.dumps(planner_packet, indent=2, default=str)}
 

@@ -334,21 +334,28 @@ def apply_autoregulation_to_safety(safety: dict, autoreg: dict | None) -> dict:
     reasons = autoreg.get("downgrade_reasons") or []
     reason_text = "; ".join(reasons) if reasons else autoreg.get("directive") or "Autoregulation cap"
 
+    # Today's Call soft-caps TODAY only. Never zero the weekly hard budget —
+    # that would silently delete Sat/Sun quality from DIY or library weeks.
     if level == TrainingCallLevel.REST.value:
         adjusted["readiness"] = {
             "action": "rest_or_mobility",
             "max_hard_sessions_today": 0,
             "reason": reason_text,
         }
-        adjusted["max_hard_sessions"] = 0
     elif level == TrainingCallLevel.EASY.value:
         adjusted["readiness"] = {
             "action": "downgrade_to_easy",
             "max_hard_sessions_today": 0,
             "reason": reason_text,
         }
-        adjusted["max_hard_sessions"] = 0
     elif level == TrainingCallLevel.MODERATE.value:
-        adjusted["max_hard_sessions"] = min(int(adjusted.get("max_hard_sessions") or 0), 1)
+        readiness = dict(adjusted.get("readiness") or {})
+        readiness["max_hard_sessions_today"] = min(
+            int(readiness.get("max_hard_sessions_today") or adjusted.get("max_hard_sessions") or 1),
+            1,
+        )
+        readiness.setdefault("action", "proceed")
+        readiness.setdefault("reason", reason_text)
+        adjusted["readiness"] = readiness
 
     return adjusted

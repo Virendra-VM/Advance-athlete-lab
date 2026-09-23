@@ -1,0 +1,389 @@
+{
+  "slug": "aal-diy-negotiation",
+  "title": "Advance Athlete Lab Athlete-Proposed Weeks, DIY Negotiation, and Today-Only Soft Caps",
+  "authors": "Advance Athlete Lab coaching team",
+  "year": 2026,
+  "publisher": "Advance Athlete Lab",
+  "license": "Owned content — cleared for AI retrieval",
+  "url": null,
+  "source_type": "playbook",
+  "chunks": [
+    {
+      "key": "honor-athlete-diy",
+      "heading": "Start from the athlete's proposed week",
+      "audience": "shared",
+      "sport_tags": [
+        "general",
+        "run",
+        "ride",
+        "swim",
+        "strength"
+      ],
+      "topic_tags": [
+        "diy",
+        "planning",
+        "communication",
+        "weekly-structure"
+      ],
+      "body": "When an athlete proposes a concrete week — named days, sports, distances, or durations — treat that calendar as the draft. Do not silently replace it with a generic library week. Acknowledge what they already completed, keep their long and strength days unless safety requires a trim, and explain any edit in plain language. Autonomy plus coaching beats a paternal wipe of their plan. Persist the negotiated week so the calendar matches the conversation."
+    },
+    {
+      "key": "negotiate-not-rewrite",
+      "heading": "Negotiate edits instead of rewriting the whole week",
+      "audience": "shared",
+      "sport_tags": [
+        "general",
+        "run",
+        "ride"
+      ],
+      "topic_tags": [
+        "diy",
+        "planning",
+        "load-management",
+        "communication"
+      ],
+      "body": "Good negotiation changes the smallest lever that fixes the risk. Examples: shorten Sunday from 3–4 hours to 2–2.5 hours; drop one piece of a double day; move strength away from the long day; keep Saturday long but make Sunday mobility if markers stay poor. Bad negotiation deletes the athlete's weekend and pastes an unrelated easy template. Always say what stayed, what changed, and why — one watch number is enough."
+    },
+    {
+      "key": "rest-today-only",
+      "heading": "REST and poor sleep soft-cap today only",
+      "audience": "shared",
+      "sport_tags": [
+        "general",
+        "run",
+        "ride",
+        "swim",
+        "strength"
+      ],
+      "topic_tags": [
+        "readiness",
+        "sleep",
+        "hrv",
+        "diy",
+        "autoregulation"
+      ],
+      "body": "A red Today's Call (poor sleep score, suppressed HRV, REST/RESTORE) should change today's session — usually to easy aerobic or mobility — without erasing Saturday and Sunday from an athlete-proposed week. Protect future hard or long days in the calendar and reassess tomorrow. If poor markers persist for several days, then negotiate a shorter long day or delay quality. One bad night is a today problem first, not a full-week rewrite."
+    },
+    {
+      "key": "credit-completed-days",
+      "heading": "Credit logged and reported sessions",
+      "audience": "shared",
+      "sport_tags": [
+        "general",
+        "run",
+        "ride",
+        "strength"
+      ],
+      "topic_tags": [
+        "diy",
+        "communication",
+        "planning",
+        "load-management"
+      ],
+      "body": "Days the athlete already trained — wearable files or clear chat statements such as yesterday's endurance ride — are Done, not Missed or Unplanned. Build the remaining week forward from today. Do not prescribe a second hard session on top of a completed key day. Use completed minutes when talking about weekly load so advice matches reality."
+    },
+    {
+      "key": "diy-risk-flags",
+      "heading": "Risk flags that force a DIY edit",
+      "audience": "shared",
+      "sport_tags": [
+        "general",
+        "run",
+        "ride",
+        "strength"
+      ],
+      "topic_tags": [
+        "diy",
+        "safety",
+        "injury",
+        "load-management"
+      ],
+      "body": "Edit an athlete proposal when it stacks two quality days back-to-back, places heavy strength immediately before a long impact day, schedules a hero long after travel with poor sleep, or ignores an active injury contraindication. Red-flag symptoms (chest pain, fainting, neurological signs, fever) stop planning for intensity and trigger referral — do not negotiate a workaround. For ordinary ambitious stacks, trim duration or spacing; do not shame the athlete for aiming high."
+    },
+    {
+      "key": "double-plus-weekend-longs",
+      "heading": "Negotiating a midweek double plus weekend longs",
+      "audience": "endurance",
+      "sport_tags": [
+        "run",
+        "ride"
+      ],
+      "topic_tags": [
+        "diy",
+        "double",
+        "long",
+        "weekly-structure"
+      ],
+      "body": "A week with a midweek double, Friday strength, Saturday long run, and Sunday long ride is high total stress even if every session is 'easy'. Accept the shape only if early-week days are truly easy, today is not already overloaded, and one of the weekend longs has a ceiling. Prefer keeping the athlete's intent while capping the riskiest day — usually the mountain Sunday — and confirming Friday strength stays moderate, not a second quality hit."
+    },
+    {
+      "key": "pros-cons-then-calendar",
+      "heading": "Opinion first when they ask; calendar when they commit",
+      "audience": "shared",
+      "sport_tags": [
+        "general"
+      ],
+      "topic_tags": [
+        "diy",
+        "communication",
+        "planning"
+      ],
+      "body": "If the athlete asks whether a plan is smart, answer as a coach in conversation — pros, cons, and one recommended edit — without dumping a full revised week table unless they ask to update the calendar. If they say plan this week or list days they will do and want it on the schedule, honor the proposal in the calendar engine, soft-cap today if needed, and show the negotiated week clearly. Match response shape to the ask."
+    },
+    {
+      "key": "grey-zone-in-diy",
+      "heading": "Call out grey-zone junk in DIY weeks",
+      "audience": "endurance",
+      "sport_tags": [
+        "run",
+        "ride",
+        "swim"
+      ],
+      "topic_tags": [
+        "diy",
+        "intensity",
+        "zones",
+        "base"
+      ],
+      "body": "Amateur DIY weeks often fill every day with moderately hard efforts. Name that pattern and ask for honestly easy days around the one hard or long session. Give concrete anchors — easy bike watts under FTP zones, conversational run pace, talk test — so 'easy' is measurable. Keeping the athlete's sports and days while fixing intensity distribution is usually better than changing the sports they enjoy."
+    },
+    {
+      "key": "spine-and-diy-strength",
+      "heading": "Spine limits inside athlete-proposed strength days",
+      "audience": "shared",
+      "sport_tags": [
+        "strength",
+        "general"
+      ],
+      "topic_tags": [
+        "diy",
+        "spine",
+        "safety",
+        "strength"
+      ],
+      "body": "When the athlete schedules full-body strength and an active back limit or spine lock is on file, keep the day but change the menu: unilateral work, anti-extension core, no loaded spinal flexion or hinging under fatigue. Do not delete strength from their week by default. Explain the illegal movements in one line and offer legal swaps so they still feel coached, not blocked."
+    },
+    {
+      "key": "say-the-edit-out-loud",
+      "heading": "Always narrate the safety edit",
+      "audience": "shared",
+      "sport_tags": [
+        "general"
+      ],
+      "topic_tags": [
+        "diy",
+        "communication",
+        "readiness",
+        "safety"
+      ],
+      "body": "Silent calendar changes destroy trust. When Today’s Call soft-caps today, or Sunday is trimmed, the coach reply must say so in plain language with one reason tied to a number the athlete recognizes (sleep score, HRV, ACWR). Then show the week that still includes their key sessions. Athletes accept hard truths when they can see their plan was heard."
+    },
+    {
+      "key": "diy-parse-ambiguity",
+      "heading": "When DIY language is ambiguous",
+      "audience": "shared",
+      "sport_tags": [
+        "general",
+        "run",
+        "ride",
+        "swim",
+        "strength",
+        "triathlon"
+      ],
+      "topic_tags": [
+        "diy",
+        "communication",
+        "planning"
+      ],
+      "body": "If days or sports are unclear, ask one clarifying question or state assumptions explicitly in the plan. Do not invent a full library week while pretending you followed them."
+    },
+    {
+      "key": "diy-life-constraints",
+      "heading": "Honor life constraints in DIY",
+      "audience": "shared",
+      "sport_tags": [
+        "general",
+        "run",
+        "ride",
+        "swim",
+        "strength",
+        "triathlon"
+      ],
+      "topic_tags": [
+        "diy",
+        "planning",
+        "communication"
+      ],
+      "body": "Work travel, family, and bike fit appointments are real. Build around them. Reframe 'missed' as logistics, then place the next best session."
+    },
+    {
+      "key": "diy-intensity-translation",
+      "heading": "Translate DIY words to intensity",
+      "audience": "shared",
+      "sport_tags": [
+        "run",
+        "ride",
+        "swim",
+        "triathlon"
+      ],
+      "topic_tags": [
+        "diy",
+        "intensity",
+        "zones"
+      ],
+      "body": "'Hard' in athlete language may mean tempo. Translate to zone language with their FTP/LTHR. Keep easy days measurable (watts/HR/talk test)."
+    },
+    {
+      "key": "diy-recovery-pushback",
+      "heading": "Pushing back on unsafe DIY",
+      "audience": "shared",
+      "sport_tags": [
+        "general",
+        "run",
+        "ride",
+        "swim",
+        "strength",
+        "triathlon"
+      ],
+      "topic_tags": [
+        "diy",
+        "safety",
+        "load-management"
+      ],
+      "body": "When DIY stacks three hard days, say no with empathy, offer the minimal edit, and keep their favorite long if possible. Autonomy with guardrails."
+    },
+    {
+      "key": "diy-apply-vs-advice",
+      "heading": "Advice mode vs apply-to-calendar",
+      "audience": "shared",
+      "sport_tags": [
+        "general",
+        "run",
+        "ride",
+        "swim",
+        "strength",
+        "triathlon"
+      ],
+      "topic_tags": [
+        "diy",
+        "communication",
+        "planning"
+      ],
+      "body": "Opinion questions get conversation. 'Put it on my schedule' gets a negotiated calendar. Do not dump tables when they only wanted a vibe check."
+    },
+    {
+      "key": "diy-travel-week",
+      "heading": "DIY weeks during travel",
+      "audience": "shared",
+      "sport_tags": [
+        "general",
+        "run",
+        "ride",
+        "swim",
+        "strength",
+        "triathlon"
+      ],
+      "topic_tags": [
+        "diy",
+        "travel",
+        "planning"
+      ],
+      "body": "Travel weeks favor shorter indoor options, walks, and mobility. Negotiate down long outdoor ambitions until sleep stabilizes."
+    },
+    {
+      "key": "diy-equipment-limits",
+      "heading": "Equipment and venue limits",
+      "audience": "shared",
+      "sport_tags": [
+        "general",
+        "run",
+        "ride",
+        "swim",
+        "strength",
+        "triathlon"
+      ],
+      "topic_tags": [
+        "diy",
+        "planning",
+        "templates"
+      ],
+      "body": "No bike? Offer run/swim/strength alternatives. Hotel gym: keep simple unilateral and core. Never prescribe machines they do not have."
+    },
+    {
+      "key": "diy-follow-up-check",
+      "heading": "Follow-up after a negotiated week",
+      "audience": "shared",
+      "sport_tags": [
+        "general",
+        "run",
+        "ride",
+        "swim",
+        "strength",
+        "triathlon"
+      ],
+      "topic_tags": [
+        "diy",
+        "communication",
+        "readiness"
+      ],
+      "body": "After soft-capping today, invite a check-in tomorrow. If markers recover, reinstate the planned shape. Closing the loop builds trust."
+    },
+    {
+      "key": "diy-metrics-shared",
+      "heading": "Share the why number",
+      "audience": "shared",
+      "sport_tags": [
+        "general",
+        "run",
+        "ride",
+        "swim",
+        "strength",
+        "triathlon"
+      ],
+      "topic_tags": [
+        "diy",
+        "communication",
+        "readiness"
+      ],
+      "body": "When you edit a DIY week, cite one number (sleep 57, ACWR, HRV). Athletes accept trims when they see the reason. Silent edits destroy trust."
+    },
+    {
+      "key": "diy-prefer-athlete-sports",
+      "heading": "Prefer their sports",
+      "audience": "shared",
+      "sport_tags": [
+        "general",
+        "run",
+        "ride",
+        "swim",
+        "strength",
+        "triathlon"
+      ],
+      "topic_tags": [
+        "diy",
+        "planning",
+        "specificity"
+      ],
+      "body": "If they love riding, do not forcibly convert every day to running templates. Negotiate intensity and duration inside their preferred sports when safe."
+    },
+    {
+      "key": "diy-minimum-viable-week",
+      "heading": "Minimum viable week option",
+      "audience": "shared",
+      "sport_tags": [
+        "general",
+        "run",
+        "ride",
+        "swim",
+        "strength",
+        "triathlon"
+      ],
+      "topic_tags": [
+        "diy",
+        "planning",
+        "recovery"
+      ],
+      "body": "When life explodes, offer a minimum viable week: 3 easy sessions + mobility. Better than all-or-nothing abandonment."
+    }
+  ]
+}

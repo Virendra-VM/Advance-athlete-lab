@@ -238,7 +238,7 @@ def test_validate_plan_readiness_override_and_empty_plan():
         safety,
     )
     assert any(issue["code"] == "readiness_override" for issue in result["issues"])
-    assert result["plan"]["workouts"][0]["session_type"] == "rest"
+    assert result["plan"]["workouts"][0]["session_type"] in ("rest", "mobility", "easy")
 
     empty = validate_plan({"workouts": []}, safety)
     assert empty["blocked"] is True

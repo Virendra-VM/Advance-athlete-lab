@@ -1,10 +1,13 @@
 from pathlib import Path
+import logging
 
 import pandas as pd
 from sqlalchemy.orm import Session
 
 from app.config import ACTIVITY_POINTS_DIR
 from app.models import Activity
+
+logger = logging.getLogger(__name__)
 
 FIELD_MAP = {
     "speed_mps": "speed",
@@ -48,8 +51,32 @@ def _resolve_parquet_path(activity: Activity) -> Path | None:
     return None
 
 
+def _read_parquet(parquet_path: Path) -> pd.DataFrame:
+    """Read parquet, avoiding pyarrow.dataset when possible (iCloud mmap issues)."""
+    try:
+        import pyarrow.parquet as pq
+
+        # ParquetFile avoids lazy-importing pyarrow._dataset, which often fails
+        # when iCloud has evicted .so binaries from Desktop (errno 60).
+        table = pq.ParquetFile(str(parquet_path)).read()
+        return table.to_pandas()
+    except (OSError, TimeoutError, ImportError) as exc:
+        logger.warning("Could not read activity points %s via pyarrow: %s", parquet_path, exc)
+    except Exception as exc:  # noqa: BLE001
+        logger.warning("ParquetFile read failed for %s: %s", parquet_path, exc)
+
+    try:
+        return pd.read_parquet(parquet_path)
+    except (OSError, TimeoutError) as exc:
+        logger.warning("Could not read activity points %s: %s", parquet_path, exc)
+        return pd.DataFrame()
+    except Exception as exc:  # noqa: BLE001 — never 500 the activity detail page
+        logger.warning("Unexpected parquet read failure for %s: %s", parquet_path, exc)
+        return pd.DataFrame()
+
+
 def _build_points_dataframe(parquet_path: Path) -> pd.DataFrame:
-    df = pd.read_parquet(parquet_path)
+    df = _read_parquet(parquet_path)
     if df.empty or "timestamp" not in df.columns:
         return pd.DataFrame()
 

@@ -133,7 +133,7 @@ def test_validate_plan_vetoes_hard_on_rest_day():
     }
     result = validate_plan(plan, safety)
     workout = result["plan"]["workouts"][0]
-    assert workout["session_type"] in ("rest", "easy")
+    assert workout["session_type"] in ("rest", "easy", "mobility")
     assert any(
         issue["code"] in ("autoregulation_veto", "acwr_veto", "too_many_hard_sessions")
         for issue in result["issues"]

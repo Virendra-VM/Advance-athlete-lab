@@ -1,0 +1,353 @@
+{
+  "slug": "aal-female-physiology",
+  "title": "Advance Athlete Lab Female Physiology and Hormonal Periodization Awareness",
+  "authors": "Advance Athlete Lab coaching team",
+  "year": 2026,
+  "publisher": "Advance Athlete Lab",
+  "license": "Owned content — cleared for AI retrieval",
+  "url": null,
+  "source_type": "playbook",
+  "chunks": [
+    {
+      "key": "eumenorrheic-cycle-overview",
+      "heading": "Eumenorrheic cycle phases — coaching overview",
+      "audience": "shared",
+      "sport_tags": [
+        "run",
+        "ride",
+        "swim",
+        "strength",
+        "general"
+      ],
+      "topic_tags": [
+        "menstrual-cycle",
+        "female-athlete",
+        "periodization",
+        "recovery"
+      ],
+      "body": "For athletes with a roughly regular (eumenorrheic) cycle, phases can shift perceived effort, temperature, and recovery — individual response varies widely. Use cycle tracking as autoregulation context, not a rigid calendar that overrides symptoms or goals. Track patterns over several cycles before hard rules. Severe pain, very heavy bleeding, missing periods, or disordered eating signs need clinical referral — this coach does not diagnose or prescribe hormones."
+    },
+    {
+      "key": "follicular-glycogen-reliance",
+      "heading": "Follicular phase — glycogen and quality work",
+      "audience": "shared",
+      "sport_tags": [
+        "run",
+        "ride",
+        "swim",
+        "strength",
+        "general"
+      ],
+      "topic_tags": [
+        "menstrual-cycle",
+        "follicular",
+        "glycogen",
+        "fueling",
+        "intensity"
+      ],
+      "body": "Early to mid follicular days often tolerate standard training and may feel better for higher-intensity or carbohydrate-demanding work for many athletes — fuel quality sessions normally; do not under-eat around intervals. This is a tendency, not a guarantee. If the athlete feels flat, respect readiness markers over the phase label. Never prescribe restrictive low-carb protocols tied to cycle phase."
+    },
+    {
+      "key": "luteal-thermoregulation",
+      "heading": "Luteal phase — heat, RPE, and thermoregulation",
+      "audience": "shared",
+      "sport_tags": [
+        "run",
+        "ride",
+        "triathlon",
+        "general"
+      ],
+      "topic_tags": [
+        "menstrual-cycle",
+        "luteal",
+        "heat",
+        "environment",
+        "readiness"
+      ],
+      "body": "In the luteal phase, basal body temperature is often slightly elevated and heat strain can feel higher at the same external workload. Expect RPE to drift up in hot sessions; prioritize fluids, cooling, and honest easy days when markers stack (poor sleep + heat + heavy legs). Cap hero long days in heat during late luteal if the athlete reports atypical struggle. Adjust environment and duration before blaming fitness."
+    },
+    {
+      "key": "luteal-carb-access",
+      "heading": "Luteal phase — carbohydrate availability awareness",
+      "audience": "shared",
+      "sport_tags": [
+        "run",
+        "ride",
+        "triathlon",
+        "general"
+      ],
+      "topic_tags": [
+        "menstrual-cycle",
+        "luteal",
+        "carbohydrate",
+        "fueling",
+        "glycogen"
+      ],
+      "body": "Some athletes report harder access to high-intensity feelings or greater need for carbohydrate in the luteal phase. Coaching response: fuel long and quality sessions adequately, avoid experimental fasted hard days late luteal, and watch sleep. If performance dips with good fueling and rising resting HR, soft-cap intensity for a day or two. This is performance fueling support, not clinical nutrition therapy."
+    },
+    {
+      "key": "menstrual-phase-easy-bias",
+      "heading": "Menstrual phase — easy bias when symptoms are high",
+      "audience": "shared",
+      "sport_tags": [
+        "run",
+        "ride",
+        "strength",
+        "general"
+      ],
+      "topic_tags": [
+        "menstrual-cycle",
+        "recovery",
+        "readiness",
+        "autoregulation"
+      ],
+      "body": "Days 1–5 with significant cramps, poor sleep, or heavy fatigue: prefer easy aerobic, mobility, or shorter strength — not a first VO2 test. Keep frequency if movement helps mood; cut depth of the well. Red-flag bleeding or pain patterns → refer. Do not shame missed quality; reframe as protecting the next block."
+    },
+    {
+      "key": "strength-across-cycle",
+      "heading": "Strength training across the cycle",
+      "audience": "shared",
+      "sport_tags": [
+        "strength",
+        "general"
+      ],
+      "topic_tags": [
+        "menstrual-cycle",
+        "strength",
+        "female-athlete",
+        "planning"
+      ],
+      "body": "Strength can continue year-round with autoregulation: keep technique standards, reduce load or volume when symptoms or sleep are poor, and avoid max testing on high-pain menstrual days. Follicular phases may feel stronger for some athletes — optional for PR attempts only when readiness is green. Spine and tendon rules still override cycle optimism."
+    },
+    {
+      "key": "cycle-not-excuse-not-law",
+      "heading": "Cycle awareness is neither an excuse nor a law",
+      "audience": "shared",
+      "sport_tags": [
+        "general"
+      ],
+      "topic_tags": [
+        "menstrual-cycle",
+        "female-athlete",
+        "communication",
+        "autoregulation"
+      ],
+      "body": "Do not dismiss every hard day as 'just hormones,' and do not force threshold work because an app says follicular. Combine phase notes with HRV, sleep, ACWR, and the athlete's words. Empathy for real symptoms, direction for today's session, analogy that the plan flexes like a suspension — it absorbs bumps without breaking the season goal."
+    },
+    {
+      "key": "female-athlete-referral-bounds",
+      "heading": "Female athlete coaching bounds and referral",
+      "audience": "shared",
+      "sport_tags": [
+        "general"
+      ],
+      "topic_tags": [
+        "female-athlete",
+        "safety",
+        "referral",
+        "policy"
+      ],
+      "body": "This coach does not diagnose PCOS, endometriosis, amenorrhea, or relative energy deficiency. Missing periods, rapid weight loss pressure, stress fractures, or fainting require professional assessment. Training advice stays in load, recovery, and referral — never medication, hormone dosing, or clinical diet prescriptions."
+    },
+    {
+      "key": "ovulatory-notes",
+      "heading": "Ovulatory window notes",
+      "audience": "shared",
+      "sport_tags": [
+        "general",
+        "run",
+        "ride",
+        "swim",
+        "strength",
+        "triathlon"
+      ],
+      "topic_tags": [
+        "menstrual-cycle",
+        "female-athlete",
+        "planning"
+      ],
+      "body": "Some athletes feel strong near ovulation; others feel awkward or crampy. Individualize. Keep fueling solid around harder sessions regardless of phase."
+    },
+    {
+      "key": "pmdd-referral",
+      "heading": "Severe mood/pain symptoms — refer",
+      "audience": "shared",
+      "sport_tags": [
+        "general",
+        "run",
+        "ride",
+        "swim",
+        "strength",
+        "triathlon"
+      ],
+      "topic_tags": [
+        "female-athlete",
+        "referral",
+        "safety"
+      ],
+      "body": "Debilitating mood changes, fainting, or pain that stops daily function need clinical care. Training edits are supportive only."
+    },
+    {
+      "key": "contraception-neutrality",
+      "heading": "Hormonal contraception — coaching neutrality",
+      "audience": "shared",
+      "sport_tags": [
+        "general",
+        "run",
+        "ride",
+        "swim",
+        "strength",
+        "triathlon"
+      ],
+      "topic_tags": [
+        "female-athlete",
+        "menstrual-cycle",
+        "policy"
+      ],
+      "body": "This coach does not advise starting/stopping contraception. Train to symptoms and readiness markers. Refer medical questions to clinicians."
+    },
+    {
+      "key": "iron-awareness",
+      "heading": "Iron awareness without diagnosing",
+      "audience": "shared",
+      "sport_tags": [
+        "general",
+        "run",
+        "ride",
+        "swim",
+        "strength",
+        "triathlon"
+      ],
+      "topic_tags": [
+        "female-athlete",
+        "fueling",
+        "referral"
+      ],
+      "body": "Heavy fatigue with high volume may involve iron status — do not diagnose from chat. Suggest medical evaluation when performance and energy crash persistently. Keep fueling adequate."
+    },
+    {
+      "key": "pelvic-floor-boundary",
+      "heading": "Pelvic floor symptoms — refer",
+      "audience": "shared",
+      "sport_tags": [
+        "general",
+        "run",
+        "ride",
+        "swim",
+        "strength",
+        "triathlon"
+      ],
+      "topic_tags": [
+        "female-athlete",
+        "referral",
+        "safety"
+      ],
+      "body": "Incontinence, pelvic pressure, or pain with impact needs specialist guidance. Modify impact and refer; do not invent rehab protocols."
+    },
+    {
+      "key": "perimenopause-notes",
+      "heading": "Perimenopause — coaching awareness",
+      "audience": "shared",
+      "sport_tags": [
+        "general",
+        "run",
+        "ride",
+        "swim",
+        "strength",
+        "triathlon"
+      ],
+      "topic_tags": [
+        "female-athlete",
+        "recovery",
+        "planning"
+      ],
+      "body": "Sleep disruption and recovery changes may appear. Emphasize strength, protein-rich meals as general coaching, and autoregulation. Medical management is out of scope."
+    },
+    {
+      "key": "heat-luteal-sessions",
+      "heading": "Scheduling heat sessions in luteal phase",
+      "audience": "shared",
+      "sport_tags": [
+        "run",
+        "ride"
+      ],
+      "topic_tags": [
+        "luteal",
+        "heat",
+        "sessions"
+      ],
+      "body": "Prefer cooler times of day for long efforts in late luteal if heat intolerance is known. Indoor cooled sessions are valid. Do not prove toughness in midday heat."
+    },
+    {
+      "key": "tracking-tools",
+      "heading": "Cycle tracking as a coaching input",
+      "audience": "shared",
+      "sport_tags": [
+        "general",
+        "run",
+        "ride",
+        "swim",
+        "strength",
+        "triathlon"
+      ],
+      "topic_tags": [
+        "menstrual-cycle",
+        "communication",
+        "planning"
+      ],
+      "body": "Invite optional phase sharing. Use it as one input beside HRV/sleep. Never demand intimate details to unlock coaching."
+    },
+    {
+      "key": "luteal-sleep",
+      "heading": "Sleep disruption in late luteal",
+      "audience": "shared",
+      "sport_tags": [
+        "general",
+        "run",
+        "ride",
+        "swim",
+        "strength",
+        "triathlon"
+      ],
+      "topic_tags": [
+        "luteal",
+        "sleep",
+        "readiness"
+      ],
+      "body": "Some athletes sleep worse late luteal. Soft-cap intensity after poor nights. Cooler rooms and wind-down routines help; medical sleep issues need referral."
+    },
+    {
+      "key": "fueling-heavy-days-cycle",
+      "heading": "Do not underfuel heavy days in any phase",
+      "audience": "shared",
+      "sport_tags": [
+        "general",
+        "run",
+        "ride",
+        "swim",
+        "strength",
+        "triathlon"
+      ],
+      "topic_tags": [
+        "fueling",
+        "menstrual-cycle",
+        "carbohydrate"
+      ],
+      "body": "Hard and long days need fuel in every phase. Phase-aware tweaks never justify starving a threshold session. Performance and safety first."
+    },
+    {
+      "key": "strength-pr-timing",
+      "heading": "Optional PR timing",
+      "audience": "shared",
+      "sport_tags": [
+        "strength"
+      ],
+      "topic_tags": [
+        "follicular",
+        "strength",
+        "female-athlete"
+      ],
+      "body": "If an athlete feels strongest mid-follicular and readiness is green, optional PR attempts can sit there. Never force PRs on high-symptom days."
+    }
+  ]
+}

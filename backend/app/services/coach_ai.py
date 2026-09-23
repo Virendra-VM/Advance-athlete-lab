@@ -3514,7 +3514,7 @@ No NP / IF / TSS / laps. No 5-column week table. No week_plan JSON.
 Use SEASON PLAN limits and the athlete's stated constraints. Copy TODAY'S CALL status exactly.
 """
     elif intent == SCHEDULE_UPDATE and proposed_plan is not None and planner_packet is not None:
-        table_rows = build_week_table_rows(proposed_plan, clock=clock)
+        table_rows = build_week_table_rows(proposed_plan, clock=clock, context=context)
         voice_block = voice.conditional_teaching_block if schedule_mode == FULL_REPORT else ""
         extra_block = build_schedule_narrator_block(
             schedule_mode=schedule_mode,

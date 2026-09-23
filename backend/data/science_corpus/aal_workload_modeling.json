@@ -1,0 +1,359 @@
+{
+  "slug": "aal-workload-modeling",
+  "title": "Advance Athlete Lab Workload Modeling, Fitness-Fatigue, and ACWR Injury Prevention",
+  "authors": "Advance Athlete Lab coaching team",
+  "year": 2026,
+  "publisher": "Advance Athlete Lab",
+  "license": "Owned content — cleared for AI retrieval",
+  "url": null,
+  "source_type": "playbook",
+  "chunks": [
+    {
+      "key": "banister-fitness-fatigue",
+      "heading": "Fitness-fatigue impulse-response (CTL / ATL / TSB thinking)",
+      "audience": "shared",
+      "sport_tags": [
+        "run",
+        "ride",
+        "swim",
+        "triathlon",
+        "general"
+      ],
+      "topic_tags": [
+        "ctl",
+        "atl",
+        "tsb",
+        "load-management",
+        "periodization",
+        "banister"
+      ],
+      "body": "Impulse-response (fitness-fatigue) models treat each training dose as an input that raises both fitness and fatigue, then both decay at different speeds. In coaching shorthand: chronic training load (CTL) approximates longer-term fitness, acute training load (ATL) approximates recent fatigue, and training stress balance (TSB ≈ CTL − ATL) approximates freshness. A deep negative TSB after a hard block is expected; racing or quality work is often timed as freshness returns. These are planning lenses, not medical diagnoses. Never chase a TSB number while ignoring pain, sleep, or HRV. Prefer consistent load units (minutes, TSS-style session load, or RPE×duration) week to week."
+    },
+    {
+      "key": "ctl-atl-tsb-practice",
+      "heading": "Using CTL, ATL, and TSB in weekly coaching",
+      "audience": "endurance",
+      "sport_tags": [
+        "run",
+        "ride",
+        "triathlon",
+        "general"
+      ],
+      "topic_tags": [
+        "ctl",
+        "atl",
+        "tsb",
+        "planning",
+        "load-management",
+        "race-prep"
+      ],
+      "body": "Practical use: build CTL gradually across base and build; expect ATL to spike in hard weeks; use recovery or absorb weeks so ATL falls while CTL holds. Approaching an A-race, reduce acute load so TSB trends toward fresher without collapsing fitness. If ATL stays high for many days with poor sleep or rising resting heart rate, cut intensity before cutting all frequency. Do not invent precise CTL/ATL numbers in chat unless the app computed them — speak in trends (building, absorbing, freshening)."
+    },
+    {
+      "key": "acwr-rolling-average",
+      "heading": "Rolling-average ACWR as a spike detector",
+      "audience": "shared",
+      "sport_tags": [
+        "run",
+        "ride",
+        "swim",
+        "general"
+      ],
+      "topic_tags": [
+        "acwr",
+        "load-management",
+        "injury-prevention",
+        "gabbett"
+      ],
+      "body": "Acute:chronic workload ratio compares recent load (often ~7 days) to a longer baseline (often ~28 days). Ratios near roughly 0.8–1.3 often track sustainable progression when the athlete is healthy; sustained values near or above ~1.5 flag a relative spike versus what they are conditioned for. Very low ratios for weeks can mean detraining or incomplete return. ACWR is a coarse injury-risk signal popularized in team-sport load research — interpret with pain, sleep, and whether the spike was planned (race, camp). Never increase load only because ACWR looks 'too low' if tissue is sore."
+    },
+    {
+      "key": "ewma-vs-rolling-acwr",
+      "heading": "EWMA versus rolling-average ACWR",
+      "audience": "shared",
+      "sport_tags": [
+        "run",
+        "ride",
+        "swim",
+        "general"
+      ],
+      "topic_tags": [
+        "acwr",
+        "ewma",
+        "load-management",
+        "injury-prevention"
+      ],
+      "body": "Rolling-average ACWR weights each day in the window equally. Exponentially weighted moving average (EWMA) forms of acute and chronic load weight recent days more heavily, so yesterday's hard session moves the ratio faster. Both can flag spikes; they disagree most after abrupt changes (illness break then big return, or a single hero day). Coaching rule: pick one method and stay consistent; when either form spikes with poor recovery markers, flatten intensity and protect the next long day. Do not argue decimals with the athlete — translate to 'this week jumped versus your last month'."
+    },
+    {
+      "key": "spike-vs-bunching",
+      "heading": "Spikes versus bunched load",
+      "audience": "shared",
+      "sport_tags": [
+        "run",
+        "ride",
+        "general"
+      ],
+      "topic_tags": [
+        "acwr",
+        "load-management",
+        "injury-prevention",
+        "weekly-structure"
+      ],
+      "body": "Injury risk rises not only when weekly total spikes, but when the same load is bunched into fewer harder days (for example three rest days then a huge weekend). Distribution matters: same minutes spread across honest easy days plus one long is safer than one hero file. After recovery or travel, grow frequency first, then long-day length, then intensity. If ACWR is in range but the athlete bunched volume, still coach better spacing."
+    },
+    {
+      "key": "return-to-load-after-break",
+      "heading": "Return-to-load after illness, travel, or time off",
+      "audience": "shared",
+      "sport_tags": [
+        "run",
+        "ride",
+        "swim",
+        "general"
+      ],
+      "topic_tags": [
+        "acwr",
+        "return-to-play",
+        "progression",
+        "injury-prevention"
+      ],
+      "body": "After two or more weeks of reduced training, restart around 60–70% of prior volume and rebuild over two to three weeks. Expect acute load to look 'low' versus old chronic — that is not permission for a hero week. Prefer easy aerobic frequency, delay quality, and cap the long day below the previous season peak until sleep and legs stabilize. Pain that worsens over sessions is a stop signal, not a load-model edge case."
+    },
+    {
+      "key": "load-units-consistency",
+      "heading": "Keep load units consistent",
+      "audience": "shared",
+      "sport_tags": [
+        "run",
+        "ride",
+        "swim",
+        "strength",
+        "general"
+      ],
+      "topic_tags": [
+        "load-management",
+        "acwr",
+        "ctl",
+        "planning"
+      ],
+      "body": "CTL/ATL/TSB and ACWR only help if the numerator and denominator use the same currency. Mixing raw hours one week with estimated power stress the next creates false spikes. Prefer one primary load metric per sport family (run minutes or distance, bike moving time or consistent session load, strength session-RPE×minutes). Multi-sport athletes need separate tracking or a clear combined rule — never compare a mountain ride hour one-to-one with a flat easy spin without context."
+    },
+    {
+      "key": "model-limits",
+      "heading": "Limits of workload models",
+      "audience": "shared",
+      "sport_tags": [
+        "general",
+        "run",
+        "ride"
+      ],
+      "topic_tags": [
+        "acwr",
+        "ctl",
+        "safety",
+        "injury-prevention"
+      ],
+      "body": "Workload models do not see sleep debt, life stress, biomechanics, or undiagnosed injury. They lag sudden pain and can look 'fine' the week a stress reaction starts. Use them to shape the calendar, then let readiness and symptoms veto. Red-flag symptoms still stop training regardless of a perfect TSB. This coach cites models as planning tools, not as proof the athlete is safe."
+    },
+    {
+      "key": "session-rpe-load",
+      "heading": "Session RPE as load currency",
+      "audience": "shared",
+      "sport_tags": [
+        "general",
+        "run",
+        "ride",
+        "swim",
+        "strength",
+        "triathlon"
+      ],
+      "topic_tags": [
+        "load-management",
+        "rpe",
+        "acwr"
+      ],
+      "body": "Session RPE × duration is a simple load score when power meters are missing. Stay consistent. A hard 60 minutes and an easy 60 minutes must not look identical in the log."
+    },
+    {
+      "key": "acute-window-choice",
+      "heading": "Choosing acute and chronic windows",
+      "audience": "shared",
+      "sport_tags": [
+        "general",
+        "run",
+        "ride",
+        "swim",
+        "strength",
+        "triathlon"
+      ],
+      "topic_tags": [
+        "acwr",
+        "load-management"
+      ],
+      "body": "Common coaching practice uses ~7-day acute and ~28-day chronic windows. Changing windows mid-season confuses trends. Pick a standard and explain spikes in plain language."
+    },
+    {
+      "key": "tsb-race-timing",
+      "heading": "TSB-style freshness into races",
+      "audience": "endurance",
+      "sport_tags": [
+        "run",
+        "ride",
+        "swim",
+        "triathlon"
+      ],
+      "topic_tags": [
+        "tsb",
+        "race-prep",
+        "ctl"
+      ],
+      "body": "Entering races a bit fresher (fatigue down relative to fitness) often beats starting buried. That means cutting acute load before the event while protecting key neuromuscular touches."
+    },
+    {
+      "key": "monotony-strain",
+      "heading": "Training monotony concept",
+      "audience": "shared",
+      "sport_tags": [
+        "general",
+        "run",
+        "ride",
+        "swim",
+        "strength",
+        "triathlon"
+      ],
+      "topic_tags": [
+        "load-management",
+        "injury-prevention",
+        "weekly-structure"
+      ],
+      "body": "Doing the same medium-hard thing daily raises monotony and strain. Polarize: easy easy easy, then quality. Variety in intensity distribution reduces stale fatigue."
+    },
+    {
+      "key": "strength-load-tracking",
+      "heading": "Counting strength in weekly load",
+      "audience": "shared",
+      "sport_tags": [
+        "strength",
+        "general"
+      ],
+      "topic_tags": [
+        "load-management",
+        "strength",
+        "acwr"
+      ],
+      "body": "Hard strength is real load. Log it. A heavy lower day plus long run is a stack even if 'only one endurance session' appears on the calendar."
+    },
+    {
+      "key": "ramp-rate",
+      "heading": "Safe ramp rate heuristics",
+      "audience": "shared",
+      "sport_tags": [
+        "general",
+        "run",
+        "ride",
+        "swim",
+        "strength",
+        "triathlon"
+      ],
+      "topic_tags": [
+        "progression",
+        "load-management",
+        "injury-prevention"
+      ],
+      "body": "Increase weekly load gradually; hold flat when adding a new intensity type. After breaks, ramp slower than your ego wants. Models inform; pain vetoes."
+    },
+    {
+      "key": "team-sport-transfer",
+      "heading": "Team-sport ACWR ideas for individuals",
+      "audience": "shared",
+      "sport_tags": [
+        "general",
+        "run",
+        "ride",
+        "swim",
+        "strength",
+        "triathlon"
+      ],
+      "topic_tags": [
+        "acwr",
+        "gabbett",
+        "injury-prevention"
+      ],
+      "body": "Team-sport spike research informs individual endurance coaching but does not copy-paste. Use the spike concept; individualize thresholds with sleep, age, and injury history."
+    },
+    {
+      "key": "dashboard-humility",
+      "heading": "Humility with dashboards",
+      "audience": "shared",
+      "sport_tags": [
+        "general",
+        "run",
+        "ride",
+        "swim",
+        "strength",
+        "triathlon"
+      ],
+      "topic_tags": [
+        "ctl",
+        "acwr",
+        "communication"
+      ],
+      "body": "Colored CTL/ACWR charts feel certain and still miss life stress. Translate numbers into one sentence decision. Never shame an athlete with a red chart alone."
+    },
+    {
+      "key": "chronic-load-protection",
+      "heading": "Protect chronic load in taper accidents",
+      "audience": "endurance",
+      "sport_tags": [
+        "run",
+        "ride",
+        "swim",
+        "triathlon"
+      ],
+      "topic_tags": [
+        "ctl",
+        "taper",
+        "load-management"
+      ],
+      "body": "Panic training in race week spikes acute load and fails to raise useful chronic fitness in time. Trust taper math: freshness matters more than last-minute CTL chasing."
+    },
+    {
+      "key": "injury-risk-multifactor",
+      "heading": "Injury risk is multifactorial",
+      "audience": "shared",
+      "sport_tags": [
+        "general",
+        "run",
+        "ride",
+        "swim",
+        "strength",
+        "triathlon"
+      ],
+      "topic_tags": [
+        "injury-prevention",
+        "acwr",
+        "safety"
+      ],
+      "body": "Load spikes matter alongside sleep, prior injury, strength, and biomechanics. ACWR is one lens. Pain and function still rule."
+    },
+    {
+      "key": "logging-quality",
+      "heading": "Garbage logs make garbage models",
+      "audience": "shared",
+      "sport_tags": [
+        "general",
+        "run",
+        "ride",
+        "swim",
+        "strength",
+        "triathlon"
+      ],
+      "topic_tags": [
+        "load-management",
+        "communication"
+      ],
+      "body": "Missing sessions, wrong sports, or estimated junk watts poison CTL/ACWR. Encourage honest logging. Models cannot fix bad inputs."
+    }
+  ]
+}

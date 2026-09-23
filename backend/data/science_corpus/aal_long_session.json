@@ -1,0 +1,338 @@
+{
+  "slug": "aal-long-session",
+  "title": "Advance Athlete Lab Long Sessions, Doubles, Mountain Days, and Fueling",
+  "authors": "Advance Athlete Lab coaching team",
+  "year": 2026,
+  "publisher": "Advance Athlete Lab",
+  "license": "Owned content — cleared for AI retrieval",
+  "url": null,
+  "source_type": "playbook",
+  "chunks": [
+    {
+      "key": "long-day-role",
+      "heading": "Role of the weekly long session in base and build",
+      "audience": "endurance",
+      "sport_tags": [
+        "run",
+        "ride",
+        "swim",
+        "triathlon"
+      ],
+      "topic_tags": [
+        "long",
+        "weekly-structure",
+        "base",
+        "sessions"
+      ],
+      "body": "The long session is the week's main aerobic stimulus and tissue loader. Keep most of it conversational; optional finishers stay short and controlled. As a planning heuristic, target roughly 25–35% of weekly minutes on the long day once the athlete is adapted — lower early after recovery or travel. Never stack a hard quality day immediately before a long day. Protect the day after the long with easy aerobic, mobility, or rest so adaptation can stick."
+    },
+    {
+      "key": "long-run-vs-long-ride",
+      "heading": "Long run versus long ride load",
+      "audience": "endurance",
+      "sport_tags": [
+        "run",
+        "ride"
+      ],
+      "topic_tags": [
+        "long",
+        "load-management",
+        "injury-prevention",
+        "specificity"
+      ],
+      "body": "Running long days carry higher impact and usually need stricter weekly progression and clearer easy days around them. Cycling longs tolerate more hours but still create large metabolic and musculoskeletal fatigue, especially on hills. When both sports appear in one week, separate a long run and a long ride by at least one easy or rest day when possible. If both must land on consecutive weekend days, shorten one of them and keep both truly easy — do not add intensity to either."
+    },
+    {
+      "key": "same-week-long-run-and-ride",
+      "heading": "Long run and long mountain ride in the same week",
+      "audience": "endurance",
+      "sport_tags": [
+        "run",
+        "ride"
+      ],
+      "topic_tags": [
+        "long",
+        "mountain",
+        "weekly-structure",
+        "load-management"
+      ],
+      "body": "A Saturday long run plus a Sunday mountain ride is a classic amateur stack. It can work in base if both are easy, fueling is solid, and mid-week load was not already heavy. Prefer Saturday long run in the 90–120 minute band (or ~12–18 km conversational) and Sunday mountain ride capped below the athlete's historic hero day — often 2–3 hours early in rebuild, not 4+ hours. If sleep or HRV is poor mid-week, trim Sunday first rather than deleting Saturday entirely."
+    },
+    {
+      "key": "double-day-rules",
+      "heading": "Double days — when they help and when they hurt",
+      "audience": "endurance",
+      "sport_tags": [
+        "run",
+        "ride",
+        "triathlon",
+        "general"
+      ],
+      "topic_tags": [
+        "double",
+        "weekly-structure",
+        "load-management",
+        "sessions"
+      ],
+      "body": "A double day (for example morning easy run and afternoon endurance ride) raises frequency and aerobic volume without always lengthening one session. Use doubles only when both pieces are easy, total daily minutes stay reasonable, and the next day is not another hard or long hit. Avoid doubles on the day after a long session or before a quality day. If readiness is red, collapse the double to a single short easy or mobility session for today only."
+    },
+    {
+      "key": "mountain-long-ride",
+      "heading": "Mountain and hilly long rides",
+      "audience": "endurance",
+      "sport_tags": [
+        "ride"
+      ],
+      "topic_tags": [
+        "mountain",
+        "long",
+        "pacing",
+        "environment"
+      ],
+      "body": "Mountain longs cost more than flat hours at the same clock time because of climbing, heat, and descending load. Coach them by intent and elevation, not only duration. Keep climbing aerobic; avoid race-day surges on rebuild weeks. Start conservative on duration after travel or recovery — 2–2.5 hours may be smarter than 3–4 hours until sleep and legs prove ready. Carry fuel and fluids as if the day will run long; descending still loads quads even when heart rate looks easy."
+    },
+    {
+      "key": "long-day-fueling",
+      "heading": "Fueling guidance for long endurance sessions",
+      "audience": "endurance",
+      "sport_tags": [
+        "run",
+        "ride",
+        "triathlon"
+      ],
+      "topic_tags": [
+        "fueling",
+        "carbohydrate",
+        "long",
+        "sessions"
+      ],
+      "body": "For sessions beyond about 90 minutes, plan carbohydrate during the effort rather than relying on willpower. A practical coaching band for many endurance athletes is roughly 30–60 g carbohydrate per hour on longer days, with fluids and sodium matched to heat and sweat rate — individualize from experience, not a rigid prescription. Practice race fueling on long days in base and build; do not invent a new product on the longest mountain day. This is performance fueling support, not clinical nutrition or medical diet advice."
+    },
+    {
+      "key": "day-after-long",
+      "heading": "The day after a long session",
+      "audience": "endurance",
+      "sport_tags": [
+        "run",
+        "ride",
+        "swim",
+        "general"
+      ],
+      "topic_tags": [
+        "recovery",
+        "long",
+        "weekly-structure",
+        "readiness"
+      ],
+      "body": "Soft overnight markers after a long Saturday are common and not automatically a red flag. Expect slightly worse sleep or higher fatigue for one night. The correct response is usually an easy or mobility day, not panic cancellation of the whole week. Avoid stacking another long or a quality session within 24 hours. If fatigue and poor sleep persist beyond 48 hours with rising resting heart rate, trim the next long day and reassess."
+    },
+    {
+      "key": "hero-day-ceiling",
+      "heading": "Kill the hero day during rebuild",
+      "audience": "shared",
+      "sport_tags": [
+        "run",
+        "ride",
+        "general"
+      ],
+      "topic_tags": [
+        "long",
+        "load-management",
+        "base",
+        "injury-prevention"
+      ],
+      "body": "A single outsized day (for example a 4+ hour ride after a quiet week) creates the same injury and fatigue risk as a poorly distributed spike even when weekly ACWR looks acceptable. During base rebuild, set an explicit long-day ceiling — often 90–120 minutes for running and about 2–3 hours for cycling until consistency returns. Grow the long day over weeks, not in one leap. Frequency and honesty of easy days beat one heroic file."
+    },
+    {
+      "key": "strength-before-long",
+      "heading": "Strength training relative to long endurance days",
+      "audience": "shared",
+      "sport_tags": [
+        "strength",
+        "run",
+        "ride",
+        "general"
+      ],
+      "topic_tags": [
+        "strength",
+        "long",
+        "weekly-structure",
+        "injury-prevention"
+      ],
+      "body": "Full-body strength belongs mid-week or on a day separated from the long session when possible. Heavy lower-body or fatiguing core work the day before a long run or mountain ride reduces quality of the long day and raises injury risk. Light mobility and core can sit the day before or after if truly easy. On spine-limited athletes, keep strength unilateral and anti-extension focused, and never treat strength as a second hard hit beside a long day."
+    },
+    {
+      "key": "long-run-pacing",
+      "heading": "Long run pacing rules",
+      "audience": "endurance",
+      "sport_tags": [
+        "run"
+      ],
+      "topic_tags": [
+        "long",
+        "sessions",
+        "intensity"
+      ],
+      "body": "Most long runs stay easy; optional last minutes moderate only when trained for it. Starting too fast is the classic failure mode. Use talk test and negative-split patience."
+    },
+    {
+      "key": "long-ride-nutrition-practice",
+      "heading": "Long ride nutrition practice",
+      "audience": "endurance",
+      "sport_tags": [
+        "ride"
+      ],
+      "topic_tags": [
+        "long",
+        "fueling",
+        "carbohydrate"
+      ],
+      "body": "Practice bottles, carbs/hour, and gut tolerance on long rides. Heat changes needs. Never debut a new product on the longest mountain day or A-race."
+    },
+    {
+      "key": "back-to-back-longs",
+      "heading": "Back-to-back long weekend",
+      "audience": "endurance",
+      "sport_tags": [
+        "run",
+        "ride"
+      ],
+      "topic_tags": [
+        "long",
+        "weekly-structure",
+        "load-management"
+      ],
+      "body": "Sat long + Sun long is advanced stress. Shorten one, keep both easy, fuel aggressively, and clear Monday. If midweek was already hard, cancel one long."
+    },
+    {
+      "key": "ultrawalk-hike",
+      "heading": "Long hike / ultra-walk loading",
+      "audience": "endurance",
+      "sport_tags": [
+        "walking",
+        "run"
+      ],
+      "topic_tags": [
+        "long",
+        "environment",
+        "injury-prevention"
+      ],
+      "body": "Long hikes create eccentric load especially downhill. Progress elevation and duration; treat the next day as recovery. Footwear and blister management matter as much as fitness."
+    },
+    {
+      "key": "night-before-long",
+      "heading": "Night before the long day",
+      "audience": "endurance",
+      "sport_tags": [
+        "run",
+        "ride",
+        "swim",
+        "triathlon"
+      ],
+      "topic_tags": [
+        "long",
+        "sleep",
+        "fueling"
+      ],
+      "body": "Prioritize sleep and a familiar carb-containing meal. Skip late alcohol. If sleep score crashes, soft-cap the long duration in the morning rather than forcing the full hero plan."
+    },
+    {
+      "key": "cut-short-rules",
+      "heading": "When to cut a long day short",
+      "audience": "endurance",
+      "sport_tags": [
+        "run",
+        "ride",
+        "swim",
+        "triathlon"
+      ],
+      "topic_tags": [
+        "long",
+        "safety",
+        "injury"
+      ],
+      "body": "Cut short for sharp pain, chest symptoms, dizziness, uncontrolled heat illness signs, or mechanical bike/safety issues. Pride is not a training metric. Easy ride home still counts."
+    },
+    {
+      "key": "post-long-mobility",
+      "heading": "Mobility after long days",
+      "audience": "endurance",
+      "sport_tags": [
+        "general",
+        "run",
+        "ride",
+        "swim",
+        "strength",
+        "triathlon"
+      ],
+      "topic_tags": [
+        "long",
+        "mobility",
+        "recovery"
+      ],
+      "body": "Light mobility and easy walking help comfort; aggressive deep stretching into spasm does not. Sleep and food do more than a heroic yoga hour."
+    },
+    {
+      "key": "time-vs-distance",
+      "heading": "Prescribe time vs distance",
+      "audience": "endurance",
+      "sport_tags": [
+        "run",
+        "ride"
+      ],
+      "topic_tags": [
+        "long",
+        "sessions",
+        "planning"
+      ],
+      "body": "Time caps control risk in heat and hills better than fixed distance. Mountain 3 hours may be 60 km or 30 km depending on climbing — coach by time and intent."
+    },
+    {
+      "key": "caffeine-long-day",
+      "heading": "Caffeine on long days",
+      "audience": "endurance",
+      "sport_tags": [
+        "run",
+        "ride",
+        "swim",
+        "triathlon"
+      ],
+      "topic_tags": [
+        "long",
+        "fueling",
+        "sessions"
+      ],
+      "body": "Caffeine can help alertness; it is not mandatory. Avoid new caffeine experiments on A-race day. In heat, remember stimulants can feel harsher — individualize."
+    },
+    {
+      "key": "blister-hotspot",
+      "heading": "Hotspots and blisters mid-long",
+      "audience": "endurance",
+      "sport_tags": [
+        "run",
+        "walking"
+      ],
+      "topic_tags": [
+        "long",
+        "injury-prevention",
+        "safety"
+      ],
+      "body": "Stop early to tape a hotspot; finishing bloody feet is not toughness. Footwear and sock choices are part of long-day prep."
+    },
+    {
+      "key": "pacing-climbs",
+      "heading": "Climbing pace discipline",
+      "audience": "endurance",
+      "sport_tags": [
+        "ride",
+        "run"
+      ],
+      "topic_tags": [
+        "mountain",
+        "long",
+        "intensity"
+      ],
+      "body": "On long mountain days, climbs done too hard ruin the descent and the next day. Keep aerobic on the way up unless it is a planned quality mountain session — rare in base rebuild."
+    }
+  ]
+}

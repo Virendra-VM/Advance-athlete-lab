@@ -1,0 +1,359 @@
+{
+  "slug": "aal-hrv-autoregulation-deep",
+  "title": "Advance Athlete Lab HRV Autoregulation, rMSSD Baselines, and Autonomic Recovery",
+  "authors": "Advance Athlete Lab coaching team",
+  "year": 2026,
+  "publisher": "Advance Athlete Lab",
+  "license": "Owned content — cleared for AI retrieval",
+  "url": null,
+  "source_type": "playbook",
+  "chunks": [
+    {
+      "key": "rmssd-daily-signal",
+      "heading": "Daily rMSSD as a recovery signal",
+      "audience": "shared",
+      "sport_tags": [
+        "run",
+        "ride",
+        "swim",
+        "strength",
+        "general"
+      ],
+      "topic_tags": [
+        "hrv",
+        "rmssd",
+        "readiness",
+        "recovery",
+        "autoregulation"
+      ],
+      "body": "Overnight or morning rMSSD (root mean square of successive differences) is a common wearable HRV metric reflecting short-term beat-to-beat variability linked to parasympathetic (vagal) activity. Higher rMSSD versus the athlete's own baseline often tracks better recovery readiness; a clear drop alongside poor sleep or rising resting heart rate supports downgrading intensity. One noisy night is not a season rewrite — confirm with sleep, resting HR, and how legs feel. Never compare one athlete's raw rMSSD to another's population average."
+    },
+    {
+      "key": "seven-day-hrv-baseline",
+      "heading": "Seven-day rolling HRV baselines",
+      "audience": "shared",
+      "sport_tags": [
+        "run",
+        "ride",
+        "swim",
+        "general"
+      ],
+      "topic_tags": [
+        "hrv",
+        "rmssd",
+        "baseline",
+        "autoregulation",
+        "readiness"
+      ],
+      "body": "Useful HRV coaching compares today to a short rolling baseline (commonly about 7 days) and a longer context, not a single magic number. Practical rule: today's rMSSD near or above the recent baseline with normal sleep → proceed with planned work; meaningfully below baseline for one day → convert quality to easy at the same duration; suppressed across multiple days with poor sleep or high stress → cut volume ~30% and avoid stacked hard days. Re-anchor baselines after illness, heavy travel, or a large training camp."
+    },
+    {
+      "key": "hrv-guided-load-swot",
+      "heading": "HRV-guided load adjustment — strengths and limits",
+      "audience": "shared",
+      "sport_tags": [
+        "general",
+        "run",
+        "ride"
+      ],
+      "topic_tags": [
+        "hrv",
+        "autoregulation",
+        "readiness",
+        "load-management",
+        "swot"
+      ],
+      "body": "Strengths of HRV-guided training: catches autonomic fatigue before the athlete 'toughs through' quality; pairs well with sleep and RPE; supports today-only soft caps. Weaknesses: device noise, alcohol, late caffeine, illness, and measurement inconsistency create false alarms or false greens. Opportunities: combine HRV with ACWR so you do not add intensity on a green HRV day that is already a load spike. Threats: obsessing over one number, skipping all hard work for weeks, or ignoring pain because HRV looks fine. Best practice: HRV adjusts intensity and duration today; the weekly plan still needs human judgment."
+    },
+    {
+      "key": "hrv-green-not-permission",
+      "heading": "Green HRV is not automatic permission for extras",
+      "audience": "endurance",
+      "sport_tags": [
+        "run",
+        "ride",
+        "swim"
+      ],
+      "topic_tags": [
+        "hrv",
+        "autoregulation",
+        "intensity",
+        "diy"
+      ],
+      "body": "When HRV is normal or high, proceed with the planned session — do not spontaneously add a second quality day or extend the long day into hero territory. Autoregulation works both ways: it protects on red days and commits on green days inside the plan. Extra junk grey-zone volume on a green HRV day still costs tissue. Keep easy days conversational even when the nervous system looks recovered."
+    },
+    {
+      "key": "hrv-plus-sleep-rhr",
+      "heading": "Combine HRV with sleep and resting heart rate",
+      "audience": "shared",
+      "sport_tags": [
+        "general",
+        "run",
+        "ride"
+      ],
+      "topic_tags": [
+        "hrv",
+        "sleep",
+        "readiness",
+        "recovery"
+      ],
+      "body": "Isolated HRV swings mislead. Pair rMSSD with sleep duration/score and resting heart rate versus the athlete's usual. Two markers poor → treat as a downshift day even if motivation is high. Sleep very low with HRV only slightly off → still soft-cap today. Rising resting HR with flat HRV across several mornings → favor absorb work and check for illness red flags. Narrative to the athlete: name one watch number and the calendar change, not a dashboard dump."
+    },
+    {
+      "key": "hrv-measurement-hygiene",
+      "heading": "HRV measurement hygiene for coaching decisions",
+      "audience": "shared",
+      "sport_tags": [
+        "general"
+      ],
+      "topic_tags": [
+        "hrv",
+        "rmssd",
+        "baseline",
+        "communication"
+      ],
+      "body": "Prefer consistent overnight wearable HRV or a repeatable morning protocol. Changing devices, wrist vs chest, or measurement time breaks the baseline. Alcohol, late hard sessions, and illness suppress HRV — coach the cause, do not only chase the number. If data is missing, say Missing and use sleep, RPE, and legs. Do not invent rMSSD values."
+    },
+    {
+      "key": "rest-call-today-only-hrv",
+      "heading": "Suppressed HRV: soft-cap today, protect the week",
+      "audience": "shared",
+      "sport_tags": [
+        "run",
+        "ride",
+        "strength",
+        "general"
+      ],
+      "topic_tags": [
+        "hrv",
+        "readiness",
+        "diy",
+        "autoregulation",
+        "sleep"
+      ],
+      "body": "A single suppressed HRV or REST readiness call should convert today's quality to easy or mobility — not delete Saturday long or Sunday mountain from an agreed week. Reassess the next morning. If suppression persists two to three days, then negotiate shorter long days or delay the first quality touch. Empathy for the bad night, direction for today's session, analogy that the battery is charging — not that the season is lost."
+    },
+    {
+      "key": "vagal-tone-coaching-language",
+      "heading": "Vagal tone in coaching language",
+      "audience": "shared",
+      "sport_tags": [
+        "general",
+        "run",
+        "ride"
+      ],
+      "topic_tags": [
+        "hrv",
+        "recovery",
+        "rmssd"
+      ],
+      "body": "Coaches use 'vagal tone' as shorthand for parasympathetic recovery capacity reflected partly in HRV/rMSSD. It is coaching vocabulary for load decisions, not a clinical autonomic diagnosis. Practical translation: when overnight recovery looks suppressed, reduce intensity so the athlete can absorb prior work. When recovery looks robust in a build phase, keep the planned quality rather than holding back out of fear."
+    },
+    {
+      "key": "lnrmssd-notes",
+      "heading": "Log-transformed HRV metrics",
+      "audience": "shared",
+      "sport_tags": [
+        "general",
+        "run",
+        "ride",
+        "swim",
+        "strength",
+        "triathlon"
+      ],
+      "topic_tags": [
+        "hrv",
+        "rmssd",
+        "baseline"
+      ],
+      "body": "Some platforms show ln(rMSSD). Trends matter more than the transform. Compare like with like on the same device and protocol."
+    },
+    {
+      "key": "hrv-alcohol-caffeine",
+      "heading": "Alcohol, caffeine, and HRV",
+      "audience": "shared",
+      "sport_tags": [
+        "general",
+        "run",
+        "ride",
+        "swim",
+        "strength",
+        "triathlon"
+      ],
+      "topic_tags": [
+        "hrv",
+        "recovery",
+        "sleep"
+      ],
+      "body": "Alcohol often suppresses overnight HRV; late caffeine can hurt sleep and the next morning signal. Coach behavior change, not only session downgrades."
+    },
+    {
+      "key": "hrv-female-cycle",
+      "heading": "HRV across the menstrual cycle",
+      "audience": "shared",
+      "sport_tags": [
+        "general",
+        "run",
+        "ride",
+        "swim",
+        "strength",
+        "triathlon"
+      ],
+      "topic_tags": [
+        "hrv",
+        "menstrual-cycle",
+        "female-athlete"
+      ],
+      "body": "Some athletes see HRV shift across phases. Interpret against their personal pattern. Do not force quality solely because an app phase says so if HRV and sleep disagree."
+    },
+    {
+      "key": "orthostatic-hr",
+      "heading": "Resting and orthostatic HR context",
+      "audience": "shared",
+      "sport_tags": [
+        "general",
+        "run",
+        "ride",
+        "swim",
+        "strength",
+        "triathlon"
+      ],
+      "topic_tags": [
+        "readiness",
+        "hrv",
+        "recovery"
+      ],
+      "body": "Elevated resting HR versus baseline often accompanies illness or overload. Combined with low HRV, soft-cap today. Isolated blips after late dinners need confirmation."
+    },
+    {
+      "key": "hrv-strength-days",
+      "heading": "HRV and strength-only days",
+      "audience": "shared",
+      "sport_tags": [
+        "strength",
+        "general"
+      ],
+      "topic_tags": [
+        "hrv",
+        "strength",
+        "autoregulation"
+      ],
+      "body": "Suppressed HRV → reduce heavy lower loads, keep technique work or mobility. Upper-body easier sessions may still fit. Avoid PR attempts on deep red days."
+    },
+    {
+      "key": "wearable-disagreement",
+      "heading": "When wearables disagree",
+      "audience": "shared",
+      "sport_tags": [
+        "general",
+        "run",
+        "ride",
+        "swim",
+        "strength",
+        "triathlon"
+      ],
+      "topic_tags": [
+        "hrv",
+        "readiness",
+        "communication"
+      ],
+      "body": "Watch says green, athlete feels wrecked (or reverse): believe converging evidence — symptoms, sleep, legs — and choose the safer session. Explain the conflict in plain language."
+    },
+    {
+      "key": "hrv-travel-jetlag",
+      "heading": "HRV after travel and jet lag",
+      "audience": "shared",
+      "sport_tags": [
+        "general",
+        "run",
+        "ride",
+        "swim",
+        "strength",
+        "triathlon"
+      ],
+      "topic_tags": [
+        "hrv",
+        "travel",
+        "sleep",
+        "recovery"
+      ],
+      "body": "Travel disrupts HRV for days. Expect noise. Favor easy volume and daylight exposure; delay the first quality until two better nights."
+    },
+    {
+      "key": "parasympathetic-saturation",
+      "heading": "High HRV not always 'more is better'",
+      "audience": "shared",
+      "sport_tags": [
+        "general",
+        "run",
+        "ride",
+        "swim",
+        "strength",
+        "triathlon"
+      ],
+      "topic_tags": [
+        "hrv",
+        "readiness",
+        "autoregulation"
+      ],
+      "body": "Very high HRV with lethargy can appear in some overreached states. Context rules. If performance and mood are down despite 'good' HRV, still ease load and refer if persistent."
+    },
+    {
+      "key": "morning-vs-overnight",
+      "heading": "Morning spot-check vs overnight HRV",
+      "audience": "shared",
+      "sport_tags": [
+        "general",
+        "run",
+        "ride",
+        "swim",
+        "strength",
+        "triathlon"
+      ],
+      "topic_tags": [
+        "hrv",
+        "rmssd",
+        "baseline"
+      ],
+      "body": "Overnight wearable HRV and morning spot checks differ. Pick one primary method for decisions. Switching methods mid-block creates false trends."
+    },
+    {
+      "key": "hrv-after-late-quality",
+      "heading": "Late-evening quality and next-day HRV",
+      "audience": "shared",
+      "sport_tags": [
+        "general",
+        "run",
+        "ride",
+        "swim",
+        "strength",
+        "triathlon"
+      ],
+      "topic_tags": [
+        "hrv",
+        "sleep",
+        "intensity"
+      ],
+      "body": "Hard sessions late at night often suppress overnight HRV. Schedule quality earlier when possible. If stuck, expect a softer next morning and plan easy."
+    },
+    {
+      "key": "team-hrv-culture",
+      "heading": "Avoid HRV anxiety culture",
+      "audience": "shared",
+      "sport_tags": [
+        "general",
+        "run",
+        "ride",
+        "swim",
+        "strength",
+        "triathlon"
+      ],
+      "topic_tags": [
+        "hrv",
+        "communication",
+        "readiness"
+      ],
+      "body": "Checking HRV ten times before breakfast raises anxiety. One morning read, one decision, move on. Empathy for data anxiety; direction to a single protocol."
+    }
+  ]
+}

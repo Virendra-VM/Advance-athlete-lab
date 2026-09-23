@@ -1,0 +1,342 @@
+{
+  "slug": "aal-base-rebuild",
+  "title": "Advance Athlete Lab Base Rebuild After Recovery, Travel, and Absorbed Load",
+  "authors": "Advance Athlete Lab coaching team",
+  "year": 2026,
+  "publisher": "Advance Athlete Lab",
+  "license": "Owned content — cleared for AI retrieval",
+  "url": null,
+  "source_type": "playbook",
+  "chunks": [
+    {
+      "key": "recovery-to-base-handoff",
+      "heading": "Closing a recovery week and reopening base",
+      "audience": "endurance",
+      "sport_tags": [
+        "run",
+        "ride",
+        "swim",
+        "general"
+      ],
+      "topic_tags": [
+        "periodization",
+        "base",
+        "recovery-week",
+        "planning"
+      ],
+      "body": "A recovery or absorb week did its job when frequency stayed up, duration and intensity were cut roughly 30%, and readiness markers are stable or rising. Reopen base by keeping most sessions conversational aerobic work and strength or mobility support — do not jump straight into threshold or VO2. First base week after recovery: hold or slightly raise session count, grow minutes gradually, and schedule at most one controlled quality touch late in the week if sleep and HRV look normal. Treat the first hard day as a test, not a dump of the full build toolkit."
+    },
+    {
+      "key": "base-week-shape",
+      "heading": "What a base week should look like",
+      "audience": "endurance",
+      "sport_tags": [
+        "run",
+        "ride",
+        "swim",
+        "triathlon"
+      ],
+      "topic_tags": [
+        "base",
+        "weekly-structure",
+        "intensity",
+        "zones"
+      ],
+      "body": "Base weeks build aerobic volume and tissue tolerance with mostly easy work. Typical pattern: three to five easy aerobic sessions, one long session in the primary sport, one strength or mobility day, and at least one true rest or very easy day. Grey-zone 'kinda hard' sessions waste recovery without buying fitness — keep easy days talkable. Quality is optional early in a base block; when added, keep it short and separate from the long day by at least 48 hours. Cap total weekly minutes so the long day stays about 25–35% of the week, not a hero session that collapses the next three days."
+    },
+    {
+      "key": "underloaded-acwr-rebuild",
+      "heading": "Low ACWR after recovery — grow minutes, not intensity",
+      "audience": "shared",
+      "sport_tags": [
+        "run",
+        "ride",
+        "swim",
+        "general"
+      ],
+      "topic_tags": [
+        "acwr",
+        "load-management",
+        "base",
+        "progression"
+      ],
+      "body": "After a recovery week, acute load often sits below chronic (ACWR under ~0.8–0.9). That is expected absorption, not a cue to stack hard days. Prefer adding easy minutes and session frequency first. Intensity returns only when sleep, resting heart rate, and HRV trend look stable for a few days. Do not use a low ACWR alone to justify a double quality week or a sudden long-day spike — tissue still needs time to remodel after the prior block."
+    },
+    {
+      "key": "travel-heat-handoff",
+      "heading": "Travel and heat handoff into the next training block",
+      "audience": "shared",
+      "sport_tags": [
+        "run",
+        "ride",
+        "swim",
+        "general"
+      ],
+      "topic_tags": [
+        "travel",
+        "heat",
+        "environment",
+        "recovery",
+        "base"
+      ],
+      "body": "Returning from travel, heat, or a different training environment (for example a recovery camp then a city base block) costs sleep, hydration, and autonomic stability even when the athlete 'feels fine'. First three to five days: keep intensity easy, prefer familiar routes, and avoid the longest long day of the season. Rebuild volume before intensity. If overnight sleep scores dip after travel, soft-cap today and protect the next hard day rather than deleting the whole week. Reassess after two solid nights back in the home environment."
+    },
+    {
+      "key": "first-brick-after-absorb",
+      "heading": "The first session back in base",
+      "audience": "endurance",
+      "sport_tags": [
+        "run",
+        "ride",
+        "general"
+      ],
+      "topic_tags": [
+        "base",
+        "sessions",
+        "readiness",
+        "planning"
+      ],
+      "body": "The first brick after an absorb block should be easy aerobic volume in the primary sport — an endurance ride or conversational run — not a threshold stab. Use it to confirm pacing, fueling, and how legs feel under low stress. If that session lands clean and overnight markers hold, continue the base week shape. If it feels heavy despite easy intent, treat the next day as mobility or short easy only and delay the first quality touch."
+    },
+    {
+      "key": "base-quality-gating",
+      "heading": "When to allow the first quality day in base",
+      "audience": "endurance",
+      "sport_tags": [
+        "run",
+        "ride",
+        "swim"
+      ],
+      "topic_tags": [
+        "base",
+        "intensity",
+        "readiness",
+        "hrv",
+        "sleep"
+      ],
+      "body": "Hold threshold, over-unders, and VO2 until the athlete has several easy days in the new base block and readiness supports work. Practical gate: sleep near the athlete's usual good band and HRV not deeply suppressed versus baseline. One short controlled quality touch is enough for early base — never back-to-back hard days. If today's call is REST or easy-only, soft-cap today and keep the planned quality later in the week rather than cancelling the block."
+    },
+    {
+      "key": "frequency-before-depth",
+      "heading": "Frequency up, depth of the well down early in base",
+      "audience": "shared",
+      "sport_tags": [
+        "run",
+        "ride",
+        "swim",
+        "strength",
+        "general"
+      ],
+      "topic_tags": [
+        "base",
+        "weekly-structure",
+        "progression",
+        "recovery"
+      ],
+      "body": "Early base favors showing up often over digging a deep single day. Prefer five moderate sessions over three heroic ones. Cut junk volume from grey-zone efforts so each easy day stays truly easy. Strength and mobility count as training days for recovery budgeting — stack them beside easy aerobic work, not beside the long day or the first quality session."
+    },
+    {
+      "key": "absorb-not-detrain",
+      "heading": "Absorption is not detraining",
+      "audience": "shared",
+      "sport_tags": [
+        "general",
+        "run",
+        "ride"
+      ],
+      "topic_tags": [
+        "recovery-week",
+        "periodization",
+        "load-management"
+      ],
+      "body": "Athletes often fear that a recovery week erased fitness. Fitness adaptations largely persist while fatigue drops; that is the point of absorption. The next base week should feel like rebuilding capacity from a recovered place, not starting from zero. Coach language: keep frequency, deepen easy volume gradually, and reintroduce intensity only when markers say tissue and nervous system cleared the prior load."
+    },
+    {
+      "key": "base-metrics-watch",
+      "heading": "What to watch in early base",
+      "audience": "endurance",
+      "sport_tags": [
+        "run",
+        "ride",
+        "swim",
+        "triathlon"
+      ],
+      "topic_tags": [
+        "base",
+        "readiness",
+        "hrv",
+        "sleep"
+      ],
+      "body": "Watch sleep, resting HR, HRV trend, and how easy watts/pace feel. Rising resting HR with heavy legs → keep easy. Stable markers for several days → unlock first short quality. Do not unlock quality on vibes alone after travel."
+    },
+    {
+      "key": "volume-ramp-base",
+      "heading": "Volume ramp templates after recovery",
+      "audience": "endurance",
+      "sport_tags": [
+        "run",
+        "ride",
+        "swim",
+        "triathlon"
+      ],
+      "topic_tags": [
+        "base",
+        "progression",
+        "weekly-volume"
+      ],
+      "body": "Week 1 post-recovery: ~70–80% of pre-recovery peak volume, all easy. Week 2: ~85–95%. Week 3: near prior volume with optional short quality. Adjust for age, injury history, and life stress."
+    },
+    {
+      "key": "strength-in-base-reopen",
+      "heading": "Strength when reopening base",
+      "audience": "shared",
+      "sport_tags": [
+        "strength",
+        "run",
+        "ride"
+      ],
+      "topic_tags": [
+        "base",
+        "strength",
+        "weekly-structure"
+      ],
+      "body": "Keep strength 1–2×/week at moderate RPE. Avoid introducing max lifts the same week as the first long mountain day. Mobility can fill low-readiness days."
+    },
+    {
+      "key": "social-pressure-base",
+      "heading": "Social pressure vs base discipline",
+      "audience": "endurance",
+      "sport_tags": [
+        "run",
+        "ride",
+        "swim",
+        "triathlon"
+      ],
+      "topic_tags": [
+        "base",
+        "diy",
+        "intensity"
+      ],
+      "body": "Friends will invite hard group rides. Base discipline means declining surges or picking a recovery route. Empathy for FOMO, direction to easy intent, analogy: bank fitness quietly."
+    },
+    {
+      "key": "indoor-base-block",
+      "heading": "Indoor base blocks",
+      "audience": "endurance",
+      "sport_tags": [
+        "ride",
+        "run"
+      ],
+      "topic_tags": [
+        "base",
+        "environment",
+        "sessions"
+      ],
+      "body": "Indoor base works if cooling and hydration are solid. Cap long indoor sessions shorter; use entertainment to stay easy, not to push grey zone from boredom."
+    },
+    {
+      "key": "multi-sport-base",
+      "heading": "Multi-sport base balance",
+      "audience": "endurance",
+      "sport_tags": [
+        "triathlon",
+        "run",
+        "ride",
+        "swim"
+      ],
+      "topic_tags": [
+        "base",
+        "specificity",
+        "planning"
+      ],
+      "body": "Rotate emphasis so one sport does not eat all recovery. Weakest sport gets technique frequency; strongest sport keeps the long day. Avoid three longs in one week during rebuild."
+    },
+    {
+      "key": "mental-fresh-start",
+      "heading": "Mental frame for base reopen",
+      "audience": "shared",
+      "sport_tags": [
+        "general",
+        "run",
+        "ride",
+        "swim",
+        "strength",
+        "triathlon"
+      ],
+      "topic_tags": [
+        "base",
+        "communication",
+        "recovery"
+      ],
+      "body": "Athletes fear losing fitness in recovery. Reframe: fatigue fell, fitness largely remains. Base is the runway. Empathy for impatience, direction to easy volume, analogy: runway before takeoff."
+    },
+    {
+      "key": "weather-disrupted-base",
+      "heading": "Weather-disrupted base weeks",
+      "audience": "endurance",
+      "sport_tags": [
+        "run",
+        "ride",
+        "swim",
+        "triathlon"
+      ],
+      "topic_tags": [
+        "base",
+        "planning",
+        "environment"
+      ],
+      "body": "Monsoon, heat waves, or ice: swap modalities, shorten, or move indoors. Do not cram missed outdoor longs into one weekend hero day."
+    },
+    {
+      "key": "aerobic-decoupling-base",
+      "heading": "Using easy-file decoupling in base",
+      "audience": "endurance",
+      "sport_tags": [
+        "run",
+        "ride"
+      ],
+      "topic_tags": [
+        "base",
+        "heart-rate",
+        "readiness"
+      ],
+      "body": "Stable heart rate at easy power/pace across a steady file suggests aerobic control. Large drift on easy days with poor sleep → keep base easier another day. One file never diagnoses fitness alone."
+    },
+    {
+      "key": "skill-work-base",
+      "heading": "Skill work belongs in base",
+      "audience": "endurance",
+      "sport_tags": [
+        "run",
+        "ride",
+        "swim",
+        "triathlon"
+      ],
+      "topic_tags": [
+        "base",
+        "sessions",
+        "specificity"
+      ],
+      "body": "Base is ideal for swim drills, bike handling, and run form strides. Skill quality beats exhausted skill practice at the end of hero days."
+    },
+    {
+      "key": "social-media-volume",
+      "heading": "Ignore stranger volume on social media",
+      "audience": "shared",
+      "sport_tags": [
+        "general",
+        "run",
+        "ride",
+        "swim",
+        "strength",
+        "triathlon"
+      ],
+      "topic_tags": [
+        "base",
+        "communication",
+        "load-management"
+      ],
+      "body": "Someone else's 20-hour week is irrelevant. Compare to your chronic load and recovery. DIY envy creates spikes. Coach the athlete in front of you."
+    }
+  ]
+}

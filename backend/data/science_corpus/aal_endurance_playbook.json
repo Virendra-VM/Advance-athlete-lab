@@ -12,113 +12,508 @@
       "key": "periodization-blocks",
       "heading": "Periodization: base, build, peak, taper",
       "audience": "endurance",
-      "sport_tags": ["run", "ride", "swim", "triathlon"],
-      "topic_tags": ["periodization", "planning", "weekly-structure"],
+      "sport_tags": [
+        "run",
+        "ride",
+        "swim",
+        "triathlon"
+      ],
+      "topic_tags": [
+        "periodization",
+        "planning",
+        "weekly-structure"
+      ],
       "body": "Structure endurance training in blocks. Base builds aerobic volume with mostly low intensity and short neuromuscular touches, typically 4-8 weeks. Build adds sport-specific intensity (threshold, race pace, hills) while volume plateaus, typically 3-6 weeks. Peak trims volume and sharpens race-specific work for 1-3 weeks. Taper cuts volume 30-50% over 7-14 days while keeping some intensity so freshness rises without losing fitness. Insert a recovery week every third or fourth week: keep session frequency, cut duration and intensity roughly 30%. For athletes training fewer than four days per week, blocks can be longer and recovery weeks less frequent because weekly stress is already low."
     },
     {
       "key": "intensity-distribution",
       "heading": "Polarized vs pyramidal intensity distribution",
       "audience": "endurance",
-      "sport_tags": ["run", "ride", "swim"],
-      "topic_tags": ["intensity", "zones", "weekly-structure"],
+      "sport_tags": [
+        "run",
+        "ride",
+        "swim"
+      ],
+      "topic_tags": [
+        "intensity",
+        "zones",
+        "weekly-structure"
+      ],
       "body": "Most endurance training should feel genuinely easy — conversational, roughly 65-80% of max heart rate. A polarized week puts about 75-85% of sessions easy and the remainder at hard intensity with little in between; a pyramidal week keeps most volume easy, adds a moderate threshold block, and a smaller amount of high intensity. Both outperform training that spends every session in the moderate 'grey zone'. Practical rule: with three sessions a week, one quality session; with four to five, two quality sessions; with six or more, two to three, never on consecutive days. Beginners should earn intensity with 4-6 weeks of consistent easy volume first."
     },
     {
       "key": "volume-progression",
       "heading": "Volume progression and the 10% rule caveats",
       "audience": "endurance",
-      "sport_tags": ["run", "ride", "swim"],
-      "topic_tags": ["load-management", "progression", "injury-prevention"],
+      "sport_tags": [
+        "run",
+        "ride",
+        "swim"
+      ],
+      "topic_tags": [
+        "load-management",
+        "progression",
+        "injury-prevention"
+      ],
       "body": "The familiar '10% per week' guideline is a ceiling heuristic, not a law. It is unreliable at very low volumes (10% of 8 km is meaningless) and too aggressive when weeks are already long. Better practice: progress the single largest session and the weekly total separately, cap weekly increases at roughly 5-10% for running and 10-15% for cycling or swimming where impact load is lower, and hold volume flat any week that adds a new intensity type. After a break of two weeks or more, restart at 60-70% of previous volume and rebuild over two to three weeks."
     },
     {
       "key": "session-templates",
       "heading": "Endurance session templates by purpose",
       "audience": "endurance",
-      "sport_tags": ["run", "ride", "swim"],
-      "topic_tags": ["sessions", "workouts", "weekly-structure"],
+      "sport_tags": [
+        "run",
+        "ride",
+        "swim"
+      ],
+      "topic_tags": [
+        "sessions",
+        "workouts",
+        "weekly-structure"
+      ],
       "body": "Easy aerobic: 30-90 min conversational, optional 4-6 x 15 s relaxed strides at the end. Long session: build toward 25-30% of weekly volume, mostly easy, occasionally finishing at moderate effort. Threshold: 2-4 x 8-12 min at a controlled hard effort you could hold for about an hour, 2-3 min easy between. VO2 intervals: 5-6 x 3 min hard with equal recovery, only for athletes with an aerobic base. Hills: 8-10 x 45-60 s strong uphill, walk or jog down. Swim technique: broken sets of 8-12 x 50-100 m with generous rest and a drill focus. Every session gets 10 min easy warm-up and 5-10 min cool-down."
     },
     {
       "key": "specificity",
       "heading": "Sport specificity across run, bike, swim",
       "audience": "endurance",
-      "sport_tags": ["run", "ride", "swim", "triathlon"],
-      "topic_tags": ["specificity", "cross-training", "planning"],
+      "sport_tags": [
+        "run",
+        "ride",
+        "swim",
+        "triathlon"
+      ],
+      "topic_tags": [
+        "specificity",
+        "cross-training",
+        "planning"
+      ],
       "body": "Aerobic fitness transfers between sports but the musculoskeletal and technical demands do not. Cycling and swimming are excellent low-impact ways to add aerobic volume for runners under injury risk, but running economy only improves by running. Swimming is technique-limited: for developing swimmers, frequency and drills beat long continuous distance. Cycling responds well to sustained power work and tolerates higher weekly hours than running. In multi-sport weeks, place the highest-priority sport's key session first in the week when the athlete is freshest."
     },
     {
       "key": "heat-altitude",
       "heading": "Heat, altitude, and environment adjustments",
       "audience": "endurance",
-      "sport_tags": ["run", "ride", "swim"],
-      "topic_tags": ["environment", "heat", "altitude", "safety"],
+      "sport_tags": [
+        "run",
+        "ride",
+        "swim"
+      ],
+      "topic_tags": [
+        "environment",
+        "heat",
+        "altitude",
+        "safety"
+      ],
       "body": "In heat, pace at a given heart rate slows: coach by effort and heart rate rather than pace, expect 10-20 s/km slower running for every notable rise in heat stress, and allow 10-14 days of gradual exposure to acclimatise. Move hard sessions to cooler hours, add fluids and electrolytes, and treat dizziness, chills, or stopped sweating as a stop-now signal. At altitude above roughly 1500 m, cut intensity targets for the first 5-7 days and keep easy sessions genuinely easy; absolute paces and powers stay lower even after adaptation."
     },
     {
       "key": "power-zones-sweet-spot",
       "heading": "Cycling power zones and sweet-spot work",
       "audience": "endurance",
-      "sport_tags": ["ride"],
-      "topic_tags": ["intensity", "zones", "sessions", "power"],
+      "sport_tags": [
+        "ride"
+      ],
+      "topic_tags": [
+        "intensity",
+        "zones",
+        "sessions",
+        "power"
+      ],
       "body": "Coach cycling intensity from functional threshold power (FTP), not from average heart rate. Common zone bounds as a percent of FTP: recovery below 55%, endurance 56-75%, tempo 76-90%, threshold 91-105%, VO2max 106-120%, anaerobic above 121%. Sweet spot sits at roughly 84-97% of FTP: hard enough to stress aerobic capacity, sustainable enough to accumulate time. A session whose normalized power is near 85-95% of FTP with laps in that band is quality work, even if average heart rate looks only moderately elevated because of rest intervals. Never label a ride easy solely because duration matched an easy-day target."
     },
     {
       "key": "over-unders",
       "heading": "Over-under intervals",
       "audience": "endurance",
-      "sport_tags": ["ride"],
-      "topic_tags": ["intensity", "sessions", "threshold", "power"],
+      "sport_tags": [
+        "ride"
+      ],
+      "topic_tags": [
+        "intensity",
+        "sessions",
+        "threshold",
+        "power"
+      ],
       "body": "Over-unders are threshold sessions built from repeating short blocks just below FTP (unders, typically 2-3 min at about 85-95% FTP) and just above it (overs, typically 30-90 s at about 105-120% FTP). The unders keep the athlete metabolically busy while the overs briefly flood the effort. Judge execution from lap power versus FTP, not from session-average heart rate. Heart rate that fails to come down on the unders, or that climbs across repeats toward max HR, is a fatigue or decoupling signal — cap remaining overs or end the set rather than chasing the last surge. Cadence in the 80-95 rpm range is a useful default on the trainer to avoid grinding."
     },
     {
       "key": "cardiac-drift",
       "heading": "Heart-rate decoupling and indoor heat",
       "audience": "endurance",
-      "sport_tags": ["ride", "run"],
-      "topic_tags": ["intensity", "heart-rate", "readiness"],
+      "sport_tags": [
+        "ride",
+        "run"
+      ],
+      "topic_tags": [
+        "intensity",
+        "heart-rate",
+        "readiness"
+      ],
       "body": "Cardiac drift is a rise in heart rate at the same power or pace as a session goes on, often from heat, dehydration, or accumulated fatigue. A useful field check is the change in the heart-rate-to-power ratio from the first half to the second half of steady work; rises above about 5% are notable, and large climbs toward max HR on later repeats mean the set is overreaching. Indoor trainer sessions run hotter than outdoor rides at the same watts, so expect higher heart rate indoors. Average heart rate across an interval workout is pulled down by recovery; always read peaks and per-lap HR against power."
     },
     {
       "key": "hr-after-feeling-unwell",
       "heading": "Heart rate after feeling unwell",
       "audience": "endurance",
-      "sport_tags": ["ride", "run", "swim"],
-      "topic_tags": ["readiness", "return-to-play", "heart-rate", "safety"],
+      "sport_tags": [
+        "ride",
+        "run",
+        "swim"
+      ],
+      "topic_tags": [
+        "readiness",
+        "return-to-play",
+        "heart-rate",
+        "safety"
+      ],
       "body": "After a day of feeling unwell, heart rate at a given power or pace is often higher than usual. That is a reason to interpret the session as more costly, not as a fitness breakthrough, and to keep the next day genuinely easy. The coach does not diagnose infection, fever, or plasma-volume changes. If the athlete still has fever, chest symptoms, or unusual breathlessness, stop training and refer. Once they feel recovered, use power or RPE as the intensity anchor for a few days because heart-rate zones may sit high until they restabilise."
     },
     {
       "key": "run-impact-cadence",
       "heading": "Running impact, cadence, and eccentric load",
       "audience": "endurance",
-      "sport_tags": ["run"],
-      "topic_tags": ["sessions", "injury-prevention", "load-management", "cadence"],
+      "sport_tags": [
+        "run"
+      ],
+      "topic_tags": [
+        "sessions",
+        "injury-prevention",
+        "load-management",
+        "cadence"
+      ],
       "body": "Running is an impact sport. Each stride applies ground reaction forces several times bodyweight through the foot, Achilles, calf, and quadriceps. Faster or downhill running increases eccentric muscle damage; that is why a hard run costs more tissue than a bike session of the same heart rate. Cadence (steps per minute) around 170-180 SPM is a useful adult default because a slightly quicker, shorter stride often reduces overstride and braking forces, but cadence is a coaching tool not a law — do not force it on every athlete. Cardiac drift against pace (heart rate rising while pace holds) is a fatigue or heat signal. Acute:chronic workload spikes above about 1.3, especially with added downhill or interval impact, raise injury risk. Cross-training can add aerobic load without the same ground reaction tax."
     },
     {
       "key": "swim-efficiency-swolf",
       "heading": "Swim efficiency, SWOLF, and critical swim speed",
       "audience": "endurance",
-      "sport_tags": ["swim"],
-      "topic_tags": ["sessions", "specificity", "technique"],
+      "sport_tags": [
+        "swim"
+      ],
+      "topic_tags": [
+        "sessions",
+        "specificity",
+        "technique"
+      ],
       "body": "Swimming is technique-limited. SWOLF (stroke count plus time for a length) is a simple efficiency score: lower is usually better if the stroke still looks long, not spun. Distance per stroke and a stable stroke rate matter more than thrashing a higher heart rate. Critical swim speed is a sustainable threshold-like pace for broken sets; work near it is quality, long easy swimming is aerobic volume. Upper-body local fatigue (shoulders, lats) often arrives before the cardiovascular system is truly taxed, so a moderate average heart rate can still be a hard swim. Frequency and drill-focused broken sets beat one long continuous slog for developing swimmers. Shoulder or back limitations should cut volume and aggressive rotation rather than be ignored because the sport is 'low impact'."
     },
     {
       "key": "heat-acclimation",
       "heading": "Heat acclimation for endurance events",
       "audience": "endurance",
-      "sport_tags": ["run", "ride", "triathlon"],
-      "topic_tags": ["heat", "environment", "recovery", "sessions"],
+      "sport_tags": [
+        "run",
+        "ride",
+        "triathlon"
+      ],
+      "topic_tags": [
+        "heat",
+        "environment",
+        "recovery",
+        "sessions"
+      ],
       "body": "Heat acclimation is a planned exposure block, typically 7-14 days of training in the heat or with extra clothing, so plasma volume expands, sweat starts earlier, and heart rate at a given pace or power falls. Easy aerobic work is the usual vehicle; stacking heat on threshold or VO2 sessions raises cardiovascular strain and heat-illness risk. Hydrate, shorten quality, and treat dizziness, cessation of sweating, or confusion as a stop-and-refer. A half-marathon in heat is still run from current fitness plus conservative pacing — heat sessions do not replace race-specific endurance. This is coaching practice, not a clinical heat-illness protocol."
     },
     {
       "key": "blood-flow-restriction",
       "heading": "Blood flow restriction is not a recovery tool for threshold",
       "audience": "endurance",
-      "sport_tags": ["run", "ride", "strength", "general"],
-      "topic_tags": ["recovery", "strength", "safety", "sessions"],
+      "sport_tags": [
+        "run",
+        "ride",
+        "strength",
+        "general"
+      ],
+      "topic_tags": [
+        "recovery",
+        "strength",
+        "safety",
+        "sessions"
+      ],
       "body": "Blood flow restriction (BFR, occlusion training) uses cuffs to train with lighter loads. It is a specialised strength or rehab method, not a way to speed threshold recovery after a hard endurance session. Recovery after threshold is easy aerobic work, sleep, and leaving the tissue unloaded — not adding a cuff protocol. This coach does not prescribe cuff pressures, durations, or BFR sets. Athletes considering BFR need a qualified practitioner; if they have vascular, clotting, or pain issues, they need a clinician, not a chat protocol."
+    },
+    {
+      "key": "easy-day-definition",
+      "heading": "What truly easy means",
+      "audience": "endurance",
+      "sport_tags": [
+        "run",
+        "ride",
+        "swim",
+        "triathlon"
+      ],
+      "topic_tags": [
+        "intensity",
+        "zones",
+        "weekly-structure"
+      ],
+      "body": "Easy days are conversational: you can speak full sentences. Heart rate roughly in Zone 1–low Zone 2, power well under FTP (often under ~75% for many athletes), run pace that does not force shallow breathing. If you cannot talk, it is not easy — back off. Easy days absorb quality and long sessions; grey-zone 'kinda hard' every day is the most common amateur error."
+    },
+    {
+      "key": "quality-day-budget",
+      "heading": "Weekly quality-day budget",
+      "audience": "endurance",
+      "sport_tags": [
+        "run",
+        "ride",
+        "swim",
+        "triathlon"
+      ],
+      "topic_tags": [
+        "intensity",
+        "sessions",
+        "injury-prevention"
+      ],
+      "body": "With 3 sessions/week: one quality. With 4–5: up to two. With 6+: two to three, never on consecutive days. Quality means threshold, VO2, race-pace, or hard hills — not tempo that sits forever in the grey zone. After a recovery week, delay the first quality until easy days and markers look stable."
+    },
+    {
+      "key": "brick-sessions",
+      "heading": "Brick sessions for multi-sport",
+      "audience": "endurance",
+      "sport_tags": [
+        "triathlon",
+        "run",
+        "ride"
+      ],
+      "topic_tags": [
+        "specificity",
+        "sessions",
+        "race-prep"
+      ],
+      "body": "Bike-to-run bricks teach neuromuscular transition. Keep early-season bricks short and easy; add race-pace touches only in build/peak. Do not stack a hard brick the day after a long mountain ride. Fuel the bike leg so the run is not a glycogen crash experiment."
+    },
+    {
+      "key": "neuromuscular-touches",
+      "heading": "Neuromuscular touches in base",
+      "audience": "endurance",
+      "sport_tags": [
+        "run",
+        "ride",
+        "swim",
+        "triathlon"
+      ],
+      "topic_tags": [
+        "sessions",
+        "base",
+        "neuromuscular"
+      ],
+      "body": "Short strides, spin-ups, or very brief race-pace openers (e.g. 4–6 × 15–20 s) keep the nervous system sharp without large fatigue. Place them at the end of easy days. They are not a substitute for a full quality session and must stay truly short."
+    },
+    {
+      "key": "deload-microcycle",
+      "heading": "Deload microcycle inside a block",
+      "audience": "endurance",
+      "sport_tags": [
+        "run",
+        "ride",
+        "swim",
+        "triathlon"
+      ],
+      "topic_tags": [
+        "recovery-week",
+        "periodization",
+        "load-management"
+      ],
+      "body": "Every third or fourth week, keep frequency, cut duration and intensity ~30%, and skip new workout types. Deload is absorption. If you skip deloads repeatedly, HRV and sleep usually force one anyway — preferably planned."
+    },
+    {
+      "key": "indoor-vs-outdoor",
+      "heading": "Indoor trainer vs outdoor pacing",
+      "audience": "endurance",
+      "sport_tags": [
+        "ride"
+      ],
+      "topic_tags": [
+        "sessions",
+        "environment",
+        "power"
+      ],
+      "body": "Indoor rides often feel harder at the same watts (heat, no coasting). Cap long indoor days shorter than outdoor equivalents, use a fan, and hydrate. Outdoor descending and drafting change average power — coach by intent and normalized feel, not only average watts."
+    },
+    {
+      "key": "group-ride-risk",
+      "heading": "Group ride and pack dynamics",
+      "audience": "endurance",
+      "sport_tags": [
+        "ride"
+      ],
+      "topic_tags": [
+        "intensity",
+        "injury-prevention",
+        "diy"
+      ],
+      "body": "Group rides often become unplanned quality. If the week already has a hard day or long mountain day, choose a controlled group or skip the surges. Name the risk: social pace can destroy the easy-day budget."
+    },
+    {
+      "key": "swim-technique-first",
+      "heading": "Swim technique before yardage",
+      "audience": "endurance",
+      "sport_tags": [
+        "swim"
+      ],
+      "topic_tags": [
+        "specificity",
+        "sessions",
+        "beginner"
+      ],
+      "body": "Developing swimmers improve more from frequent short technique sets than from grinding long continuous distance with poor form. Drills, generous rest, and stroke focus beat grey-zone endless laps."
+    },
+    {
+      "key": "treadmill-vs-road",
+      "heading": "Treadmill vs road running load",
+      "audience": "endurance",
+      "sport_tags": [
+        "run"
+      ],
+      "topic_tags": [
+        "sessions",
+        "injury-prevention",
+        "environment"
+      ],
+      "body": "Treadmills reduce some wind and often feel easier at the same pace; slight incline (e.g. 0.5–1%) can better match outdoor cost. Soft surfaces change loading — progress carefully when returning from injury. Road camber and heat still matter outdoors."
+    },
+    {
+      "key": "race-simulation",
+      "heading": "Race simulation sessions",
+      "audience": "endurance",
+      "sport_tags": [
+        "run",
+        "ride",
+        "swim",
+        "triathlon"
+      ],
+      "topic_tags": [
+        "race-prep",
+        "sessions",
+        "fueling"
+      ],
+      "body": "Simulate race pace, fueling, and kit in build/peak — not every week. Keep simulations specific and recoverable. Never first-try a new gel brand on A-race morning. After simulation, plan an easy day."
+    },
+    {
+      "key": "cross-training-aerobic",
+      "heading": "Cross-training for aerobic maintain",
+      "audience": "endurance",
+      "sport_tags": [
+        "run",
+        "ride",
+        "swim"
+      ],
+      "topic_tags": [
+        "cross-training",
+        "injury-prevention",
+        "load-management"
+      ],
+      "body": "When impact is limited, cycling and swimming maintain aerobic fitness. They do not fully replace run-specific economy. Use cross-training to keep frequency without pounding. Progress back to running with walk-run or short easy jogs."
+    },
+    {
+      "key": "strength-for-endurance",
+      "heading": "Strength supporting endurance",
+      "audience": "endurance",
+      "sport_tags": [
+        "strength",
+        "run",
+        "ride"
+      ],
+      "topic_tags": [
+        "strength",
+        "injury-prevention",
+        "weekly-structure"
+      ],
+      "body": "Two strength sessions/week in base often beat daily random gym fatigue. Prioritize unilateral legs, posterior chain, and trunk stability. Separate heavy lower-body days from long runs/rides by ~24–48 h when possible."
+    },
+    {
+      "key": "tempo-vs-threshold",
+      "heading": "Tempo vs threshold — clear the confusion",
+      "audience": "endurance",
+      "sport_tags": [
+        "run",
+        "ride",
+        "swim",
+        "triathlon"
+      ],
+      "topic_tags": [
+        "intensity",
+        "zones",
+        "sessions"
+      ],
+      "body": "Tempo is comfortably hard but usually below classic threshold. Threshold is controlled hard near sustainable hard effort. Many athletes call everything tempo and live grey. Name the target, keep easy days easy, and limit true hard exposures per week."
+    },
+    {
+      "key": "progressions-finishers",
+      "heading": "Progression finishers on long days",
+      "audience": "endurance",
+      "sport_tags": [
+        "run",
+        "ride",
+        "swim",
+        "triathlon"
+      ],
+      "topic_tags": [
+        "long",
+        "sessions",
+        "intensity"
+      ],
+      "body": "Finishing a long day with a short progression can teach race closeout — only for experienced athletes in build, not early base or after travel. Keep the first 80% easy. If legs are wooden mid-long, skip the finisher."
+    },
+    {
+      "key": "cadence-bike",
+      "heading": "Cycling cadence coaching",
+      "audience": "endurance",
+      "sport_tags": [
+        "ride"
+      ],
+      "topic_tags": [
+        "sessions",
+        "cadence",
+        "injury-prevention"
+      ],
+      "body": "Self-selected cadence varies. Extremely low cadence under heavy load spikes joint stress; spinning out of control wastes energy. Cue smooth circles and sustainable cadence on climbs rather than one magic number for everyone."
+    },
+    {
+      "key": "descending-skills",
+      "heading": "Descending and braking load",
+      "audience": "endurance",
+      "sport_tags": [
+        "ride"
+      ],
+      "topic_tags": [
+        "mountain",
+        "injury-prevention",
+        "sessions"
+      ],
+      "body": "Descending loads quads and hands even when heart rate is low. After long mountain days, account for that hidden load. Skill practice belongs on fresh legs, not when form is gone."
+    },
+    {
+      "key": "open-water-swim",
+      "heading": "Open-water swim considerations",
+      "audience": "endurance",
+      "sport_tags": [
+        "swim",
+        "triathlon"
+      ],
+      "topic_tags": [
+        "sessions",
+        "race-prep",
+        "safety"
+      ],
+      "body": "Open water adds sighting, chop, and temperature stress. Practice before race day. Safety: never swim alone in risky conditions. Cold water requires gradual exposure and respect for afterdrop."
+    },
+    {
+      "key": "pacing-first-10",
+      "heading": "First 10 minutes pacing rule",
+      "audience": "endurance",
+      "sport_tags": [
+        "run",
+        "ride",
+        "swim",
+        "triathlon"
+      ],
+      "topic_tags": [
+        "sessions",
+        "intensity"
+      ],
+      "body": "Start quality and longs under control. The first 10 minutes too hard ruins the file. Warm up fully, then build to target. Ego starts create mediocre averages and high injury risk."
     }
   ]
 }

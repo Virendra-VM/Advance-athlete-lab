@@ -1,0 +1,312 @@
+{
+  "slug": "aal-ortho-biomechanics",
+  "title": "Advance Athlete Lab Spine Stability, Tendinopathy Load, and BFR Safety Bounds",
+  "authors": "Advance Athlete Lab coaching team",
+  "year": 2026,
+  "publisher": "Advance Athlete Lab",
+  "license": "Owned content — cleared for AI retrieval",
+  "url": null,
+  "source_type": "playbook",
+  "chunks": [
+    {
+      "key": "mcgill-big3-coaching",
+      "heading": "McGill-inspired Big 3 for low-back resilient training",
+      "audience": "shared",
+      "sport_tags": [
+        "strength",
+        "run",
+        "ride",
+        "general"
+      ],
+      "topic_tags": [
+        "spine",
+        "mcgill",
+        "strength",
+        "injury-prevention",
+        "safety"
+      ],
+      "body": "When lower-back vulnerability is on file, prefer anti-extension and anti-rotation endurance: modified curl-up, side plank, and bird dog (often called the Big 3 in spine-stability coaching). Cue stiffness through the torso without end-range spinal flexion under load. These are coaching stability drills, not a prescription for disc pathology. Progress hold quality before hold length. Stop if symptoms radiate, numb, or worsen session to session — refer."
+    },
+    {
+      "key": "spine-illegal-under-load",
+      "heading": "Spinal positions that are illegal under fatigue",
+      "audience": "shared",
+      "sport_tags": [
+        "strength",
+        "general"
+      ],
+      "topic_tags": [
+        "spine",
+        "safety",
+        "strength",
+        "contraindications"
+      ],
+      "body": "With an active back limit: no loaded spinal flexion or aggressive hinging that rounds under fatigue — back squat to depth that forces flexion, conventional deadlift if form collapses, sit-up/crunch flexion endurance, good mornings, and loaded twists are typical swaps-out. Legal swaps: goblet or split-stance work, hip hinge only with pristine form and lighter load, anti-extension core, short walks. If the spine hinges under the bar, that set is illegal — end the set."
+    },
+    {
+      "key": "tendinopathy-load-management",
+      "heading": "Tendinopathy-oriented load management (coaching)",
+      "audience": "shared",
+      "sport_tags": [
+        "run",
+        "ride",
+        "strength",
+        "general"
+      ],
+      "topic_tags": [
+        "tendinopathy",
+        "injury",
+        "load-management",
+        "injury-prevention",
+        "achilles"
+      ],
+      "body": "Tendon irritability often settles with gradual loading rather than complete rest forever — but this coach does not run clinical rehab protocols. Practical rules: reduce provocative sprinting, plyometrics, or hills that spike pain; keep some isometric or slow heavy-ish strength if a clinician cleared it; avoid sudden spikes in running volume. Pain that rises during a session and stays worse the next morning means the dose was too high. Night pain, swelling with systemic symptoms, or inability to walk → stop and refer."
+    },
+    {
+      "key": "achilles-patellar-coaching",
+      "heading": "Achilles and patellar tendon — training edits",
+      "audience": "shared",
+      "sport_tags": [
+        "run",
+        "strength",
+        "general"
+      ],
+      "topic_tags": [
+        "tendinopathy",
+        "achilles",
+        "injury",
+        "modifications"
+      ],
+      "body": "For suspected Achilles or patellar overload: cut speed work and aggressive hills first; prefer flat easy volume within a pain-monitoring rule agreed with a clinician; avoid jumping straight back to prior long-run peaks. Cycling or swimming can maintain aerobic fitness when running aggravates. Do not prescribe cortisone, PRP, or medication. Escalate if pain localizes sharply on bone or worsens over two weeks despite unloading."
+    },
+    {
+      "key": "bfr-aop-safety",
+      "heading": "Blood flow restriction — AOP safety standard",
+      "audience": "shared",
+      "sport_tags": [
+        "strength",
+        "general"
+      ],
+      "topic_tags": [
+        "bfr",
+        "aop",
+        "safety",
+        "strength",
+        "occlusion"
+      ],
+      "body": "Blood flow restriction (BFR) training uses partial limb occlusion, typically guided as a percentage of arterial occlusion pressure (AOP) — commonly discussed in roughly the 40–80% AOP band when properly calibrated. Without a personalized AOP (often via clinician/Doppler workflow), this coach must not prescribe a static mmHg cuff pressure. Contraindications and medical clearance are clinical decisions. Prefer standard hypertrophy or high-rep work when AOP is unknown. Never invent a pressure number."
+    },
+    {
+      "key": "bfr-when-unknown",
+      "heading": "What to do when BFR calibration is missing",
+      "audience": "shared",
+      "sport_tags": [
+        "strength",
+        "general"
+      ],
+      "topic_tags": [
+        "bfr",
+        "aop",
+        "safety",
+        "templates"
+      ],
+      "body": "If the athlete asks for cuff mmHg and AOP is not on profile: refuse the number, explain calibration is required, and offer an alternative session (light-moderate hypertrophy, tempo quads/hamstrings if spine-safe, or easy aerobic). Empathy for wanting efficient strength; direction to the substitute session; analogy that a cuff without AOP is like redlining without a tachometer."
+    },
+    {
+      "key": "impact-stacking-spine",
+      "heading": "No high-impact stacking after heavy lower strength",
+      "audience": "shared",
+      "sport_tags": [
+        "run",
+        "strength",
+        "general"
+      ],
+      "topic_tags": [
+        "spine",
+        "injury-prevention",
+        "weekly-structure",
+        "strength"
+      ],
+      "body": "With back vulnerability, avoid heavy lower-body strength the day before a long run, race, or hard intervals. Place strength mid-week away from the long day, or keep it upper/core only before impact. Back-to-back high-impact days while symptomatic are blocked. Easy spin or walk is preferred active recovery."
+    },
+    {
+      "key": "ortho-coaching-not-pt",
+      "heading": "Orthopedic coaching bounds — not physiotherapy",
+      "audience": "shared",
+      "sport_tags": [
+        "general"
+      ],
+      "topic_tags": [
+        "safety",
+        "referral",
+        "injury",
+        "policy"
+      ],
+      "body": "Stability drills, load edits, and illegal-lift lists are coaching risk management. They are not imaging reads, manual therapy, or progressive PT protocols. Numbness, saddle anesthesia, foot drop, fever with joint swelling, or trauma with instability → escalate to professional care and do not build a workaround plan."
+    },
+    {
+      "key": "hip-hinge-skill",
+      "heading": "Hip hinge skill before load",
+      "audience": "shared",
+      "sport_tags": [
+        "strength",
+        "general"
+      ],
+      "topic_tags": [
+        "spine",
+        "strength",
+        "injury-prevention"
+      ],
+      "body": "Teach hinge patterns unloaded first. If athletes cannot hinge without lumbar flexion, they do not get heavy conventional pulls. Use leg-supported hinges or belts only when appropriate — prefer pattern quality."
+    },
+    {
+      "key": "knee-friendly-swaps",
+      "heading": "Knee-friendly endurance swaps",
+      "audience": "shared",
+      "sport_tags": [
+        "run",
+        "ride"
+      ],
+      "topic_tags": [
+        "injury",
+        "modifications",
+        "cross-training"
+      ],
+      "body": "Anterior knee irritation: reduce hills/speed, check cadence, consider cycling emphasis, avoid deep pain-provoking lunges. Refer persistent swelling or locking."
+    },
+    {
+      "key": "bone-stress-awareness",
+      "heading": "Bone stress warning signs",
+      "audience": "shared",
+      "sport_tags": [
+        "run",
+        "general"
+      ],
+      "topic_tags": [
+        "injury",
+        "safety",
+        "referral",
+        "red-flags"
+      ],
+      "body": "Focal bone pain that worsens with impact and is tender to touch can signal bone stress. Stop impact and refer. Do not run through it on anti-inflammatories."
+    },
+    {
+      "key": "shoulder-swim-bike",
+      "heading": "Shoulder care for swim/bike",
+      "audience": "shared",
+      "sport_tags": [
+        "swim",
+        "ride",
+        "strength"
+      ],
+      "topic_tags": [
+        "injury",
+        "modifications",
+        "sessions"
+      ],
+      "body": "Shoulder pain in swim: reduce yards, emphasize technique, avoid painful ranges. Bike fit issues can create neck/shoulder tension — note fit as a referral to a fitter, not DIY aggressive stretching into pain."
+    },
+    {
+      "key": "ankle-sprain-return",
+      "heading": "Ankle sprain return caution",
+      "audience": "shared",
+      "sport_tags": [
+        "run",
+        "general"
+      ],
+      "topic_tags": [
+        "injury",
+        "return-to-play",
+        "progression"
+      ],
+      "body": "After sprain, rebuild range, strength, and proprioception under clinician guidance. Premature trail running on unstable ground risks re-injury. Easy flat volume first."
+    },
+    {
+      "key": "isometrics-tendon",
+      "heading": "Isometrics as a calming option",
+      "audience": "shared",
+      "sport_tags": [
+        "strength",
+        "run"
+      ],
+      "topic_tags": [
+        "tendinopathy",
+        "strength",
+        "injury"
+      ],
+      "body": "Isometric holds are often used clinically for tendon irritability. If a clinician prescribed them, support timing around easy days. Without a plan, stick to load reduction and referral rather than inventing a tendon program."
+    },
+    {
+      "key": "core-endurance-vs-crunches",
+      "heading": "Core endurance vs sit-up flexion",
+      "audience": "shared",
+      "sport_tags": [
+        "strength",
+        "general"
+      ],
+      "topic_tags": [
+        "spine",
+        "mcgill",
+        "strength"
+      ],
+      "body": "For back-limited athletes, endurance of the trunk in neutral beats high-flexion crunch volume. Side planks and bird dogs scale better than fatigue sit-ups."
+    },
+    {
+      "key": "footwear-surface",
+      "heading": "Footwear and surface changes",
+      "audience": "shared",
+      "sport_tags": [
+        "run"
+      ],
+      "topic_tags": [
+        "injury-prevention",
+        "progression",
+        "environment"
+      ],
+      "body": "Sudden shoe or surface changes spike tissue load. Transition gradually. New maximal shoes or barefoot switches are experiments — not race-week surprises."
+    },
+    {
+      "key": "load-management-tendon-pain-monitor",
+      "heading": "Pain-monitoring rule for tendons",
+      "audience": "shared",
+      "sport_tags": [
+        "run",
+        "strength"
+      ],
+      "topic_tags": [
+        "tendinopathy",
+        "injury",
+        "communication"
+      ],
+      "body": "A common clinical pattern allows mild pain during loading that settles by the next morning. Worsening next-day pain means the dose was too high. Without a clinician plan, default to reducing provocative load and referring."
+    },
+    {
+      "key": "deadlift-alternatives",
+      "heading": "Deadlift alternatives under spine lock",
+      "audience": "shared",
+      "sport_tags": [
+        "strength"
+      ],
+      "topic_tags": [
+        "spine",
+        "strength",
+        "modifications"
+      ],
+      "body": "Swap conventional fatigue-flexion pulls for hip thrusts, rack pulls only with pristine form and lighter loads, or single-leg work. If unsure, choose anti-extension core and leg machines that keep a neutral spine."
+    },
+    {
+      "key": "return-to-running-walk",
+      "heading": "Walk-run return after layoff",
+      "audience": "shared",
+      "sport_tags": [
+        "run"
+      ],
+      "topic_tags": [
+        "return-to-play",
+        "progression",
+        "injury"
+      ],
+      "body": "After time off or bone/tendon issues under clearance: alternate walk and jog segments, increase run time slowly, and keep surfaces predictable. Do not jump into long trail downs first week back."
+    }
+  ]
+}

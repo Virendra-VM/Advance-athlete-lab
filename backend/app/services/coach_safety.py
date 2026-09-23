@@ -891,26 +891,41 @@ def validate_plan(plan: dict, safety: dict) -> dict:
     if safety["require_rest_day"] and len(training_days) >= 7:
         add("warning", "no_rest_day", "No rest day in the week — at least one is expected.")
 
-    # 8. Readiness directive respected for the first day.
-    directive = safety["readiness"]
-    if directive["action"] != "proceed" and workouts:
-        first = workouts[0]
-        if _is_hard(first):
-            add(
-                "adjusted",
-                "readiness_override",
-                f"Opening session downgraded: {directive['reason']}",
-            )
-            first["session_type"] = "rest" if directive["action"] == "rest_or_mobility" else "easy"
-            first["intensity"] = "Recovery"
+    # 8. Readiness directive — TODAY only (never wipe Sat/Sun via first list item).
+    directive = safety.get("readiness") or {}
+    today_iso = date.today().isoformat()
+    if directive.get("action") and directive["action"] != "proceed":
+        for workout in workouts:
+            if str(workout.get("date") or "")[:10] != today_iso:
+                continue
+            if workout.get("completed") or workout.get("source") == "executed":
+                continue
+            if not _is_hard(workout) and directive["action"] != "rest_or_mobility":
+                continue
+            if directive["action"] == "rest_or_mobility" and _is_rest(workout):
+                continue
+            if directive["action"] == "rest_or_mobility" or _is_hard(workout):
+                add(
+                    "adjusted",
+                    "readiness_override",
+                    f"Today's session adjusted: {directive.get('reason') or 'readiness cap'}",
+                )
+                if directive["action"] == "rest_or_mobility":
+                    workout["session_type"] = "mobility"
+                    workout["intensity"] = "Recovery"
+                    workout["title"] = workout.get("title") or "Restore / mobility"
+                else:
+                    workout["session_type"] = "easy"
+                    workout["intensity"] = "Easy / conversational"
 
-    # 10. Autoregulation — today's plan must match Today's Call.
+    # 10. Autoregulation — today's plan must match Today's Call (future days untouched).
     auto = safety.get("autoregulation") or safety.get("todays_call") or {}
     call_level = auto.get("call_level")
-    today_iso = date.today().isoformat()
     if call_level:
         for workout in workouts:
             if str(workout.get("date") or "")[:10] != today_iso:
+                continue
+            if workout.get("completed") or workout.get("source") == "executed":
                 continue
             if call_level == "rest" and not _is_rest(workout):
                 add(
@@ -918,8 +933,9 @@ def validate_plan(plan: dict, safety: dict) -> dict:
                     "autoregulation_veto",
                     f"{workout.get('title') or 'Session'} swapped — Today's Call is REST.",
                 )
-                workout["session_type"] = "rest"
+                workout["session_type"] = "mobility"
                 workout["intensity"] = "Recovery"
+                workout["title"] = "Restore / mobility"
                 workout["autoregulation_note"] = auto.get("directive")
             elif call_level in ("rest", "easy") and _is_hard(workout):
                 add(
